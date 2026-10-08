@@ -1,0 +1,12 @@
+{
+  "domain": "vledger",
+  "name": "Vehicle Ledger",
+  "codeowners": ["@michael-lenz"],
+  "dependencies": [],
+  "documentation": "https://github.com/michael-lenz/ha-vledger",
+  "integration_type": "hub",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/michael-lenz/ha-vledger/issues",
+  "requirements": ["vledger==0.1.0"],
+  "version": "0.1.0"
+}

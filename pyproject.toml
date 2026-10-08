@@ -1,0 +1,46 @@
+# One repository, two packages (ADR-0002): this file builds only the library.
+# The integration under custom_components/ is shipped by HACS and pins the
+# library by the same version number.
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vledger"
+version = "0.1.0"
+description = "Vehicle ledger: trips, charging, refuelling and cost, derived from a raw log of Home Assistant states"
+readme = "README.md"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+authors = [{ name = "Michael Lenz", email = "michael.lenz@nullvector.org" }]
+requires-python = ">=3.13"
+# No runtime dependencies, by requirement (CLI-06): the standard library is
+# the whole platform the library runs on.
+dependencies = []
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
+  "Topic :: Home Automation",
+]
+
+[project.urls]
+Repository = "https://github.com/michael-lenz/ha-vledger"
+
+[project.scripts]
+vledger = "vledger.cli:main"
+
+[project.optional-dependencies]
+# Two extras on purpose: the library's own loop needs no Home Assistant
+# (ARC-03), and the HA test stack is heavy. Integration tests (QUA-02)
+# install both.
+dev = ["pytest", "ruff"]
+ha = ["pytest-homeassistant-custom-component"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+src = ["src", "tests", "custom_components"]
