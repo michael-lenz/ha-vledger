@@ -174,7 +174,17 @@
           "stopped": "Gestoppt",
           "recomputing": "Neuberechnung"
         }
-      }
+      },
+      "month_file_size": { "name": "Größe der aktuellen Monatsdatei" },
+      "stream_size": { "name": "Größe des Rohprotokolls" },
+      "month_files": { "name": "Monatsdateien" },
+      "last_line": { "name": "Letzte geschriebene Zeile" },
+      "last_heartbeat": { "name": "Letzter Heartbeat" },
+      "last_state_line": { "name": "Letzte Zustandszeile" },
+      "lines_since_start": { "name": "Zustandszeilen seit Start" },
+      "lines_today": { "name": "Zustandszeilen heute" },
+      "capture_gaps": { "name": "Erfassungslücken" },
+      "latest_capture_gap": { "name": "Letzte Erfassungslücke" }
     }
   },
   "issues": {

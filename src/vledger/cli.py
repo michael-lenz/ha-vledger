@@ -15,7 +15,7 @@ import os
 import sys
 from pathlib import Path
 
-from vledger import __version__, clock, geo, l0, trips, units
+from vledger import __version__, clock, geo, l0, stats, trips, units
 from vledger.layout import Subject
 
 ENV_BASE = "VLEDGER_BASE"
@@ -171,6 +171,33 @@ def cmd_l0_gaps(args) -> int:
     return 0
 
 
+def cmd_l0_stats(args) -> int:
+    s = stats.scan(_base(args), _subject(args), since=args.since, tolerance_s=args.tolerance)
+    s.finder.close(args.now or clock.to_text(clock.now()))
+    d = stats.to_dict(s)
+    if args.json:
+        print(json.dumps(d, indent=2, ensure_ascii=False))
+        return 0
+    kinds = ", ".join(f"{k} {n}" for k, n in sorted(s.by_kind.items())) or "nothing"
+    print(f"{len(s.files)} month file(s), {s.bytes} bytes; current {s.current_month or '-'}: "
+          f"{s.files.get(s.current_month, 0) if s.current_month else 0} bytes")
+    print(f"lines: {kinds}")
+    print(f"state lines since the last start: {s.lines_since_start}"
+          + (f", since {args.since}: {s.lines_since}" if args.since else ""))
+    print(f"last line at {s.last_line_at or '-'}, last heartbeat at {s.last_heartbeat_at or '-'}")
+    for role in sorted(s.by_role):
+        i = s.intervals.get(role)
+        sampled = (f"interval median {i.median_s:.0f} s, p95 {i.p95_s:.0f} s over {i.count}"
+                   if i else "no interval yet")
+        print(f"  {role}: {s.by_role[role]} line(s), last at {s.last_states[role]['t']}, {sampled}")
+    for role, values in sorted(s.unlisted.items()):
+        print(f"  {role}: met and not in the map: {', '.join(sorted(values))}")
+    latest = s.gaps[-1] if s.gaps else None
+    print(f"{len(s.gaps)} gap(s)" + (f", latest {latest.reason} of {latest.seconds:.0f} s "
+                                      f"from {latest.start}" if latest else ""))
+    return 0
+
+
 # --- derive verbs ----------------------------------------------------------
 
 def cmd_derive_trips(args) -> int:
@@ -201,7 +228,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     nouns = parser.add_subparsers(dest="noun", metavar="<noun>", required=True)
 
-    p_l0 = nouns.add_parser("l0", help="the raw log: write, read, validate, gaps")
+    p_l0 = nouns.add_parser("l0", help="the raw log: write, read, validate, gaps, stats")
     verbs = p_l0.add_subparsers(dest="verb", metavar="<verb>", required=True)
 
     sp = verbs.add_parser("state", help="append one state change")
@@ -264,6 +291,16 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--min", type=float, default=0, help="shortest gap to list, seconds")
     sp.add_argument("--json", action="store_true", help="the gaps as JSON")
     sp.set_defaults(func=cmd_l0_gaps)
+
+    sp = verbs.add_parser("stats", help="count a stream: sizes, lines, last lines, "
+                                        "sampling intervals, unlisted values, gaps")
+    _add_stream_args(sp)
+    sp.add_argument("--since", help="also count the state lines at or after this time")
+    sp.add_argument("--tolerance", type=float, default=300,
+                    help="seconds a heartbeat may be late (default 300)")
+    sp.add_argument("--now", help="the time the stream is judged against (default: now)")
+    sp.add_argument("--json", action="store_true", help="the counts as JSON")
+    sp.set_defaults(func=cmd_l0_stats)
 
     p_derive = nouns.add_parser("derive", help="the derivations, one at a time")
     dverbs = p_derive.add_subparsers(dest="verb", metavar="<verb>", required=True)

@@ -174,7 +174,17 @@
           "stopped": "Stopped",
           "recomputing": "Recomputing"
         }
-      }
+      },
+      "month_file_size": { "name": "Current month file size" },
+      "stream_size": { "name": "Raw log size" },
+      "month_files": { "name": "Month files" },
+      "last_line": { "name": "Last line written" },
+      "last_heartbeat": { "name": "Last heartbeat" },
+      "last_state_line": { "name": "Last state line" },
+      "lines_since_start": { "name": "State lines since start" },
+      "lines_today": { "name": "State lines today" },
+      "capture_gaps": { "name": "Capture gaps" },
+      "latest_capture_gap": { "name": "Latest capture gap" }
     }
   },
   "issues": {

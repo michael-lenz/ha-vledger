@@ -351,6 +351,56 @@ class Gap:
     reason: str  # "crash", "stopped", "silence" or "open"
 
 
+class GapFinder:
+    """The gap rules of :func:`gaps`, fed one line at a time, so a writer
+    that already knows every line it wrote can keep finding gaps without
+    reading its stream back."""
+
+    def __init__(self, *, tolerance_s: float = 300, min_s: float = 0) -> None:
+        self.tolerance_s = tolerance_s
+        self.min_s = min_s
+        self.found: list[Gap] = []
+        self.last: str | None = None
+        self.running = False
+        self.interval: float = DEFAULT_HEARTBEAT_S
+
+    def _add(self, a: str, b: str, reason: str) -> Gap | None:
+        seconds = (clock.parse(b) - clock.parse(a)).total_seconds()
+        if seconds < self.min_s:
+            return None
+        gap = Gap(a, b, seconds, reason)
+        self.found.append(gap)
+        return gap
+
+    def feed(self, line: Line) -> Gap | None:
+        """Take the next line of the stream; the gap it closes, if any."""
+        t, kind = line["t"], line["kind"]
+        gap = None
+        if kind == "start":
+            if self.last is not None:
+                gap = self._add(self.last, t, "crash" if self.running else "stopped")
+            self.running = True
+        elif self.last is not None and self.running:
+            if (clock.parse(t) - clock.parse(self.last)).total_seconds() > self.interval + self.tolerance_s:
+                gap = self._add(self.last, t, "silence")
+        if kind == "config":
+            self.interval = (line.get("config", {}).get("thresholds") or {}).get(
+                "heartbeat_s", self.interval)
+        if kind == "stop":
+            self.running = False
+        self.last = t
+        return gap
+
+    def close(self, now: str) -> Gap | None:
+        """The stream ends here: an ``open`` gap if it is still running and
+        ``now`` is further from its last line than a heartbeat allows."""
+        if not self.running or self.last is None:
+            return None
+        if (clock.parse(now) - clock.parse(self.last)).total_seconds() <= self.interval + self.tolerance_s:
+            return None
+        return self._add(self.last, now, "open")
+
+
 def gaps(base: Path, subject: Subject, *, tolerance_s: float = 300,
          now: str | None = None, min_s: float = 0) -> list[Gap]:
     """The capture gaps a stream's markers reveal (ADR-0004).
@@ -363,34 +413,8 @@ def gaps(base: Path, subject: Subject, *, tolerance_s: float = 300,
     The heartbeat interval comes from the latest config line
     (``thresholds.heartbeat_s``), else :data:`DEFAULT_HEARTBEAT_S`.
     """
-    found: list[Gap] = []
-    last: str | None = None
-    running = False
-    interval = DEFAULT_HEARTBEAT_S
-
-    def add(a: str, b: str, reason: str) -> None:
-        seconds = (clock.parse(b) - clock.parse(a)).total_seconds()
-        if seconds >= min_s:
-            found.append(Gap(a, b, seconds, reason))
-
+    finder = GapFinder(tolerance_s=tolerance_s, min_s=min_s)
     for r in read(base, subject):
-        line, t = r.line, r.line["t"]
-        kind = line["kind"]
-        if kind == "start":
-            if last is not None:
-                add(last, t, "crash" if running else "stopped")
-            running = True
-        elif last is not None and running:
-            if (clock.parse(t) - clock.parse(last)).total_seconds() > interval + tolerance_s:
-                add(last, t, "silence")
-        if kind == "config":
-            interval = (line.get("config", {}).get("thresholds") or {}).get(
-                "heartbeat_s", interval)
-        if kind == "stop":
-            running = False
-        last = t
-    if running and last is not None:
-        end = now or clock.to_text(clock.now())
-        if (clock.parse(end) - clock.parse(last)).total_seconds() > interval + tolerance_s:
-            add(last, end, "open")
-    return found
+        finder.feed(r.line)
+    finder.close(now or clock.to_text(clock.now()))
+    return finder.found

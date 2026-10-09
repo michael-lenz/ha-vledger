@@ -5,6 +5,11 @@ One :class:`Capture` per subject. Every line goes through one writer: a
 queue the event loop puts lines on, drained by one task that appends them
 in the executor, one at a time, in order. On stop the queue is drained
 before the stop line goes, so a stop is always the last line.
+
+The writer also keeps the numbers the diagnostic entities show (TASK-0008):
+before its first line it counts the stream once with the library
+(``vledger l0 stats``), then carries every count forward from the lines it
+writes — only the size of the file it just appended to is read from disk.
 """
 
 from __future__ import annotations
@@ -27,10 +32,12 @@ from homeassistant.core import (
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.event import (
     async_track_state_change_event,
+    async_track_time_change,
     async_track_time_interval,
 )
+from homeassistant.util import dt as dt_util
 
-from vledger import __version__, clock, l0
+from vledger import __version__, clock, l0, stats
 from vledger.layout import Subject
 
 from .const import DOMAIN, ISSUE_ENTITY_REMOVED, STATUS_RUNNING, STATUS_STOPPED
@@ -59,6 +66,16 @@ def _measured_at(spec: dict, state: State) -> str | None:
         return None
 
 
+def _append(base: Path, subject: Subject, line: l0.Line) -> tuple[str, int]:
+    """Append a line; the month it went to and that file's size now. Blocking."""
+    path = l0.append(base, subject, line)
+    return path.stem, path.stat().st_size
+
+
+def _local_date(t: str):
+    return dt_util.as_local(clock.parse(t)).date()
+
+
 def _changed(role: str, old: State | None, new: State) -> bool:
     """A line is due when the state string, the unit or a role-relevant
     attribute changed — not for an update of anything else (ERF-01)."""
@@ -84,10 +101,19 @@ class Capture:
         self.heartbeat_s = int((config.get("thresholds") or {}).get("heartbeat_s", l0.DEFAULT_HEARTBEAT_S))
 
         self.status = STATUS_STOPPED
+        self.stop_reason: str | None = None
+
+        # What the stream holds, counted once on start and carried forward
+        # by the writer: the diagnostic entities read these.
+        self.month_bytes: dict[str, int] = {}
         self.lines_since_start = 0
+        self.lines_today = 0
+        self._today = dt_util.now().date()
         self.last_line_at: str | None = None
         self.last_heartbeat_at: str | None = None
-        self.stop_reason: str | None = None
+        self.last_state_role: str | None = None
+        self.last_state_at: str | None = None
+        self.gap_finder = l0.GapFinder()
 
         self._queue: asyncio.Queue[l0.Line] = asyncio.Queue()
         self._writer: asyncio.Task | None = None
@@ -107,6 +133,8 @@ class Capture:
                 async_track_state_change_event(self.hass, list(self.entities), self._on_state))
         self._unsubscribe.append(
             async_track_time_interval(self.hass, self._on_heartbeat, timedelta(seconds=self.heartbeat_s)))
+        self._unsubscribe.append(
+            async_track_time_change(self.hass, self._on_midnight, hour=0, minute=0, second=0))
         self.status = STATUS_RUNNING
         self._notify()
 
@@ -172,10 +200,17 @@ class Capture:
 
     @callback
     def _on_heartbeat(self, now: datetime) -> None:
-        t = clock.to_text(now)
-        self._put(l0.heartbeat(t, self.subject, lines=self.lines_since_start))
-        self.last_heartbeat_at = t
+        self._put(l0.heartbeat(clock.to_text(now), self.subject, lines=self.lines_since_start))
+
+    @callback
+    def _on_midnight(self, now: datetime) -> None:
+        self._roll(dt_util.as_local(now).date())
         self._notify()
+
+    def _roll(self, day) -> None:
+        if day != self._today:
+            self._today = day
+            self.lines_today = 0
 
     # --- the one writer ----------------------------------------------------
 
@@ -183,18 +218,90 @@ class Capture:
         self._queue.put_nowait(line)
 
     async def _write_forever(self) -> None:
+        await self._count_stream()
         while True:
             line = await self._queue.get()
             try:
-                await self.hass.async_add_executor_job(l0.append, self.base, self.subject, line)
-                if line["kind"] == "state":
-                    self.lines_since_start += 1
-                self.last_line_at = line["t"]
+                month, size = await self.hass.async_add_executor_job(
+                    _append, self.base, self.subject, line)
+                self._wrote(line, month, size)
                 self._notify()
             except Exception:
                 _LOGGER.exception("vledger: could not write %s line for %s", line["kind"], self.subject.id)
             finally:
                 self._queue.task_done()
+
+    async def _count_stream(self) -> None:
+        """Count what the stream already holds, before this start's lines."""
+        midnight = dt_util.start_of_local_day()
+        try:
+            s = await self.hass.async_add_executor_job(
+                lambda: stats.scan(self.base, self.subject, since=clock.to_text(midnight)))
+        except Exception:
+            _LOGGER.exception("vledger: could not count the stream of %s; counting from now",
+                              self.subject.id)
+            return
+        self.month_bytes = dict(s.files)
+        self.lines_today = s.lines_since
+        self._today = midnight.date()
+        self.last_line_at = s.last_line_at
+        self.last_heartbeat_at = s.last_heartbeat_at
+        last = s.last_state
+        if last:
+            self.last_state_role, self.last_state_at = last[0], last[1]["t"]
+        self.gap_finder = s.finder
+
+    def _wrote(self, line: l0.Line, month: str, size: int) -> None:
+        t, kind = line["t"], line["kind"]
+        self.month_bytes[month] = size
+        self.last_line_at = t
+        self.gap_finder.feed(line)
+        if kind == "start":
+            self.lines_since_start = 0
+        elif kind == "heartbeat":
+            self.last_heartbeat_at = t
+        elif kind == "state":
+            self.lines_since_start += 1
+            self._roll(_local_date(t))
+            self.lines_today += 1
+            self.last_state_role, self.last_state_at = line["role"], t
+
+    # --- the numbers -------------------------------------------------------
+
+    @property
+    def stream_bytes(self) -> int:
+        return sum(self.month_bytes.values())
+
+    @property
+    def month_file_bytes(self) -> int | None:
+        """The size of the current month's file: the newest one there is."""
+        return self.month_bytes[max(self.month_bytes)] if self.month_bytes else None
+
+    @property
+    def month_files(self) -> int:
+        return len(self.month_bytes)
+
+    @property
+    def gaps(self) -> list[l0.Gap]:
+        return self.gap_finder.found
+
+    def counts(self) -> dict:
+        """Every number the diagnostic entities show, for diagnostics."""
+        latest = self.gaps[-1] if self.gaps else None
+        return {
+            "status": self.status,
+            "month_file_bytes": self.month_file_bytes,
+            "stream_bytes": self.stream_bytes,
+            "month_files": self.month_files,
+            "lines_since_start": self.lines_since_start,
+            "lines_today": self.lines_today,
+            "last_line_at": self.last_line_at,
+            "last_heartbeat_at": self.last_heartbeat_at,
+            "last_state_role": self.last_state_role,
+            "last_state_at": self.last_state_at,
+            "gaps": len(self.gaps),
+            "latest_gap": latest.__dict__ if latest else None,
+        }
 
     # --- for the entities --------------------------------------------------
 

@@ -17,8 +17,9 @@ the vehicle, without a line of manufacturer-specific code, and without
 touching anything else the vehicle reports: it is a ledger, not a monitor.
 
 **Status:** capture works. The integration sets up a vehicle or a charge
-point through the UI and writes its raw log — the format, and the
-`vledger l0` verbs that write, read, validate it and list its gaps, are the
+point through the UI, writes its raw log and shows it in numbers as
+diagnostic entities and diagnostics — the format, and the `vledger l0`
+verbs that write, read, validate and count it and list its gaps, are the
 library's. The first derivation exists: `vledger derive trips` prints the
 trips in a stream. No charging sessions, refuellings, metrics or receipts
 yet, and nothing is stored as L1. Every behaviour described below is the design, held

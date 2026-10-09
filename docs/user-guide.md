@@ -43,6 +43,23 @@ with the lines written since start, the last line's time and the last
 heartbeat. Stopping Home Assistant, unloading or reloading the entry ends
 the stream orderly; a crash does not, and the next start shows as a gap.
 
+Next to it, in the device's *Diagnostic* section, the raw log in numbers:
+the size of the current month file and of the whole log, the number of
+month files, when the last line, the last heartbeat and the last state
+line (with its role) were written, the state lines since start and
+today, the number of capture gaps, and the latest gap's length with its
+reason, start and end. They are counted once when capture starts and
+then kept up to date from the lines written — the same counts as
+`vledger l0 stats`.
+
+**Download diagnostics** (the entry's menu) adds what only a full count of
+the log gives: the measured sampling interval of every role (median and
+95th percentile of the time between its lines), the last value of every
+role, every capture gap, and the source values a charging state, plug
+state or ignition met that its mapping does not list — read as *not
+charging*, *unplugged* or *off*, and worth a tick in the mapping if that
+was wrong. Positions are redacted.
+
 **Options** (the entry's *Configure*): a menu over the same steps,
 pre-filled, plus the thresholds and time constants, the remaining
 parameters, and the data directory. For a charge point: the meter, and
@@ -114,6 +131,21 @@ and lists every problem: an error is a line the writer could not have
 written, a warning is a line readers skip (a torn last line, an unknown
 kind) or something odd (time running backwards). The exit code is 1 when
 there is an error.
+
+### Counting
+
+```bash
+vledger l0 stats --vehicle a7c1
+vledger l0 stats --vehicle a7c1 --since 2026-10-09T00:00:00Z --json
+```
+
+Counts a stream in one pass: month files and their sizes, lines by kind
+and state lines by role, the state lines since the last start (and since
+`--since`, when given), the last line, heartbeat and state line, the
+sampling interval per role — median and 95th percentile of the time
+between two of its lines, never across a gap or a start — the values the
+state mapping does not list, and the gaps, judged against `--now` as
+`gaps` does. What Home Assistant shows about the log is this count.
 
 ### Gaps
 

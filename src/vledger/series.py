@@ -115,9 +115,7 @@ def load(base: Path, subject: Subject, *, since: str | None = None,
             mapping = ((s.config or {}).get("roles", {}).get(role) or {}).get("map") or {}
             raw = line.get("state")
             state = vconfig.domain_state(role, raw, mapping)
-            if state == vconfig.NEGATIVE_STATES[role]:
-                # Met and not listed: negative by ADR-0008, reported so the
-                # map can be completed if that was wrong.
+            if vconfig.unlisted(role, raw, mapping):
                 s.unmapped.setdefault(role, set()).add(raw)
             s.domain.setdefault(role, []).append(DomainSample(t, state, raw))
 

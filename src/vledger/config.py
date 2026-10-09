@@ -180,6 +180,13 @@ def domain_state(role: str, value: str, mapping: dict) -> str | None:
     return NEGATIVE_STATES[role]
 
 
+def unlisted(role: str, value: str, mapping: dict) -> bool:
+    """A value the map does not list and that still says something: the
+    negative state by ADR-0008, reported so the map can be completed if
+    that reading was wrong."""
+    return domain_state(role, value, mapping) == NEGATIVE_STATES[role]
+
+
 def is_chargepoint(config: dict) -> bool:
     return "tariffs" in config
 
@@ -187,5 +194,5 @@ def is_chargepoint(config: dict) -> bool:
 __all__ = [
     "CHARGEPOINT_ROLES", "DEFAULT_PARAMETERS", "DEFAULT_THRESHOLDS", "DOMAIN_STATES",
     "FUELS", "MOVEMENT_ROLES", "NEGATIVE_STATES", "VEHICLE_ROLES", "chargepoint", "domain_state",
-    "is_chargepoint", "missing", "tariff_at", "vehicle",
+    "is_chargepoint", "missing", "tariff_at", "unlisted", "vehicle",
 ]
