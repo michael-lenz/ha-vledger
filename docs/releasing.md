@@ -31,21 +31,33 @@ repository, and nothing else.
 
 ## Every release
 
-1. The version is one number in three places, and a test keeps them in
-   step: `pyproject.toml`, `src/vledger/__init__.py`,
-   `custom_components/vledger/manifest.json` (both `version` and the
-   pinned requirement). Bump all three in one commit:
+1. On `main`, clean and in step with `origin`, in the venv of
+   [developing.md](developing.md):
 
    ```bash
-   sed -i 's/0\.1\.0/0.2.0/' pyproject.toml src/vledger/__init__.py custom_components/vledger/manifest.json
-   python -m pytest -q && ruff check src tests custom_components
-   git commit -am "Release 0.2.0"
-   git push
+   scripts/release.sh 0.2.0 --dry-run     # every check, the bump and the tests; then puts the files back
+   scripts/release.sh 0.2.0               # the same, then asks, commits, tags and pushes
    ```
 
-2. Tag it and push the tag. The tag is the release:
+   The script refuses, before it changes anything, a version that is not
+   `X.Y.Z` or not greater than the current one, version strings that
+   disagree, a working tree that is not clean, not `main` or not
+   `origin/main`, a tag that exists locally or on `origin`, and a version
+   PyPI already has. It then bumps the one version number in its three
+   places — `pyproject.toml`, `src/vledger/__init__.py`,
+   `custom_components/vledger/manifest.json` (both `version` and the
+   pinned requirement) — runs `pytest` and `ruff`, and puts the files
+   back if either fails. Otherwise it shows the diff, asks (`--yes`
+   skips that), commits `Release X.Y.Z`, tags `vX.Y.Z` and pushes both.
+   The Python it uses is `$PYTHON`, else `.venv/bin/python`, else
+   `python3`.
+
+2. Without the script, the same by hand: bump the three places, run the
+   checks, then commit, tag and push — the tag is the release:
 
    ```bash
+   python -m pytest -q && ruff check src tests custom_components
+   git commit -am "Release 0.2.0" && git push
    git tag -a v0.2.0 -m "vledger 0.2.0"
    git push origin v0.2.0
    ```
@@ -56,7 +68,9 @@ repository, and nothing else.
 
 4. Check <https://pypi.org/project/vledger/> shows the version. From that
    moment `manifest.json`'s `vledger==0.2.0` resolves, and a Home
-   Assistant instance can load the integration.
+   Assistant instance can load the integration. HACS offers the update
+   from the GitHub release; *Update information* on the repository in
+   HACS asks it at once instead of at its next scan.
 
 ## By hand, without the workflow
 
