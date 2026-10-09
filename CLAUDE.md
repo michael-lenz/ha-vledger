@@ -48,9 +48,10 @@ that bind here:
   mainline at once (`pmtk-issue` alike), so a parallel session sees it. A
   record already claimed names where that work lives: look before
   duplicating. `release` it with a note if you stop without finishing.
-  `pmtk-task done <id> -m '<outcome>'` then `pmtk sync` when finished —
-  `done` only writes the record, `sync` commits and pushes it; `add` and
-  `claim` push on their own.
+  `pmtk-task done <id> -m '<outcome>'` then `pmtk sync` when finished.
+  `add` pushes on its own; `claim`, `release` and `done` only write the
+  record, and `pmtk sync` commits and pushes it — a claim left unsynced is
+  invisible to the sessions it is for.
 - **Development waits for decisions.** Work that needs a decision, or
   rests on one, starts only after `pmtk-adr accept` by the owner. Claude
   proposes (`pmtk-adr add`, on the register's mainline) and never accepts.
@@ -100,6 +101,13 @@ Debian system Python — use the venv.
   last line, never by the clock.
 - **The version is one number in three places**, and `tests/test_version.py`
   fails when they disagree. A release is a tag (`docs/releasing.md`).
+- **Releasing is `scripts/release.sh`, and the owner cuts every release
+  with it** (REQ-0128). So a change to how a release is made or to where
+  and how the version is carried — a further place holding the version,
+  the tag's spelling, the release workflow's trigger or checks, a step
+  `docs/releasing.md` adds — updates the script and the manual in the
+  same change, and is tested with `scripts/release.sh X.Y.Z --dry-run`.
+  Claude does not cut releases: the session may not push tags.
 - **Tests build their streams through the verbs**, never by writing lines
   by hand, so a fixture can hold nothing the library could not have
   written. Real streams become fixtures with positions shifted by a fixed
