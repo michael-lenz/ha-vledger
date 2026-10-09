@@ -4,7 +4,7 @@ kind, its gaps, the sampling and change intervals per role and the values
 the state mapping does not list — what ``vledger l0 stats`` prints and what
 the integration's diagnostic entities and diagnostics show.
 
-Two intervals, named apart (ADR-0010). The *sampling interval* is the time
+Two intervals, named apart (ADR-0011). The *sampling interval* is the time
 between two updates of a role's entity: a line's ``t`` minus its
 ``reported_before``. The *change interval* is the time between two of its
 lines — a change of value, which happens at an update but not at every
@@ -24,6 +24,9 @@ from pathlib import Path
 from vledger import clock, l0, layout
 from vledger import config as vconfig
 from vledger.layout import Subject
+
+#: States that mean the source was not heard, not that it reported.
+OUTAGE_STATES = ("unavailable", "unknown")
 
 
 @dataclass(frozen=True)
@@ -100,6 +103,7 @@ def scan(base: Path, subject: Subject, *, since: str | None = None,
     lo = clock.parse(since) if since else None
     config: dict = {}
     previous: dict[str, str] = {}   # role -> t of its last state line in this run
+    outage: set[str] = set()        # roles whose last line in this run is unavailable/unknown
     run_began = None                # when this run of capture began, as a datetime
     changes: dict[str, list[float]] = {}
     sampling: dict[str, list[float]] = {}
@@ -108,12 +112,14 @@ def scan(base: Path, subject: Subject, *, since: str | None = None,
         t, kind = line["t"], line["kind"]
         if s.finder.feed(line) or run_began is None:
             previous.clear()
+            outage.clear()
             run_began = clock.parse(t)
         s.by_kind[kind] = s.by_kind.get(kind, 0) + 1
         s.last_line_at = t
         if kind == "start":
             s.lines_since_start = 0
             previous.clear()
+            outage.clear()
             run_began = clock.parse(t)
         elif kind == "config":
             config = line["config"]
@@ -129,12 +135,17 @@ def scan(base: Path, subject: Subject, *, since: str | None = None,
                 changes.setdefault(role, []).append(
                     (clock.parse(t) - clock.parse(previous[role])).total_seconds())
             previous[role] = t
-            if "reported_before" in line:
+            if "reported_before" in line and role not in outage:
                 before = clock.parse(line["reported_before"])
-                # A report from before this run was not seen by capture.
+                # A report from before this run was not seen by capture; the
+                # time since an outage began is no sampling interval.
                 if before >= run_began:
                     sampling.setdefault(role, []).append(
                         (clock.parse(t) - before).total_seconds())
+            if line["state"] in OUTAGE_STATES:
+                outage.add(role)
+            else:
+                outage.discard(role)
             s.last_states[role] = {k: line[k] for k in ("t", "entity", "state", "unit", "attrs")
                                    if k in line}
             if role in vconfig.DOMAIN_STATES:

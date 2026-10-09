@@ -3,7 +3,7 @@
 
 The numbers the diagnostic entities show, plus what only a full count of
 the stream can give — the measured sampling and change intervals per role
-(ADR-0010), the last value of each role, every capture gap, the values the
+(ADR-0011), the last value of each role, every capture gap, the values the
 state mapping does not list — counted with the library (``vledger l0 stats``) off the event
 loop. Positions are redacted wherever they appear.
 """

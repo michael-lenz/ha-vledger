@@ -61,7 +61,7 @@ def test_stats_counts_a_stream(tmp_path, capsys):
 
 def test_the_sampling_interval_is_measured_from_the_last_report(tmp_path, capsys):
     """A door polled every minute that changes rarely: the change interval
-    says hours, the sampling interval says a minute (ADR-0010)."""
+    says hours, the sampling interval says a minute (ADR-0011)."""
     b = ["--base", str(tmp_path), "--vehicle", "a7c1"]
     run(capsys, "start", *b, "--t", "2026-10-09T06:00:00Z", "--homeassistant", "2026.10.1")
 
@@ -82,15 +82,18 @@ def test_the_sampling_interval_is_measured_from_the_last_report(tmp_path, capsys
     heartbeat(10)
     heartbeat(11)
     door("2026-10-09T11:00:30Z", "off", "2026-10-09T10:59:30Z")
-    # Changed at its first and only report: no reported_before, no measurement.
-    door("2026-10-09T11:01:30Z", "on")
+    # An outage, then a value: the time since the outage began is not counted.
+    door("2026-10-09T11:01:00Z", "unavailable", "2026-10-09T11:00:30Z")
+    door("2026-10-09T11:01:30Z", "on", "2026-10-09T11:01:00Z")
     _, out, _ = run(capsys, "stats", *b, "--json", "--now", "2026-10-09T11:02:00Z")
     d = json.loads(out)
-    assert d["sampling_intervals"]["ignition"]["count"] == 3
+    # 60, 120, 60, and 30 into the outage — a failed update is still one;
+    # the line after it is not counted (ADR-0011, point 2).
+    assert d["sampling_intervals"]["ignition"]["count"] == 4
     assert d["sampling_intervals"]["ignition"]["median_s"] == 60
     assert d["change_intervals"]["ignition"]["median_s"] > 3000
     _, out, _ = run(capsys, "stats", *b, "--now", "2026-10-09T11:02:00Z")
-    assert "ignition: 5 line(s)" in out and "sampling median 60 s" in out
+    assert "ignition: 6 line(s)" in out and "sampling median 60 s" in out
 
 
 def test_stats_judges_an_open_end_against_now(tmp_path, capsys):

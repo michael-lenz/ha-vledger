@@ -19,7 +19,7 @@ from vledger import clock, layout
 from vledger.layout import Subject
 
 #: The schema version this module writes, and the highest it reads. Version
-#: 2 adds ``reported_before`` to the state line (ADR-0010).
+#: 2 adds ``reported_before`` to the state line (ADR-0011).
 VERSION = 2
 
 KINDS = ("state", "start", "stop", "heartbeat", "config")
@@ -68,7 +68,7 @@ def state(t: str, subject: Subject, role: str, entity: str, value: str, *,
     """One change of state or of a role-relevant attribute (ERF-01, ERF-02).
 
     ``reported_before`` is when Home Assistant last heard the value this line
-    replaces (ADR-0010); ``t`` minus it is one sampling interval of the role.
+    replaces (ADR-0011); ``t`` minus it is one sampling interval of the role.
     """
     if role not in ROLES:
         raise ValueError(f"unknown role {role!r}")

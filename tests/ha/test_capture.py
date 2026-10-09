@@ -126,7 +126,7 @@ async def test_a_line_carries_when_the_old_value_was_last_reported(
         hass, vehicle_entry, tmp_path, freezer):
     """An update repeating a value writes nothing but moves last_reported;
     the next line carries it, so t minus it is one sampling interval
-    (ADR-0010)."""
+    (ADR-0011)."""
     kms = {"unit_of_measurement": "km"}
     freezer.move_to("2026-10-09T06:00:00Z")
     hass.states.async_set("sensor.volvo_odometer", "100", kms)
@@ -139,12 +139,19 @@ async def test_a_line_carries_when_the_old_value_was_last_reported(
     hass.states.async_set("sensor.volvo_odometer", "101", kms)
     freezer.move_to("2026-10-09T06:03:00Z")
     hass.states.async_set("sensor.volvo_odometer", "102", kms)   # changed at its first report
+    freezer.move_to("2026-10-09T06:04:00Z")
+    hass.states.async_remove("sensor.volvo_odometer")             # no old state after this
+    freezer.move_to("2026-10-09T06:05:00Z")
+    hass.states.async_set("sensor.volvo_odometer", "103", kms)
     await _settle(hass, vehicle_entry)
 
-    first, second = [r.line for r in l0.read(tmp_path, V, kind="state")]
+    first, second, removed, readded = [r.line for r in l0.read(tmp_path, V, kind="state")]
     assert first["t"] == "2026-10-09T06:02:00.000Z"
     assert first["reported_before"] == "2026-10-09T06:01:00.000Z"
-    assert "reported_before" not in second
+    # Heard once, then changed: still one sampling interval (ADR-0011).
+    assert second["reported_before"] == "2026-10-09T06:02:00.000Z"
+    assert removed["state"] == "unavailable" and "reported_before" not in removed
+    assert "reported_before" not in readded
     assert l0.validate(tmp_path, V).problems == []
 
 

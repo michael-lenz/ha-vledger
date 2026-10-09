@@ -1,7 +1,7 @@
 # The L0 record format
 
 *Design document — the layout of the raw log, version 2, as decided in
-ADR-0004 and ADR-0010 of the project's register. This page is the
+ADR-0004 and ADR-0011 of the project's register. This page is the
 specification a reader of their own files needs; the reasoning is in the
 decisions.*
 
@@ -63,8 +63,10 @@ An update that repeats a value writes no line; it only moves that value's
 `last_reported`. So `t − reported_before` is one **sampling interval** of
 the role — the time between two updates — where the time between two lines
 is only the time between two changes ([glossary](glossary.md)).
-`reported_before` is absent when there was no old state, and when the old
-value was reported only once, at its `last_updated`.
+`reported_before` is absent only when there was no old state. A line
+after an `unavailable` or `unknown` one still carries it, but the time since
+an outage began is no sampling interval, and `vledger l0 stats` does not
+count it (ADR-0011).
 
 Role-relevant attributes in versions 1 and 2: `position` → `latitude`,
 `longitude`, `gps_accuracy`, `source_type`; every other role → none. What
@@ -173,4 +175,4 @@ versions a stream holds.
 | version | adds |
 |---|---|
 | 1 | the format as first decided (ADR-0004) |
-| 2 | `reported_before` on `state` lines (ADR-0010); a version 1 stream has no sampling interval to measure |
+| 2 | `reported_before` on `state` lines (ADR-0011); a version 1 stream has no sampling interval to measure |
