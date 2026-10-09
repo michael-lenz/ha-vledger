@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """The configuration of a vehicle or a charge point, as the ``config`` line
-holds it (ADR-0007): the defaults, the vocabulary, and the two questions
+holds it (ADR-0008): the defaults, the vocabulary, and the two questions
 asked of it — is it complete, and which tariff holds at a time.
 
 The integration edits this structure in its options flow and writes it to
@@ -28,7 +28,7 @@ DOMAIN_STATES = {"charging_state": "charging", "plug_state": "plugged", "ignitio
 FUELS = ("petrol", "diesel")
 
 #: The thresholds and time constants of FZG-06 with the requirements'
-#: defaults, units in the key. Always written out in full (ADR-0007).
+#: defaults, units in the key. Always written out in full (ADR-0008).
 DEFAULT_THRESHOLDS = {
     "t_still_s": 1800,              # FAH-01
     "refuel_threshold_l": 3,        # TNK-01
@@ -129,7 +129,7 @@ def chargepoint(name: str, latitude: float, longitude: float, radius_m: float,
 def missing(config: dict) -> list[str]:
     """What an enabled derivation would need and the vehicle does not set.
 
-    The configuration never refuses an incomplete vehicle (ADR-0007); this
+    The configuration never refuses an incomplete vehicle (ADR-0008); this
     names what will come out flagged or empty, so the flow can say so.
     """
     out = []
@@ -146,7 +146,7 @@ def missing(config: dict) -> list[str]:
 
 
 def tariff_at(tariffs: list[dict], t: str) -> dict | None:
-    """The tariff valid at time ``t`` (ADR-0007, point 2; LAD-02, VER-07).
+    """The tariff valid at time ``t`` (ADR-0008, point 2; LAD-02, VER-07).
 
     The entry with the greatest ``from`` not after ``t``'s date; among
     equal ``from``, the one appended last — which is how a wrongly entered

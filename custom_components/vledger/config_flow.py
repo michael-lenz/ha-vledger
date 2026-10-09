@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
-"""The config flow and the options flow (ADR-0007, point 4).
+"""The config flow and the options flow (ADR-0008, point 4).
 
 A vehicle in four steps — name, roles, mapping, parameters — and a charge
 point in one. The options flow is a menu over the same steps, pre-filled.

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
-"""Capture: ``state_changed`` events become L0 lines (ADR-0007, point 5).
+"""Capture: ``state_changed`` events become L0 lines (ADR-0008, point 5).
 
 One :class:`Capture` per subject. Every line goes through one writer: a
 queue the event loop puts lines on, drained by one task that appends them

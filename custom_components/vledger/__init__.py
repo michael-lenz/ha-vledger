@@ -4,7 +4,7 @@
 A thin shell over the ``vledger`` library (ARC-02): capture, config and
 options flows, entities. No derivation lives here. One config entry is one
 vehicle or one charge point, and one :class:`Capture` per entry writes its
-L0 stream (ADR-0007).
+L0 stream (ADR-0008).
 """
 
 from __future__ import annotations
@@ -49,7 +49,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: VledgerConfigEntry) -> b
 
 async def _async_options_updated(hass: HomeAssistant, entry: VledgerConfigEntry) -> None:
     # Options changed: the stream gets stop (reload), start and the new
-    # config line, by reloading the entry (ADR-0007, point 4).
+    # config line, by reloading the entry (ADR-0008, point 4).
     entry.runtime_data.stop_reason = "reload"
     await hass.config_entries.async_reload(entry.entry_id)
 

@@ -3,7 +3,7 @@
 
 DOMAIN = "vledger"
 
-#: Config entry ``data``: what never changes (ADR-0007, point 3).
+#: Config entry ``data``: what never changes (ADR-0008, point 3).
 DATA_KIND = "kind"
 DATA_SUBJECT = "subject"
 
