@@ -8,8 +8,9 @@
 atoms exist; L1 is written and read with `derive … --write` and the `l1`
 verbs, and the integration keeps it live; receipts are entered,
 corrected, cancelled and matched with the `receipt` verbs and `derive
-match`, and in Home Assistant with actions and a dashboard form. Metric
-entities, exports and reports are planned.
+match`, and in Home Assistant with actions and a dashboard form; L1 is
+exported as CSV, JSON and GPX with the `export` verbs. Metric entities,
+reports and an export action in Home Assistant are planned.
 
 ## In Home Assistant
 
@@ -408,6 +409,24 @@ rebuild is due — no manifest, a different library version, a changed
 configuration or changed receipts — which is what the integration checks
 at startup.
 
+## Exports: `vledger export`
+
+For a spreadsheet, another tool or a map: renderings of L1 as it is on
+disk. An export derives nothing — run `derive all --write` first; it says
+so when L1 is not current — and nothing in Home Assistant writes one.
+
+```bash
+vledger export csv --vehicle a7c1 --kind trip               # a row per trip, on stdout
+vledger export csv --vehicle a7c1 --kind period --out periods.csv   # the metrics, as a file
+vledger export json --vehicle a7c1 --kind refuelling        # one JSON array, as L1 holds them
+vledger export gpx --vehicle a7c1 --since 2026-10-01T00:00:00Z --out october.gpx   # a track per trip
+```
+
+`--kind` is `trip`, `charging`, `refuelling` or `period`; `--since` and
+`--until` pick events by their start. A CSV's columns are the same for a
+kind whatever it holds; how nested values become columns, and what a GPX
+track holds, is [l1-format.md](l1-format.md#exports).
+
 ## The atoms: `vledger calc`
 
 The computations the derivations are built from, each callable on its own
@@ -421,5 +440,5 @@ vledger calc convert 72 "°F" --quantity temperature     # 22.2222 °C
 
 ## Planned
 
-`vledger export …` and `vledger report …` follow the same shape: a noun,
-a verb, `--base` and the subject.
+`vledger report …` follows the same shape: a noun, a verb, `--base` and
+the subject.

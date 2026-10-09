@@ -6,7 +6,8 @@ reader of their own `l1/` needs; the reasoning is in the decisions.*
 
 **Status:** `trips.jsonl`, `refuellings.jsonl`, `charging-sessions.jsonl`,
 `periods.jsonl`, the manifest, the cursor, rebuilds, the `l1` verbs,
-receipts in events and the live derivation in Home Assistant exist.
+receipts in events, the live derivation in Home Assistant and the
+exports exist.
 
 ## Files
 
@@ -194,6 +195,30 @@ charging session also depends on the charge points' configuration and
 streams and on the other vehicles' streams, and a change there — a
 corrected tariff, above all — does not make a rebuild due; `derive all
 --write` brings it in by hand (ISSUE-0013).
+
+## Exports
+
+JSON Lines is the L1 of record; CSV, JSON and GPX are renderings of it,
+made by `vledger export` from the files as they are and never by the live
+path (ABL-05). An export reads nothing but L1, so it is exactly as current
+as L1 and a stale one is reported, not re-derived.
+
+- **CSV**, one kind: a header, then a row per event in file order. The
+  columns are declared per kind in the library, the envelope first, so two
+  exports of a kind line up whatever they hold; a key absent from an event
+  is an empty cell. A key no declaration names would follow them, sorted,
+  rather than be dropped. A position becomes four columns,
+  `<key>.t`, `.latitude`, `.longitude`, `.accuracy_m`; `refined_by`
+  becomes `refined_by.start` and `.end`; a list of ids is one cell, ids
+  separated by spaces. Values are spelled as in JSON — `true`, `41.8` —
+  and `null` is empty. A trip's `waypoints` are not in it: they are the
+  GPX's.
+- **JSON**, one kind: one array of the events, each exactly as its line.
+- **GPX 1.1**, the trips: one `trk` per trip, `name` its `start`, `desc`
+  its span, quality and distance, `number` its position in the export,
+  and one `trkseg` of its waypoints as `trkpt` with `time`, the fix before
+  it moved first. A trip without a waypoint is a track with an empty
+  segment, so the tracks count the trips.
 
 ## Determinism
 

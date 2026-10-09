@@ -20,6 +20,7 @@ from vledger import (
     __version__,
     charging,
     clock,
+    export,
     geo,
     l0,
     l1,
@@ -411,6 +412,50 @@ def cmd_l1_clean(args) -> int:
     return 0
 
 
+# --- export verbs ----------------------------------------------------------
+
+def _exported(args, kind: str) -> list[dict]:
+    """One kind's events as L1 holds them, within --since and --until; a
+    note on stderr when L1 is not current, since an export renders L1 as
+    it is and derives nothing."""
+    base, subject = _base(args), _subject(args)
+    if l1.read_manifest(base, subject) is None:
+        raise Usage("no L1 to export: derive all --write first")
+    due = l1.rebuild_due(base, subject)
+    if due:
+        print(f"vledger: L1 is not current ({due}); derive all --write brings it up to date",
+              file=sys.stderr)
+    return export.within(l1.read(base, subject, kind), args.since, args.until)
+
+
+def _emit(args, text: str, n: int, noun: str) -> int:
+    if args.out:
+        out = Path(args.out)
+        tmp = out.with_name(out.name + ".tmp")
+        tmp.write_text(text, encoding="utf-8")
+        os.replace(tmp, out)
+        print(f"{out}: {n} {noun}(s)")
+    else:
+        sys.stdout.write(text)
+        print(f"{n} {noun}(s)", file=sys.stderr)
+    return 0
+
+
+def cmd_export_csv(args) -> int:
+    events = _exported(args, args.kind)
+    return _emit(args, export.to_csv(args.kind, events), len(events), "event")
+
+
+def cmd_export_json(args) -> int:
+    events = _exported(args, args.kind)
+    return _emit(args, export.to_json(events), len(events), "event")
+
+
+def cmd_export_gpx(args) -> int:
+    found = _exported(args, "trip")
+    return _emit(args, export.to_gpx(found), len(found), "trip")
+
+
 # --- calc verbs: the atoms ---------------------------------------------------
 
 def cmd_calc_distance(args) -> int:
@@ -604,6 +649,26 @@ def build_parser() -> argparse.ArgumentParser:
     sp = lverbs.add_parser("clean", help="delete L1; it is regenerable")
     _add_stream_args(sp)
     sp.set_defaults(func=cmd_l1_clean)
+
+    p_export = nouns.add_parser("export", help="renderings of L1: CSV and JSON of one kind, "
+                                               "GPX of the trips")
+    everbs = p_export.add_subparsers(dest="verb", metavar="<verb>", required=True)
+
+    def export_common(sp: argparse.ArgumentParser) -> None:
+        _add_stream_args(sp)
+        sp.add_argument("--since", help="first start to export, inclusive")
+        sp.add_argument("--until", help="last start to export, inclusive")
+        sp.add_argument("--out", metavar="FILE", help="write the file instead of printing it")
+
+    for name, func, what in (("csv", cmd_export_csv, "one kind's events as CSV, a row each"),
+                             ("json", cmd_export_json, "one kind's events as one JSON array")):
+        sp = everbs.add_parser(name, help=what)
+        export_common(sp)
+        sp.add_argument("--kind", required=True, choices=list(l1.FILES))
+        sp.set_defaults(func=func)
+    sp = everbs.add_parser("gpx", help="the trips as GPX 1.1, a track each from its waypoints")
+    export_common(sp)
+    sp.set_defaults(func=cmd_export_gpx)
 
     p_calc = nouns.add_parser("calc", help="the atoms the derivations are built from")
     cverbs = p_calc.add_subparsers(dest="verb", metavar="<verb>", required=True)
