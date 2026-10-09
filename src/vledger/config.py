@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from datetime import date
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from vledger import clock
 from vledger.l0 import CHARGEPOINT_ROLES, VEHICLE_ROLES
@@ -68,13 +69,17 @@ FUEL_PARAMETERS = {"petrol": {"eta_ice": 0.28}, "diesel": {"eta_ice": 0.33}}
 
 
 def vehicle(name: str, roles: dict, parameters: dict | None = None,
-            thresholds: dict | None = None) -> dict:
+            thresholds: dict | None = None, time_zone: str | None = None) -> dict:
     """A vehicle's configuration, complete: what is given over the defaults.
 
     ``roles`` maps a role to ``{"entity": ..., "map"?: ..., "measured_at"?: ...}``.
     Fuel-dependent defaults follow the fuel given; an explicit value always
     wins. Refuses what the requirements refuse (FZG-02, FZG-05).
+    ``time_zone`` is where calendar periods begin (ADR-0014, point 2): an
+    IANA name, left out when not given — which reads as UTC.
     """
+    if time_zone is not None:
+        zone_of({"time_zone": time_zone})
     for role, spec in roles.items():
         if role not in VEHICLE_ROLES:
             raise ValueError(f"unknown vehicle role {role!r}")
@@ -108,7 +113,20 @@ def vehicle(name: str, roles: dict, parameters: dict | None = None,
     if unknown:
         raise ValueError(f"unknown thresholds: {sorted(unknown)}")
     thr.update(given_thr)
-    return {"name": name, "roles": deepcopy(roles), "parameters": params, "thresholds": thr}
+    out = {"name": name, "roles": deepcopy(roles), "parameters": params, "thresholds": thr}
+    if time_zone is not None:
+        out["time_zone"] = time_zone
+    return out
+
+
+def zone_of(config: dict) -> ZoneInfo:
+    """The zone a vehicle's calendar months and years are local to
+    (ADR-0014, point 2): its ``time_zone``, UTC without one."""
+    name = config.get("time_zone") or "UTC"
+    try:
+        return ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError):
+        raise ValueError(f"unknown time zone {name!r}") from None
 
 
 def chargepoint(name: str, latitude: float, longitude: float, radius_m: float,
@@ -194,5 +212,5 @@ def is_chargepoint(config: dict) -> bool:
 __all__ = [
     "CHARGEPOINT_ROLES", "DEFAULT_PARAMETERS", "DEFAULT_THRESHOLDS", "DOMAIN_STATES",
     "FUELS", "MOVEMENT_ROLES", "NEGATIVE_STATES", "VEHICLE_ROLES", "chargepoint", "domain_state",
-    "is_chargepoint", "missing", "tariff_at", "unlisted", "vehicle",
+    "is_chargepoint", "missing", "tariff_at", "unlisted", "vehicle", "zone_of",
 ]

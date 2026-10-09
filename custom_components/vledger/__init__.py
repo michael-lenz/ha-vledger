@@ -24,7 +24,14 @@ from homeassistant.helpers.typing import ConfigType
 from vledger.layout import Subject
 
 from .capture import Capture
-from .const import DATA_KIND, DATA_SUBJECT, DOMAIN, OPT_BASE_PATH, SERVICE_RECOMPUTE
+from .const import (
+    DATA_KIND,
+    DATA_SUBJECT,
+    DOMAIN,
+    KIND_VEHICLE,
+    OPT_BASE_PATH,
+    SERVICE_RECOMPUTE,
+)
 from .l1writer import L1Writer
 
 PLATFORMS = [Platform.SENSOR]
@@ -45,10 +52,15 @@ class Vledger:
 type VledgerConfigEntry = ConfigEntry[Vledger]
 
 
-def config_of(entry: ConfigEntry) -> dict:
+def config_of(hass: HomeAssistant, entry: ConfigEntry) -> dict:
     """The configuration object the ``config`` line records: the options
-    minus where they are stored."""
-    return {k: v for k, v in entry.options.items() if k != OPT_BASE_PATH}
+    minus where they are stored, and for a vehicle Home Assistant's time
+    zone, where its calendar months and years begin (ADR-0014, point 2) —
+    Home Assistant's setting, not an option, so it is taken at every start."""
+    config = {k: v for k, v in entry.options.items() if k != OPT_BASE_PATH}
+    if entry.data[DATA_KIND] == KIND_VEHICLE:
+        config["time_zone"] = hass.config.time_zone
+    return config
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -72,7 +84,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: VledgerConfigEntry) -> bool:
     subject = Subject(entry.data[DATA_KIND], entry.data[DATA_SUBJECT])
     base = Path(entry.options.get(OPT_BASE_PATH) or hass.config.path("vledger"))
-    capture = Capture(hass, subject, base, config_of(entry))
+    capture = Capture(hass, subject, base, config_of(hass, entry))
     writer = L1Writer(hass, capture)
     entry.runtime_data = Vledger(capture, writer)
     await capture.async_start()

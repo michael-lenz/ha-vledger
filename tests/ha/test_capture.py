@@ -61,6 +61,7 @@ async def test_a_stream_is_written_start_to_stop(hass, vehicle_entry, tmp_path):
     assert snap["charging_state"]["state"] == "unavailable"   # never set
     assert lines[1]["config"]["thresholds"]["heartbeat_s"] == 600
     assert "base_path" not in lines[1]["config"]
+    assert lines[1]["config"]["time_zone"] == hass.config.time_zone   # ADR-0014, point 2
     states = lines[2:5]
     assert [(s["role"], s["state"], s.get("unit")) for s in states] == [
         ("odometer", "101", "km"), ("odometer", "101", "mi"), ("charging_state", "Charging", None)]

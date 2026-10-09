@@ -34,7 +34,7 @@ def test_rebuild_writes_files_and_manifest_and_swaps_whole(tmp_path, capsys):
     manifest = l1.rebuild(tmp_path, V)
     d = l1.l1_dir(tmp_path, V)
     assert sorted(p.name for p in d.iterdir()) == sorted(
-        ["manifest.json", *(l1.FILES[k] for k in l1.DERIVATIONS)])
+        ["manifest.json", "periods.jsonl", *(l1.FILES[k] for k in l1.DERIVATIONS)])
     assert not (d.with_name("l1.tmp")).exists() and not d.with_name("l1.old").exists()
     assert manifest["through"] == {"trip": at(107)}
     assert manifest["config"].startswith("sha256:") and manifest["receipts"].startswith("sha256:")

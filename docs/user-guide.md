@@ -4,11 +4,12 @@
 `docs/`; this page is the tour of the `vledger` command, verb by verb.*
 
 **Status:** the integration captures; the `l0` verbs exist; `derive trips`,
-`derive refuellings`, `derive charging` and the `calc` atoms exist; L1 is
-written and read with `derive … --write` and the `l1` verbs, and the
-integration keeps it live; receipts are entered, corrected, cancelled and
-matched with the `receipt` verbs and `derive match`. Receipt entry in Home
-Assistant, metrics, exports and reports are planned.
+`derive refuellings`, `derive charging`, `derive periods` and the `calc`
+atoms exist; L1 is written and read with `derive … --write` and the `l1`
+verbs, and the integration keeps it live; receipts are entered,
+corrected, cancelled and matched with the `receipt` verbs and `derive
+match`. Receipt entry in Home Assistant, metric entities, exports and
+reports are planned.
 
 ## In Home Assistant
 
@@ -41,6 +42,10 @@ choose what to add.
 **A charge point**, in one step: name, location and radius on the map, an
 optional energy meter entity, and the first tariff with the date it is
 valid from. A charge point serves every vehicle.
+
+A vehicle's months and years are those of Home Assistant's time zone
+(*Settings → System → General*); the ledger records it at every start, and
+a changed zone makes a rebuild of L1 due.
 
 From the moment an entry is set up its raw log is written under
 `<config>/vledger/`, and the entity **Capture status** shows `running`
@@ -267,6 +272,35 @@ the loss factor, and the capacity is never calibrated from them.
 trips count them while plugged. A session across a capture gap is
 `incomplete`.
 
+### Periods
+
+The metrics come per calendar month, per calendar year, for the rolling
+period (30 days up to the stream's last line) and for the whole of
+capture:
+
+```bash
+vledger derive periods --vehicle a7c1 | jq 'select(.period == "month") | {start, distance_km, fuel_eur_per_100km, grid_kwh_per_100km, eur_per_100km}'
+vledger derive periods --vehicle a7c1 | jq 'select(.period == "lifetime") | {consumption_l_per_100km, consumption_error_pct, charge_cycles, tank_fills}'
+```
+
+Each line has the distance; the litres and the fuel cost bought, from the
+receipts; the litres actually used, corrected by the fuel level at the
+period's start and end; the grid-side kWh and electricity cost of the
+charging sessions; the battery-side kWh, corrected by the state of charge
+at both ends; kWh and euro per 100 km; the electric share of the energy,
+and an estimate of the electric share of the distance; charge cycles and
+tank fills. Every value has its quality beside it. An event counts in the
+period it starts in, so a trip across midnight on the last of the month
+counts in that month, whole. `gaps` says how many capture gaps lie in the
+period: what happened inside one is missing from the counts.
+
+The fuel consumption in litres per 100 km is on the lifetime line only,
+measured tank to tank between two receipts — the latest such interval
+whose possible error is under 5 %, which is always the case between two
+full tanks. Between partial fills it needs the fuel level sensor's
+resolution among the parameters; without it only full to full counts.
+Receipt the refuellings: one without a receipt breaks the interval.
+
 ## Receipts: `vledger receipt`
 
 A receipt is what you state about a refuelling or a charge: what the
@@ -314,6 +348,7 @@ they were derived from ([l1-format.md](l1-format.md)).
 vledger derive trips --vehicle a7c1 --write      # replace l1/trips.jsonl with every completed trip
 vledger derive refuellings --vehicle a7c1 --write   # likewise l1/refuellings.jsonl
 vledger derive charging --vehicle a7c1 --write      # likewise l1/charging-sessions.jsonl
+vledger derive periods --vehicle a7c1 --write    # rewrite l1/periods.jsonl from the events on disk
 vledger derive all --vehicle a7c1 --write        # rebuild all of l1/ from scratch, swapped in whole
 vledger l1 status --vehicle a7c1                 # the manifest, and whether a rebuild is due and why
 vledger l1 read --vehicle a7c1 --kind trip       # the events, as l0 read prints lines
@@ -341,6 +376,5 @@ vledger calc convert 72 "°F" --quantity temperature     # 22.2222 °C
 
 ## Planned
 
-`derive periods`, `vledger export …` and
-`vledger report …` follow the same shape: a noun, a verb, `--base` and the
-subject.
+`vledger export …` and `vledger report …` follow the same shape: a noun,
+a verb, `--base` and the subject.

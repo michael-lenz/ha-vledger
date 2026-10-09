@@ -23,6 +23,7 @@ from vledger import (
     geo,
     l0,
     l1,
+    periods,
     receipts,
     refuellings,
     series,
@@ -275,6 +276,24 @@ def cmd_derive_charging(args) -> int:
     return 0
 
 
+def cmd_derive_periods(args) -> int:
+    base, subject = _base(args), _subject(args)
+    if subject.kind != "vehicle":
+        raise Usage("periods are a vehicle's; a charge point's L1 holds none")
+    if args.write:
+        if l1.read_manifest(base, subject) is None:
+            raise Usage("no L1 to compute periods from: derive all --write first")
+        path = l1.write_periods(base, subject)
+        print(f"{path.name}: {sum(1 for _ in l1.read(base, subject, 'period'))} period(s), "
+              f"from the events in {l1.l1_dir(base, subject)}")
+        return 0
+    found = periods.derive_from(base, subject)
+    for line in found:
+        print(json.dumps(line, ensure_ascii=False))
+    print(f"{len(found)} period(s)", file=sys.stderr)
+    return 0
+
+
 def cmd_derive_all(args) -> int:
     base, subject = _base(args), _subject(args)
     if not args.write:
@@ -518,6 +537,12 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--write", action="store_true",
                     help="replace l1/charging-sessions.jsonl instead of printing")
     sp.set_defaults(func=cmd_derive_charging)
+    sp = dverbs.add_parser("periods", help="the metrics per month, year, rolling period and "
+                                           "lifetime, as JSON Lines")
+    _add_stream_args(sp)
+    sp.add_argument("--write", action="store_true",
+                    help="rewrite l1/periods.jsonl from the events on disk instead of printing")
+    sp.set_defaults(func=cmd_derive_periods)
     sp = dverbs.add_parser("all", help="rebuild L1 from scratch, atomically")
     _add_stream_args(sp)
     sp.add_argument("--write", action="store_true", help="required: this writes")

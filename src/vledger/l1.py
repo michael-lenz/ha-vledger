@@ -34,6 +34,12 @@ MANIFEST = "manifest.json"
 #: in by the modules that derive, so this one knows no derivation itself.
 DERIVATIONS: dict[str, Callable[[Path, Subject, str | None], list[dict]]] = {}
 
+#: The periods (ADR-0014, point 6): a function of (base, subject, events by
+#: kind) returning every line of periods.jsonl. Not an event kind — no
+#: cursor, no append — so it is called last, by both writers, rather than
+#: registered among the derivations. Set by vledger.periods.
+PERIODS: Callable[[Path, Subject, dict[str, list[dict]]], list[dict]] | None = None
+
 
 def l1_dir(base: Path, subject: Subject) -> Path:
     return layout.subject_dir(base, subject) / "l1"
@@ -237,12 +243,16 @@ def rebuild(base: Path, subject: Subject) -> dict:
         shutil.rmtree(tmp)
     tmp.mkdir(parents=True)
     through: dict[str, str] = {}
+    derived: dict[str, list[dict]] = {}
     for kind in kinds(base, subject):
-        events = derive(base, subject, kind)
+        events = derived[kind] = derive(base, subject, kind)
         (tmp / FILES[kind]).write_text("".join(encode(e) + "\n" for e in events), encoding="utf-8")
         t = through_of(events)
         if t:
             through[kind] = t
+    lines = _periods(base, subject, derived)
+    if lines is not None:
+        (tmp / FILES["period"]).write_text("".join(encode(e) + "\n" for e in lines), encoding="utf-8")
     # The manifest goes into the temporary directory too, so the swap is one act.
     manifest = {
         "vledger": __version__,
@@ -292,8 +302,25 @@ def incremental(base: Path, subject: Subject) -> dict[str, list[dict]]:
         t = through_of(new, cursor)
         if t:
             through[kind] = t
+    # Every run, appended or not: the rolling period moves with L0.
+    write_periods(base, subject)
     write_manifest(base, subject, through)
     return added
+
+
+def _periods(base: Path, subject: Subject, events: dict[str, list[dict]]) -> list[dict] | None:
+    """The lines of periods.jsonl, or None where there is no such file — a
+    charge point's L1 holds none (ADR-0009, 1)."""
+    if PERIODS is None or subject.kind != "vehicle":
+        return None
+    return PERIODS(base, subject, events)
+
+
+def write_periods(base: Path, subject: Subject) -> Path | None:
+    """Rewrite periods.jsonl whole, atomically, from the event files as
+    they are on disk (ADR-0009, 2; ADR-0014, 6)."""
+    lines = _periods(base, subject, {k: list(read(base, subject, k)) for k in kinds(base, subject)})
+    return None if lines is None else write_kind(base, subject, "period", lines)
 
 
 def _rebuild_and_diff(base: Path, subject: Subject) -> dict[str, list[dict]]:

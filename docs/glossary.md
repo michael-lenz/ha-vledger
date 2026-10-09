@@ -165,8 +165,10 @@ the fuel level sensor's **resolution**.
 tank-to-tank interval is reported as *the* consumption; intervals are
 extended over consecutive receipts until one qualifies.
 
-**Period.** A calendar month, a calendar year, or the **rolling period**
-(default 30 days) the metrics are reported for. Purchase figures (litres
+**Period.** A calendar month, a calendar year — local to the vehicle's
+time zone — or the **rolling period** (default 30 days, ending at the
+stream's last line) the metrics are reported for; the **lifetime** is the
+whole of capture. Purchase figures (litres
 refuelled, fuel cost) count what was bought in the period; rates (€/100 km,
 kWh/100 km) use what was consumed, corrected for the change in fuel level
 and SoC stock between the period's start and end.

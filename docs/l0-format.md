@@ -113,8 +113,14 @@ start line) and on every change:
             "charging_state":{"entity":"sensor.volvo_charging",
                               "map":{"charging":["Charging"],"idle":["Idle","Done","unavailable"]}}},
    "parameters":{"tank_capacity_l":71,"battery_net_kwh":14.7,"fuel":"petrol"},
-   "thresholds":{"t_still_s":1800,"refuel_threshold_l":3,"heartbeat_s":3600}}}
+   "thresholds":{"t_still_s":1800,"refuel_threshold_l":3,"heartbeat_s":3600},
+   "time_zone":"Europe/Berlin"}}
 ```
+
+A vehicle's `time_zone` is the IANA zone its calendar months and years
+begin in; the integration writes Home Assistant's own at every start. A
+config line without one — every line written before it existed — reads
+as UTC.
 
 A charge point is its own subject with its own stream; its `config` line
 carries name, position, radius, meter entity and the tariff history, and

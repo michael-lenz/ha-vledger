@@ -29,7 +29,7 @@ from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.helpers.event import async_call_later
 from homeassistant.util import dt as dt_util
 
-import vledger.cli  # noqa: F401 — every derivation the verbs see registers itself in l1.DERIVATIONS
+import vledger.cli  # noqa: F401 — every derivation the verbs see registers itself in l1.DERIVATIONS, the periods in l1.PERIODS
 from vledger import l0, l1
 
 from .capture import Capture
