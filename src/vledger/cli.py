@@ -15,7 +15,7 @@ import os
 import sys
 from pathlib import Path
 
-from vledger import __version__, clock, l0
+from vledger import __version__, clock, geo, l0, trips, units
 from vledger.layout import Subject
 
 ENV_BASE = "VLEDGER_BASE"
@@ -49,9 +49,12 @@ def _json_arg(text: str):
     """JSON from the argument itself, from a file, or from stdin (``-``)."""
     if text == "-":
         return json.load(sys.stdin)
-    p = Path(text)
-    if p.is_file():
-        return json.loads(p.read_text(encoding="utf-8"))
+    try:
+        is_file = Path(text).is_file()
+    except (OSError, ValueError):   # a long JSON string is not a path
+        is_file = False
+    if is_file:
+        return json.loads(Path(text).read_text(encoding="utf-8"))
     try:
         return json.loads(text)
     except json.JSONDecodeError:
@@ -168,6 +171,29 @@ def cmd_l0_gaps(args) -> int:
     return 0
 
 
+# --- derive verbs ----------------------------------------------------------
+
+def cmd_derive_trips(args) -> int:
+    found = trips.derive_from(_base(args), _subject(args), since=args.since, until=args.until)
+    for trip in found:
+        print(json.dumps(trips.to_dict(trip), ensure_ascii=False))
+    print(f"{len(found)} trip(s)", file=sys.stderr)
+    return 0
+
+
+# --- calc verbs: the atoms ---------------------------------------------------
+
+def cmd_calc_distance(args) -> int:
+    print(f"{geo.distance_km(args.lat1, args.lon1, args.lat2, args.lon2):.3f} km")
+    return 0
+
+
+def cmd_calc_convert(args) -> int:
+    value = units.convert(args.value, args.unit, args.quantity)
+    print(f"{value:g} {units.normal_unit(args.quantity)}")
+    return 0
+
+
 # --- the parser ------------------------------------------------------------
 
 def build_parser() -> argparse.ArgumentParser:
@@ -238,6 +264,27 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--min", type=float, default=0, help="shortest gap to list, seconds")
     sp.add_argument("--json", action="store_true", help="the gaps as JSON")
     sp.set_defaults(func=cmd_l0_gaps)
+
+    p_derive = nouns.add_parser("derive", help="the derivations, one at a time")
+    dverbs = p_derive.add_subparsers(dest="verb", metavar="<verb>", required=True)
+    sp = dverbs.add_parser("trips", help="the trips in a stream, as JSON Lines")
+    _add_stream_args(sp)
+    sp.add_argument("--since", help="first time to read, inclusive")
+    sp.add_argument("--until", help="last time to read, inclusive")
+    sp.set_defaults(func=cmd_derive_trips)
+
+    p_calc = nouns.add_parser("calc", help="the atoms the derivations are built from")
+    cverbs = p_calc.add_subparsers(dest="verb", metavar="<verb>", required=True)
+    sp = cverbs.add_parser("distance", help="great-circle distance between two positions")
+    for name in ("lat1", "lon1", "lat2", "lon2"):
+        sp.add_argument(name, type=float)
+    sp.set_defaults(func=cmd_calc_distance)
+    sp = cverbs.add_parser("convert", help="a value in a source unit as the L1 unit")
+    sp.add_argument("value", type=float)
+    sp.add_argument("unit", help="the source unit, as Home Assistant spells it")
+    sp.add_argument("--quantity", required=True,
+                    choices=["distance", "volume", "energy", "percent", "temperature"])
+    sp.set_defaults(func=cmd_calc_convert)
 
     return parser
 

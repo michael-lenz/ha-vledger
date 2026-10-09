@@ -62,7 +62,9 @@ zones, distance, waypoints and mean outside temperature.
 **Standstill.** A span of at least **T_still** in which no movement role
 changes.
 
-**Waypoint.** A position recorded during a trip.
+**Waypoint.** A position recorded during a trip, plus the one the vehicle
+stood at before it moved. A fix's `gps_accuracy` of 0 means unknown, not
+exact — the reference vehicle reports 0 for every fix (ISSUE-0004).
 
 **Charging session.** From the charging state turning to `charging` until
 it turns away, with SoC at start and end, position, charge point and the

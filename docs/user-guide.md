@@ -3,8 +3,9 @@
 *What a participant types. The design is in the other documents under
 `docs/`; this page is the tour of the `vledger` command, verb by verb.*
 
-**Status:** the integration captures, and the `l0` verbs exist. Receipts,
-derivations, exports and reports are planned.
+**Status:** the integration captures; the `l0` verbs exist; `derive trips`
+and the `calc` atoms exist and print. Receipts, the other derivations,
+storing L1, exports and reports are planned.
 
 ## In Home Assistant
 
@@ -122,7 +123,44 @@ Lists every span in which nothing was captured, with its reason: `crash`,
 gaps shorter than that; `--now` judges the end of the stream against a time
 other than now.
 
+## The derivations: `vledger derive`
+
+Each derivation on its own, reading a stream and printing what it found as
+JSON Lines — one event per line, so it composes with `jq` like `l0 read`.
+
+```bash
+vledger derive trips --vehicle a7c1
+vledger derive trips --vehicle a7c1 --since 2026-10-01T00:00:00Z | jq '{start, end, distance_km, distance_source}'
+```
+
+A trip is the span between two standstills: from the first sample that
+moved after at least T_still of nothing moving, to the last before the
+next such span. An ignition that was assigned refines the start. Every
+trip carries its distance with its source and quality (`odometer`
+measured, `trip_counter` measured, `waypoints` estimated), the positions
+and zones at both ends, every fix in between, the mean outside
+temperature, and ΔSoC and Δfuel as estimates. A trip that spans a capture
+gap is `incomplete`, and nothing is read across a gap: the distance driven
+inside one belongs to no trip.
+
+What the sampling cannot show, a trip cannot show either: with positions
+and the odometer every 15 minutes, a stop of 20 minutes may look like 35
+between moving samples and split the trip — that is the sampling, not the
+stop ([glossary](glossary.md), *Sampling interval*).
+
+## The atoms: `vledger calc`
+
+The computations the derivations are built from, each callable on its own
+so any step can be checked by hand:
+
+```bash
+vledger calc distance 51.4437 7.1413 51.4812 7.2166     # great-circle, km
+vledger calc convert 630 mi --quantity distance         # 1013.89 km
+vledger calc convert 72 "°F" --quantity temperature     # 22.2222 °C
+```
+
 ## Planned
 
-`vledger receipt …`, `vledger derive …`, `vledger export …` and `vledger
-report …` follow the same shape: a noun, a verb, `--base` and the subject.
+`vledger receipt …`, the other derivations, `vledger export …` and
+`vledger report …` follow the same shape: a noun, a verb, `--base` and the
+subject.
