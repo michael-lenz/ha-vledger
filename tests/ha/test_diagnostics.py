@@ -14,7 +14,8 @@ from pytest_homeassistant_custom_component.components.diagnostics import (
     get_diagnostics_for_config_entry,
 )
 
-from vledger import clock, l0, layout, stats
+from vledger import clock, layout, stats
+from vledger.cli import main
 from vledger.layout import Subject
 
 V = Subject("vehicle", "a7c1")
@@ -83,12 +84,12 @@ async def test_the_raw_log_as_diagnostic_entities(hass, vehicle_entry, tmp_path)
 async def test_what_the_stream_held_before_start_is_counted(hass, vehicle_entry, tmp_path):
     # An earlier run today that crashed: a start, a state line, no stop.
     earlier = dt_util.utcnow() - timedelta(minutes=30)
-    for line in (
-        l0.start(clock.to_text(earlier), V, vledger="0.1.0", homeassistant="2026.10.1", snapshot=[]),
-        l0.state(clock.to_text(earlier + timedelta(seconds=1)), V, "odometer",
-                 "sensor.volvo_odometer", "99", unit="km"),
-    ):
-        l0.append(tmp_path, V, line)
+    b = ["--base", str(tmp_path), "--vehicle", V.id]
+    assert main(["l0", "start", *b, "--t", clock.to_text(earlier),
+                 "--homeassistant", "2026.10.1"]) == 0
+    assert main(["l0", "state", *b, "--t", clock.to_text(earlier + timedelta(seconds=1)),
+                 "--role", "odometer", "--entity", "sensor.volvo_odometer",
+                 "--state", "99", "--unit", "km"]) == 0
     hass.states.async_set("sensor.volvo_odometer", "100", {"unit_of_measurement": "km"})
     await _set_up(hass, vehicle_entry)
 
