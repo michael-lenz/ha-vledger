@@ -5,9 +5,10 @@
 
 **Status:** the integration captures; the `l0` verbs exist; `derive trips`,
 `derive refuellings`, `derive charging` and the `calc` atoms exist; L1 is
-written and read with `derive … --write` and the `l1` verbs. Receipts,
-metrics, the live derivation in Home Assistant, exports and reports are
-planned.
+written and read with `derive … --write` and the `l1` verbs; receipts are
+entered, corrected, cancelled and matched with the `receipt` verbs and
+`derive match`. Receipt entry in Home Assistant, metrics, the live
+derivation in Home Assistant, exports and reports are planned.
 
 ## In Home Assistant
 
@@ -238,16 +239,53 @@ when the capacity is set. `grid_kwh` comes from the charge point's meter
 stream, when no other vehicle charged there during the session —
 otherwise `meter_attributable` is `false` — else from `battery_kwh` × the
 charging loss factor (`loss_factor`, estimated), else it is empty. A
-charging receipt will take precedence over both once receipts exist.
+charging receipt takes precedence over both (*Receipts*, below).
 `cost_eur` is `grid_kwh` × the charge point's tariff valid at the start,
 with the energy's quality; a tariff of 0 costs 0 without any energy; a
-foreign charge has no cost until a receipt gives one. Where the meter
-measured, `kwh_per_pct` is the grid-side kWh per % SoC and
+foreign charge has no cost until a receipt gives one. Where a receipt or
+the meter gives the grid-side energy, `kwh_per_pct` is the grid-side kWh per % SoC and
 `charging_loss_kwh` grid- minus battery-side energy — never derived from
 the loss factor, and the capacity is never calibrated from them.
 `movements_while_charging` counts moving samples inside the session, as
 trips count them while plugged. A session across a capture gap is
 `incomplete`.
+
+## Receipts: `vledger receipt`
+
+A receipt is what you state about a refuelling or a charge: what the
+pump or the bill says. It is kept in `receipts.jsonl` next to L0, never
+edited ([receipts-format.md](receipts-format.md)).
+
+```bash
+vledger receipt add refuelling --vehicle a7c1 --anchor 2026-10-12T16:40Z \
+    --quantity-l 41.37 --total-price 72.36 --full --place "motorway services"
+vledger receipt add charging --vehicle a7c1 --anchor 2026-10-14T09:10Z \
+    --energy-kwh 11.8 --total-price 6.49 --provider "roaming card"
+vledger receipt list --vehicle a7c1             # the receipts that count, by anchor time
+vledger receipt list --vehicle a7c1 --all       # every line, corrected and cancelled ones too
+```
+
+`add` prints the line it wrote, with the receipt's id. `--anchor` is when
+it happened, and may be a few hours off: the receipt meets the nearest
+refuelling or charging session within the matching tolerance (6 h by
+default), however long after the fact you enter it. To enter a receipt
+for an event the ledger detected, give its start as `--from-candidate`
+instead; it then meets exactly that event. `--partial` instead of
+`--full` says the tank was not filled; `--unit-price` may stand beside or
+instead of `--total-price`.
+
+A mistake is corrected or cancelled by a receipt of its own:
+
+```bash
+vledger receipt add refuelling --vehicle a7c1 --replaces 5b0e… --anchor … --quantity-l 41.73 …
+vledger receipt cancel 5b0e… --vehicle a7c1 --note "entered twice"
+vledger derive match --vehicle a7c1             # which receipt met which event, and which did not
+```
+
+A correction is the whole receipt again, not just the field that was
+wrong. Only the current receipt can be corrected or cancelled. A receipt
+that meets two events equally, or that another receipt competes with, is
+reported as ambiguous and assigned to nothing: correct its anchor.
 
 ## The derivation on disk: `vledger l1`
 
@@ -286,6 +324,6 @@ vledger calc convert 72 "°F" --quantity temperature     # 22.2222 °C
 
 ## Planned
 
-`vledger receipt …`, `derive periods`, `vledger export …` and
+`derive periods`, `vledger export …` and
 `vledger report …` follow the same shape: a noun, a verb, `--base` and the
 subject.

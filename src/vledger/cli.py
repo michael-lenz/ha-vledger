@@ -2,7 +2,8 @@
 """The ``vledger`` command line.
 
 Every operation the library offers is a verb here, grouped by noun
-(ADR-0005): ``vledger l0 …`` for the raw log. A verb reads and writes the
+(ADR-0005): ``vledger l0 …`` for the raw log, ``vledger receipt …`` for
+what a person states about a refuelling or a charge. A verb reads and writes the
 directory layout under ``--base`` and prints what it did. The library does
 the work; this module parses arguments and spells results.
 """
@@ -22,6 +23,7 @@ from vledger import (
     geo,
     l0,
     l1,
+    receipts,
     refuellings,
     series,
     stats,
@@ -223,7 +225,7 @@ def _write_kind(args, kind: str, noun: str) -> int:
     if args.since or args.until:
         raise Usage("--write replaces the whole file; it takes no --since or --until")
     base, subject = _base(args), _subject(args)
-    events = l1.DERIVATIONS[kind](base, subject, None)
+    events = l1.derive(base, subject, kind)
     path = l1.write_kind(base, subject, kind, events)
     manifest = l1.read_manifest(base, subject) or {}
     through = dict(manifest.get("through") or {})
@@ -281,6 +283,88 @@ def cmd_derive_all(args) -> int:
     for kind, t in manifest["through"].items():
         print(f"{kind}: through {t}")
     print(f"rebuilt {l1.l1_dir(base, subject)}")
+    return 0
+
+
+# --- receipt verbs ---------------------------------------------------------
+
+def _vehicle(args) -> Subject:
+    subject = _subject(args)
+    if subject.kind != "vehicle":
+        raise Usage("receipts belong to a vehicle: name it with --vehicle")
+    return subject
+
+
+def _anchor(args, base: Path, subject: Subject, kind: str) -> tuple[str, bool]:
+    """The anchor time, and whether it was taken from a candidate (BEL-04)."""
+    if args.from_candidate:
+        anchor = clock.parse(args.from_candidate)
+        starts = {clock.parse(e["start"]) for e in l1.detected(base, subject, kind)}
+        if anchor not in starts:
+            raise Usage(f"no {kind} event starts at {args.from_candidate}; "
+                        f"give --anchor to enter a receipt freely")
+        return clock.to_text(anchor), True
+    if args.anchor:
+        return args.anchor, False
+    raise Usage("say when: --anchor T, or --from-candidate T for a detected event")
+
+
+def cmd_receipt_add_refuelling(args) -> int:
+    base, subject = _base(args), _vehicle(args)
+    anchor, exact = _anchor(args, base, subject, "refuelling")
+    line = receipts.refuelling(
+        _t(args), subject, anchor=anchor, exact=exact, quantity_l=args.quantity_l,
+        full=args.full, total_price=args.total_price, unit_price=args.unit_price,
+        place=args.place, fuel=args.fuel, note=args.note, replaces=args.replaces)
+    receipts.append(base, subject, line)
+    print(l0.encode(line))
+    return 0
+
+
+def cmd_receipt_add_charging(args) -> int:
+    base, subject = _base(args), _vehicle(args)
+    anchor, exact = _anchor(args, base, subject, "charging")
+    line = receipts.charging(
+        _t(args), subject, anchor=anchor, exact=exact, energy_kwh=args.energy_kwh,
+        total_price=args.total_price, place=args.place, provider=args.provider,
+        note=args.note, replaces=args.replaces)
+    receipts.append(base, subject, line)
+    print(l0.encode(line))
+    return 0
+
+
+def cmd_receipt_cancel(args) -> int:
+    base, subject = _base(args), _vehicle(args)
+    line = receipts.cancel(_t(args), subject, cancels=args.id, note=args.note)
+    receipts.append(base, subject, line)
+    print(l0.encode(line))
+    return 0
+
+
+def cmd_receipt_list(args) -> int:
+    base, subject = _base(args), _vehicle(args)
+    if args.all:
+        lines = [r.line for r in receipts.read(base, subject)]
+    else:
+        lines = receipts.ledger(base, subject).current(args.kind)
+    lines = [ln for ln in lines if args.kind is None or ln["kind"] == args.kind]
+    for line in lines:
+        print(l0.encode(line))
+    print(f"{len(lines)} receipt(s)", file=sys.stderr)
+    return 0
+
+
+def cmd_derive_match(args) -> int:
+    base, subject = _base(args), _vehicle(args)
+    rows = receipts.pairing(
+        receipts.ledger(base, subject).current(),
+        {k: l1.detected(base, subject, k) for k in receipts.EVENT_KINDS},
+        l1.thresholds(base, subject)["matching_tolerance_s"])
+    for row in rows:
+        print(json.dumps(row, ensure_ascii=False))
+    counts = {m: sum(r["match"] == m for r in rows) for m in ("event", "own", "ambiguous")}
+    print(f"{len(rows)} receipt(s): {counts['event']} met an event, {counts['own']} "
+          f"stand alone, {counts['ambiguous']} ambiguous", file=sys.stderr)
     return 0
 
 
@@ -438,6 +522,58 @@ def build_parser() -> argparse.ArgumentParser:
     _add_stream_args(sp)
     sp.add_argument("--write", action="store_true", help="required: this writes")
     sp.set_defaults(func=cmd_derive_all)
+
+    sp = dverbs.add_parser("match", help="pair the current receipts with the detected "
+                                         "refuellings and charging sessions")
+    _add_stream_args(sp)
+    sp.set_defaults(func=cmd_derive_match)
+
+    p_receipt = nouns.add_parser("receipt", help="what a person states: add, cancel, list")
+    rverbs = p_receipt.add_subparsers(dest="verb", metavar="<verb>", required=True)
+    sp = rverbs.add_parser("add", help="append a refuelling or charging receipt")
+    akinds = sp.add_subparsers(dest="receipt_kind", metavar="<kind>", required=True)
+
+    def receipt_common(sp: argparse.ArgumentParser) -> None:
+        _add_stream_args(sp)
+        sp.add_argument("--t", help="the time of entry, UTC ISO 8601 (default: now)")
+        g = sp.add_mutually_exclusive_group()
+        g.add_argument("--anchor", help="when the refuelling or charge happened, as typed")
+        g.add_argument("--from-candidate", metavar="START",
+                       help="the start of a detected event: anchors there exactly")
+        sp.add_argument("--total-price", type=float, help="the amount paid")
+        sp.add_argument("--place", help="where, as free text")
+        sp.add_argument("--note", help="anything else")
+        sp.add_argument("--replaces", metavar="UUID", help="correct this receipt: replaces it whole")
+
+    sp = akinds.add_parser("refuelling", help="litres, a price, full tank or not")
+    receipt_common(sp)
+    sp.add_argument("--quantity-l", type=float, required=True, help="litres, as on the receipt")
+    sp.add_argument("--unit-price", type=float, help="the price per litre")
+    g = sp.add_mutually_exclusive_group(required=True)
+    g.add_argument("--full", dest="full", action="store_true", help="the tank was filled")
+    g.add_argument("--partial", dest="full", action="store_false", help="it was not")
+    sp.add_argument("--fuel", help="the fuel type, as on the receipt")
+    sp.set_defaults(func=cmd_receipt_add_refuelling)
+
+    sp = akinds.add_parser("charging", help="billed kWh and the price")
+    receipt_common(sp)
+    sp.add_argument("--energy-kwh", type=float, required=True, help="the billed energy")
+    sp.add_argument("--provider", help="who billed it")
+    sp.set_defaults(func=cmd_receipt_add_charging)
+
+    sp = rverbs.add_parser("cancel", help="take a receipt out, with a receipt of its own")
+    _add_stream_args(sp)
+    sp.add_argument("id", metavar="UUID", help="the receipt to cancel")
+    sp.add_argument("--t", help="the time of entry, UTC ISO 8601 (default: now)")
+    sp.add_argument("--note", help="why")
+    sp.set_defaults(func=cmd_receipt_cancel)
+
+    sp = rverbs.add_parser("list", help="the receipts that count, by anchor time")
+    _add_stream_args(sp)
+    sp.add_argument("--kind", choices=receipts.KINDS)
+    sp.add_argument("--all", action="store_true",
+                    help="every line in file order, corrected and cancelled ones too")
+    sp.set_defaults(func=cmd_receipt_list)
 
     p_l1 = nouns.add_parser("l1", help="the derivation on disk: read, status, clean")
     lverbs = p_l1.add_subparsers(dest="verb", metavar="<verb>", required=True)

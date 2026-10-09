@@ -5,9 +5,9 @@ project's register. This page is what a reader of their own `l1/` needs;
 the reasoning is in the decision.*
 
 **Status:** `trips.jsonl`, `refuellings.jsonl`, `charging-sessions.jsonl`,
-the manifest, the cursor, rebuilds and the `l1` verbs exist. Periods, and
-the live derivation in Home Assistant that appends as events complete, are
-planned.
+the manifest, the cursor, rebuilds, the `l1` verbs and receipts in events
+exist. Periods, and the live derivation in Home Assistant that appends as
+events complete, are planned.
 
 ## Files
 
@@ -46,7 +46,38 @@ to know whether one of them charged at the same meter meanwhile (LAD-07).
 
 `config` is the hash of the latest `config` line's object, `receipts` the
 hash of `receipts.jsonl`; `through` is, per kind, the `end` of the last
-event written — the cursor; `l0_through` the `t` of the last L0 line read.
+detected event written — the cursor, which an event made from a receipt
+alone does not move; `l0_through` the `t` of the last L0 line read.
+
+## Receipts in events
+
+Refuellings and charging sessions are matched against the current
+receipts on every derivation ([receipts-format.md](receipts-format.md#matching)).
+Every such event carries:
+
+| key | meaning |
+|---|---|
+| `receipt` | the id of the receipt it carries, or `null` |
+| `confirmation` | `receipt`; `chargepoint` (a session at a configured charge point, without a receipt); `unconfirmed` (waiting for one); `ambiguous` |
+| `contenders` | only when `ambiguous`: the ids of the receipts competing for it |
+
+With a receipt, its values come first, flagged `receipt`, and the sensor
+value they displaced stays beside them:
+
+| kind | from the receipt | kept from the sensor |
+|---|---|---|
+| refuelling | `quantity_l`, `quantity_quality`; `price`, `unit_price`, `price_quality`; `full`, `place`, `fuel`, `note` | `sensor_delta_l` |
+| charging | `grid_kwh`, `grid_kwh_quality` and `grid_kwh_source` all `receipt`; `cost_eur`, `cost_quality`; `place`, `provider`, `note` — and `kwh_per_pct`, `charging_loss_kwh` from the billed energy (LAD-09) | `sensor_grid_kwh`, `sensor_grid_kwh_quality`, `sensor_grid_kwh_source` |
+
+`deviation_pct` is |receipt − sensor| / receipt × 100, and `implausible`
+is `true` above `plausibility_pct` (default 15); without a sensor value
+the deviation is `null` and nothing is flagged. A receipt that met no
+event is an event of its own, `start` = `end` = its anchor, quality
+`receipt`.
+
+The incremental derivation appends a new refuelling or session only when
+no current receipt is anchored later than the tolerance before it; when
+one is, the new event could change a match on disk, and it rebuilds.
 
 ## Who writes what
 

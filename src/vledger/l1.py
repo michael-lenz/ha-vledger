@@ -16,7 +16,8 @@ import shutil
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
-from vledger import __version__, clock, l0, layout
+from vledger import __version__, clock, l0, layout, receipts
+from vledger import config as vconfig
 from vledger.layout import Subject
 
 #: Event kind -> the file that holds it.
@@ -153,12 +154,70 @@ def write_kind(base: Path, subject: Subject, kind: str, events: list[dict]) -> P
 
 
 def through_of(events: list[dict], previous: str | None = None) -> str | None:
-    """The cursor after these events: the latest end."""
+    """The cursor after these events: the latest end of a detected one."""
     best = previous
     for e in events:
+        if receipts.is_own(e):
+            continue    # the cursor follows the stream, not what a person typed
         if best is None or clock.parse(e["end"]) > clock.parse(best):
             best = e["end"]
     return best
+
+
+# --- derivation with receipts (ADR-0013) ---------------------------------
+
+def thresholds(base: Path, subject: Subject) -> dict:
+    """The thresholds of the latest config line, over the defaults."""
+    thr = dict(vconfig.DEFAULT_THRESHOLDS)
+    latest = None
+    for r in l0.read(base, subject, kind="config"):
+        latest = r.line["config"]
+    thr.update((latest or {}).get("thresholds") or {})
+    return thr
+
+
+def kinds(base: Path, subject: Subject) -> list[str]:
+    """The kinds L1 holds: every derivation, and a receipt kind whose
+    receipts exist even before its derivation does — a receipt that meets
+    nothing is an event of its own (BEL-06)."""
+    out = list(DERIVATIONS)
+    led = None
+    for kind in receipts.EVENT_KINDS:
+        if kind not in out:
+            led = led or receipts.ledger(base, subject)
+            if led.current(kind):
+                out.append(kind)
+    return out
+
+
+def detected(base: Path, subject: Subject, kind: str, since: str | None = None) -> list[dict]:
+    """One kind's events as its derivation detects them, before any receipt."""
+    d = DERIVATIONS.get(kind)
+    return d(base, subject, since) if d else []
+
+
+def derive(base: Path, subject: Subject, kind: str) -> list[dict]:
+    """One kind's events as L1 holds them: for refuellings and charging
+    sessions, matched against the current receipts (ADR-0013, 4)."""
+    events = detected(base, subject, kind)
+    if kind not in receipts.EVENT_KINDS:
+        return events
+    thr = thresholds(base, subject)
+    return receipts.apply(kind, events, receipts.ledger(base, subject).current(kind),
+                          tolerance_s=thr["matching_tolerance_s"],
+                          plausibility_pct=thr["plausibility_pct"])
+
+
+def _disturbs(base: Path, subject: Subject, kind: str, new: list[dict]) -> bool:
+    """Whether a new event could change a match already on disk: a current
+    receipt anchored no earlier than the tolerance before it. Matching it
+    alone would then differ from a batch run, so the caller rebuilds."""
+    if kind not in receipts.EVENT_KINDS or not new:
+        return False
+    tol = thresholds(base, subject)["matching_tolerance_s"]
+    first = min(clock.parse(e["start"]) for e in new)
+    return any((first - clock.parse(r["anchor"])).total_seconds() <= tol
+               for r in receipts.ledger(base, subject).current(kind))
 
 
 # --- rebuild and incremental -------------------------------------------
@@ -174,8 +233,8 @@ def rebuild(base: Path, subject: Subject) -> dict:
         shutil.rmtree(tmp)
     tmp.mkdir(parents=True)
     through: dict[str, str] = {}
-    for kind, derive in DERIVATIONS.items():
-        events = derive(base, subject, None)
+    for kind in kinds(base, subject):
+        events = derive(base, subject, kind)
         (tmp / FILES[kind]).write_text("".join(encode(e) + "\n" for e in events), encoding="utf-8")
         t = through_of(events)
         if t:
@@ -206,17 +265,23 @@ def incremental(base: Path, subject: Subject) -> dict[str, list[dict]]:
     kind's cursor and append only the events that start after it
     (ADR-0009, 3). Returns the events appended, per kind."""
     if rebuild_due(base, subject):
-        before = {k: list(read(base, subject, k)) for k in DERIVATIONS}
-        rebuild(base, subject)
-        return {k: [e for e in read(base, subject, k) if e not in before.get(k, [])]
-                for k in DERIVATIONS}
+        return _rebuild_and_diff(base, subject)
     manifest = read_manifest(base, subject) or {}
     through = dict(manifest.get("through") or {})
-    added: dict[str, list[dict]] = {}
-    for kind, derive in DERIVATIONS.items():
+    found: dict[str, list[dict]] = {}
+    for kind in DERIVATIONS:
         cursor = through.get(kind)
-        new = [e for e in derive(base, subject, cursor)
-               if cursor is None or clock.parse(e["start"]) > clock.parse(cursor)]
+        found[kind] = [e for e in detected(base, subject, kind, cursor)
+                       if cursor is None or clock.parse(e["start"]) > clock.parse(cursor)]
+        if _disturbs(base, subject, kind, found[kind]):
+            return _rebuild_and_diff(base, subject)
+    added: dict[str, list[dict]] = {}
+    for kind, new in found.items():
+        cursor = through.get(kind)
+        if kind in receipts.EVENT_KINDS:
+            # No receipt is near enough to meet these (_disturbs said so).
+            new = [receipts.apply(kind, [e], [], tolerance_s=0, plausibility_pct=0)[0]
+                   for e in new]
         for e in new:
             append(base, subject, e)
         added[kind] = new
@@ -225,6 +290,13 @@ def incremental(base: Path, subject: Subject) -> dict[str, list[dict]]:
             through[kind] = t
     write_manifest(base, subject, through)
     return added
+
+
+def _rebuild_and_diff(base: Path, subject: Subject) -> dict[str, list[dict]]:
+    before = {k: list(read(base, subject, k)) for k in FILES}
+    rebuild(base, subject)
+    return {k: [e for e in read(base, subject, k) if e not in before.get(k, [])]
+            for k in kinds(base, subject)}
 
 
 def clean(base: Path, subject: Subject) -> bool:

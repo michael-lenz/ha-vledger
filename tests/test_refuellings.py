@@ -165,3 +165,20 @@ def test_the_verbs(tmp_path, capsys):
     assert main(["l1", "read", *b.b, "--kind", "refuelling"]) == 0
     assert json.loads(capsys.readouterr().out)["kind"] == "refuelling"
     shutil.rmtree(tmp_path / "vehicle-a7c1")
+
+
+def test_a_receipt_from_the_candidate_meets_it_in_l1(tmp_path, capsys):
+    b = builder(tmp_path, capsys)
+    to_the_station(b)
+    b.state(52, "fuel_level", 40.0, "L").state(54, "fuel_level", 60.0, "L")
+    b.state(58, "fuel_level", 60.4, "L")
+    b.heartbeat(70)
+    vb = ["--base", str(tmp_path), "--vehicle", "a7c1"]
+    assert main(["receipt", "add", "refuelling", *vb, "--from-candidate", at(52), "--quantity-l", "41.8",
+                 "--total-price", "75.20", "--full", "--t", at(600)]) == 0
+    receipt = json.loads(capsys.readouterr().out)
+    assert main(["derive", "all", *vb, "--write"]) == 0
+    capsys.readouterr()
+    [e] = l1.read(tmp_path, V, "refuelling")
+    assert e["receipt"] == receipt["id"] and e["confirmation"] == "receipt"
+    assert e["quantity_l"] == 41.8 and e["sensor_delta_l"] == 41.5 and e["implausible"] is False

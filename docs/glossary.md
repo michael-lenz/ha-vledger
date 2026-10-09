@@ -112,12 +112,15 @@ cancellation is a new receipt pointing at the old one.
 receipt refers to its event by anchor time only, never by a derived id,
 because derived ids do not survive a recomputation.
 
-**Matching.** Pairing receipts with candidates, redone on every derivation:
-a receipt goes to the nearest candidate of its kind within the **matching
-tolerance**. The tolerance covers the imprecision of a freely typed anchor
-time, not lateness of entry; a receipt entered from a candidate carries the
+**Matching.** Pairing receipts with detected events, redone on every
+derivation: a receipt goes to the nearest event of its kind within the
+**matching tolerance** — every candidate, and a charging session at a
+configured charge point too, which waits for no receipt but accepts one.
+The tolerance covers the imprecision of a freely typed anchor time, not
+lateness of entry; a receipt entered from a candidate carries the
 candidate's time and matches without tolerance. An ambiguous match is
-flagged, never guessed.
+flagged, never guessed; a receipt that meets nothing is an event of its
+own. The rules in full: [receipts-format.md](receipts-format.md#matching).
 
 **Full tank.** A refuelling receipt that says the tank was filled. Not a
 precondition for consumption — only the case in which the sensor term of
