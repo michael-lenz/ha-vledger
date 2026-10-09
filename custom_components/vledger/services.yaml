@@ -1,3 +1,6 @@
+# The actions: recompute (ABL-02) and the receipt actions (HAI-03, ADR-0015),
+# whose fields are the `vledger receipt` verbs' options. Names and
+# descriptions are in strings.json.
 recompute:
   fields:
     config_entry_id:
@@ -5,3 +8,115 @@ recompute:
       selector:
         config_entry:
           integration: vledger
+
+add_refuelling_receipt:
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: vledger
+    anchor:
+      selector:
+        datetime:
+    from_candidate:
+      selector:
+        datetime:
+    quantity_l:
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 1000
+          step: 0.01
+          unit_of_measurement: L
+          mode: box
+    full:
+      required: true
+      default: true
+      selector:
+        boolean:
+    total_price:
+      selector:
+        number:
+          min: 0
+          max: 100000
+          step: 0.01
+          mode: box
+    unit_price:
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 0.001
+          mode: box
+    place:
+      selector:
+        text:
+    fuel:
+      selector:
+        text:
+    note:
+      selector:
+        text:
+    replaces:
+      selector:
+        text:
+
+add_charging_receipt:
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: vledger
+    anchor:
+      selector:
+        datetime:
+    from_candidate:
+      selector:
+        datetime:
+    energy_kwh:
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 1000
+          step: 0.01
+          unit_of_measurement: kWh
+          mode: box
+    total_price:
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 100000
+          step: 0.01
+          mode: box
+    place:
+      selector:
+        text:
+    provider:
+      selector:
+        text:
+    note:
+      selector:
+        text:
+    replaces:
+      selector:
+        text:
+
+cancel_receipt:
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: vledger
+    receipt:
+      required: true
+      selector:
+        text:
+    note:
+      selector:
+        text:

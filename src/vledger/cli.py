@@ -316,16 +316,8 @@ def _vehicle(args) -> Subject:
 
 def _anchor(args, base: Path, subject: Subject, kind: str) -> tuple[str, bool]:
     """The anchor time, and whether it was taken from a candidate (BEL-04)."""
-    if args.from_candidate:
-        anchor = clock.parse(args.from_candidate)
-        starts = {clock.parse(e["start"]) for e in l1.detected(base, subject, kind)}
-        if anchor not in starts:
-            raise Usage(f"no {kind} event starts at {args.from_candidate}; "
-                        f"give --anchor to enter a receipt freely")
-        return clock.to_text(anchor), True
-    if args.anchor:
-        return args.anchor, False
-    raise Usage("say when: --anchor T, or --from-candidate T for a detected event")
+    return receipts.anchor_of(kind, anchor=args.anchor, from_candidate=args.from_candidate,
+                              detected=lambda: l1.detected(base, subject, kind))
 
 
 def cmd_receipt_add_refuelling(args) -> int:

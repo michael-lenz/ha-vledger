@@ -8,8 +8,8 @@
 atoms exist; L1 is written and read with `derive … --write` and the `l1`
 verbs, and the integration keeps it live; receipts are entered,
 corrected, cancelled and matched with the `receipt` verbs and `derive
-match`. Receipt entry in Home Assistant, metric entities, exports and
-reports are planned.
+match`, and in Home Assistant with actions and a dashboard form. Metric
+entities, exports and reports are planned.
 
 ## In Home Assistant
 
@@ -97,6 +97,51 @@ action: vledger.recompute
 data:
   config_entry_id: 01J…      # optional
 ```
+
+### Receipts in Home Assistant
+
+**From a dashboard.** A vehicle with a fuel set gets a refuelling form, one
+with a net battery capacity a charging form — a plug-in hybrid both. A
+form is a handful of entities on the vehicle's device; put them on a card:
+
+- **Event** — *Enter time below*, or one of the unconfirmed candidates the
+  ledger detected, newest first, by start time and the quantity the sensor
+  saw. Picking a candidate gives the receipt that event's time exactly.
+- **Time** — when it happened, used only with *Enter time below*. A few
+  hours off is fine: the receipt meets the nearest event.
+- **Litres** or **Energy**, **Total price**, for a refuelling **Price per
+  litre** (one of the two prices is enough) and **Full tank** (on unless
+  you switch it off), **Place** and **Note**.
+- **Enter refuelling receipt** / **Enter charging receipt** — writes the
+  receipt and clears the form. If the receipt is refused (no time, no
+  price, a candidate that is gone), the message says why and the form keeps
+  what you typed.
+
+What is typed is held in memory only: a restart clears a half-filled form,
+and nothing counts until the button is pressed.
+
+**As actions**, for automations, scripts and *Developer tools → Actions*:
+`vledger.add_refuelling_receipt`, `vledger.add_charging_receipt` and
+`vledger.cancel_receipt`. Each names the vehicle by its entry and takes
+the options of the `receipt` verbs below, under the same names without
+the dashes ([receipts-format.md](receipts-format.md#entering)):
+
+```yaml
+action: vledger.add_refuelling_receipt
+data:
+  config_entry_id: 01J…            # the vehicle
+  anchor: "2026-10-12 18:40:00"    # or from_candidate: the event's start
+  quantity_l: 41.37
+  total_price: 72.36
+  full: true
+response_variable: receipt         # the line written; receipt.id is its UUID
+```
+
+Correcting (`replaces`) and cancelling need a receipt's id, so in Home
+Assistant they are actions only: `vledger.cancel_receipt` with
+`config_entry_id` and `receipt`. Times are the instance's local time.
+Every receipt changes the receipts file, so L1 is rebuilt right after it,
+as at startup.
 
 ## Where the data is
 

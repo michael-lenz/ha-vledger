@@ -335,3 +335,20 @@ def test_writing_one_kind_writes_what_a_rebuild_writes(entry, detected):
     l1.rebuild(entry.base, V)
     assert written == list(l1.read(entry.base, V, "refuelling"))
     assert written[0]["confirmation"] == "receipt"
+
+
+def test_anchor_of_takes_exactly_one_time_and_detects_only_for_a_candidate():
+    def never():
+        raise AssertionError("a typed anchor needs no derivation")
+
+    assert receipts.anchor_of("refuelling", anchor="2026-10-09T12:00:00+02:00",
+                              detected=never) == (at(0), False)
+    for when in ({}, {"anchor": at(0), "from_candidate": at(0)}):
+        with pytest.raises(receipts.Refused, match="exactly one"):
+            receipts.anchor_of("refuelling", **when, detected=never)
+    def starts():
+        return [refuelling(30)]
+
+    assert receipts.anchor_of("refuelling", from_candidate=at(30), detected=starts) == (at(30), True)
+    with pytest.raises(receipts.Refused, match="no refuelling event starts"):
+        receipts.anchor_of("refuelling", from_candidate=at(31), detected=starts)

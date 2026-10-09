@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Coroutine
+from collections.abc import Callable, Coroutine
 from datetime import datetime
 
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
@@ -54,6 +54,7 @@ class L1Writer:
         self._pending = False
         self._stopped = False
         self._last_run: datetime | None = None
+        self._after_run: list[Callable[[], None]] = []
 
         # For diagnostics: what the writer last did.
         self.last_run_at: str | None = None
@@ -83,6 +84,21 @@ class L1Writer:
             pass
         if self._first and not self._first.done():
             self._first.cancel()
+
+    @callback
+    def async_derive_soon(self) -> None:
+        """A run as soon as the lock allows: a receipt was entered, and the
+        rebuild check will find the receipts hash changed (ADR-0015, 2)."""
+        self._request(at_once=True)
+
+    def listen_runs(self, cb: Callable[[], None]) -> CALLBACK_TYPE:
+        """Call ``cb`` after every run, so what reads L1 reads it again."""
+        self._after_run.append(cb)
+
+        def remove() -> None:
+            self._after_run.remove(cb)
+
+        return remove
 
     async def async_recompute(self) -> None:
         """A rebuild on demand: the action ``vledger.recompute`` (ABL-02)."""
@@ -151,6 +167,8 @@ class L1Writer:
                     await self.hass.async_add_executor_job(l1.incremental, base, subject)
             except Exception:
                 _LOGGER.exception("vledger: could not derive L1 for %s", subject.id)
+        for cb in list(self._after_run):
+            cb()
         if self._pending:
             self._request(at_once=False)
 

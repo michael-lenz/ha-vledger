@@ -33,8 +33,11 @@ from .const import (
     SERVICE_RECOMPUTE,
 )
 from .l1writer import L1Writer
+from .receipt_desk import ReceiptDesk
+from .services import async_register
 
-PLATFORMS = [Platform.SENSOR]
+PLATFORMS = [Platform.BUTTON, Platform.DATETIME, Platform.NUMBER, Platform.SELECT,
+             Platform.SENSOR, Platform.SWITCH, Platform.TEXT]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
@@ -43,10 +46,12 @@ RECOMPUTE_SCHEMA = vol.Schema({vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string})
 
 @dataclass
 class Vledger:
-    """What one config entry runs: the raw log and the derivation on disk."""
+    """What one config entry runs: the raw log and the derivation on disk,
+    and for a vehicle the receipt desk (ADR-0015)."""
 
     capture: Capture
     l1: L1Writer
+    desk: ReceiptDesk | None
 
 
 type VledgerConfigEntry = ConfigEntry[Vledger]
@@ -78,6 +83,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             await e.runtime_data.l1.async_recompute()
 
     hass.services.async_register(DOMAIN, SERVICE_RECOMPUTE, recompute, schema=RECOMPUTE_SCHEMA)
+    # The receipt actions, likewise for the domain (ADR-0015, point 1).
+    async_register(hass)
     return True
 
 
@@ -86,9 +93,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: VledgerConfigEntry) -> b
     base = Path(entry.options.get(OPT_BASE_PATH) or hass.config.path("vledger"))
     capture = Capture(hass, subject, base, config_of(hass, entry))
     writer = L1Writer(hass, capture)
-    entry.runtime_data = Vledger(capture, writer)
+    desk = ReceiptDesk(hass, capture, writer) if subject.kind == KIND_VEHICLE else None
+    entry.runtime_data = Vledger(capture, writer, desk)
     await capture.async_start()
     await writer.async_start()
+    if desk:
+        await desk.async_start()
 
     async def on_hass_stop(_: Event) -> None:
         await writer.async_stop()
@@ -109,6 +119,8 @@ async def _async_options_updated(hass: HomeAssistant, entry: VledgerConfigEntry)
 
 async def async_unload_entry(hass: HomeAssistant, entry: VledgerConfigEntry) -> bool:
     ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if entry.runtime_data.desk:
+        entry.runtime_data.desk.async_stop()
     await entry.runtime_data.l1.async_stop()
     capture = entry.runtime_data.capture
     await capture.async_stop(capture.stop_reason or "unload")

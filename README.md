@@ -26,8 +26,8 @@ and `vledger derive charging` the charging sessions, with the charge
 point's meter and tariff; L1 — the derivation on disk, with its manifest
 and cursor — is written and read by the `l1` verbs, and the integration
 keeps it live, with a `vledger.recompute` action to rebuild it; receipts
-are entered and matched by the `receipt` verbs. No metrics yet, and no
-receipt entry in Home Assistant. Every behaviour described below is the design, held
+are entered and matched by the `receipt` verbs, and in Home Assistant by
+three actions and a dashboard form. No metrics yet. Every behaviour described below is the design, held
 as requirements in the project's register (`ha-vledger-pm`); a section is
 marked *(planned)* until it exists.
 

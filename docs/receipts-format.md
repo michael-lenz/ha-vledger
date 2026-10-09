@@ -5,8 +5,8 @@ derived events, as decided in ADR-0013 of the project's register. This
 page is the specification a reader of their own receipts needs; the
 reasoning is in the decision.*
 
-**Status:** the file, the `vledger receipt` verbs, `derive match` and the
-matching inside L1 exist. Receipt entry in Home Assistant is planned.
+**Status:** the file, the `vledger receipt` verbs, `derive match`, the
+matching inside L1 and receipt entry in Home Assistant (ADR-0015) exist.
 
 ## The file
 
@@ -81,6 +81,25 @@ is a `cancel` line naming the receipt in `cancels`. Either may name only a
 of a receipt is a chain. The receipts that count are the current ones,
 which follows from the file's content and not from its order. A cancelled
 receipt is not revived; it is entered again.
+
+## Entering
+
+Three ways write the same line through the same functions: the
+`vledger receipt` verbs, the Home Assistant actions and the integration's
+dashboard form ([user guide](user-guide.md#receipts-in-home-assistant)).
+The actions take the verbs' options under the same names without the
+dashes, plus `config_entry_id` for the vehicle, and answer with the line
+written:
+
+| Verb | Action | Fields beyond the verb's options |
+|---|---|---|
+| `receipt add refuelling` | `vledger.add_refuelling_receipt` | `full: true\|false` for `--full`/`--partial` |
+| `receipt add charging` | `vledger.add_charging_receipt` | — |
+| `receipt cancel UUID` | `vledger.cancel_receipt` | `receipt` for the positional UUID |
+
+Exactly one of `anchor` and `from_candidate`. Times in an action are the
+instance's local time unless they carry a zone; the line holds UTC. A
+refusal writes nothing and says why — the same reasons the verbs give.
 
 ## Matching
 

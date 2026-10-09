@@ -15,7 +15,7 @@ import json
 import math
 import os
 import uuid
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -77,6 +77,24 @@ def _body(line: dict, *, anchor: str, exact: bool, replaces: str | None) -> dict
     line["anchor"] = clock.to_text(clock.parse(anchor))
     line["exact"] = bool(exact)
     return line
+
+
+def anchor_of(kind: str, *, anchor: str | None = None, from_candidate: str | None = None,
+              detected: Callable[[], list[dict]]) -> tuple[str, bool]:
+    """The anchor time, and whether it is exact (ADR-0013, 3; BEL-04).
+    Exactly one of ``anchor`` and ``from_candidate``; the latter must be
+    the start of an event ``detected`` yields — called only then, since
+    detecting means deriving. What the verb, the action and the form all
+    call (ADR-0015, consequence 1)."""
+    if (anchor is None) == (from_candidate is None):
+        raise Refused("say when: an anchor time, or the start of a detected event — exactly one")
+    if anchor is not None:
+        return clock.to_text(clock.parse(anchor)), False
+    start = clock.parse(from_candidate)
+    if start not in {clock.parse(e["start"]) for e in detected()}:
+        raise Refused(f"no {kind} event starts at {clock.to_text(start)}; "
+                      f"give an anchor time to enter the receipt freely")
+    return clock.to_text(start), True
 
 
 def refuelling(t: str, subject: Subject, *, anchor: str, quantity_l: float, full: bool,

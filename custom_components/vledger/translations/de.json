@@ -185,6 +185,44 @@
       "lines_today": { "name": "Zustandszeilen heute" },
       "capture_gaps": { "name": "Erfassungslücken" },
       "latest_capture_gap": { "name": "Letzte Erfassungslücke" }
+    },
+    "button": {
+      "refuelling_receipt_enter": { "name": "Tankbeleg erfassen" },
+      "charging_receipt_enter": { "name": "Ladebeleg erfassen" }
+    },
+    "datetime": {
+      "refuelling_receipt_time": { "name": "Tankbeleg: Zeit" },
+      "charging_receipt_time": { "name": "Ladebeleg: Zeit" }
+    },
+    "number": {
+      "refuelling_receipt_quantity": { "name": "Tankbeleg: Liter" },
+      "refuelling_receipt_total_price": { "name": "Tankbeleg: Gesamtpreis" },
+      "refuelling_receipt_unit_price": { "name": "Tankbeleg: Literpreis" },
+      "charging_receipt_quantity": { "name": "Ladebeleg: Energie" },
+      "charging_receipt_total_price": { "name": "Ladebeleg: Gesamtpreis" }
+    },
+    "select": {
+      "refuelling_receipt_event": {
+        "name": "Tankbeleg: Ereignis",
+        "state": {
+          "manual": "Zeit unten eingeben"
+        }
+      },
+      "charging_receipt_event": {
+        "name": "Ladebeleg: Ereignis",
+        "state": {
+          "manual": "Zeit unten eingeben"
+        }
+      }
+    },
+    "switch": {
+      "refuelling_receipt_full": { "name": "Tankbeleg: Volltankung" }
+    },
+    "text": {
+      "refuelling_receipt_place": { "name": "Tankbeleg: Ort" },
+      "refuelling_receipt_note": { "name": "Tankbeleg: Notiz" },
+      "charging_receipt_place": { "name": "Ladebeleg: Ort" },
+      "charging_receipt_note": { "name": "Ladebeleg: Notiz" }
     }
   },
   "issues": {
@@ -194,6 +232,116 @@
     }
   },
   "services": {
+    "add_refuelling_receipt": {
+      "name": "Tankbeleg erfassen",
+      "description": "Erfasst einen Tankbeleg für ein Fahrzeug, wie `vledger receipt add refuelling`, und antwortet mit der geschriebenen Zeile samt UUID.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fahrzeug",
+          "description": "Das Fahrzeug, zu dem der Beleg gehört."
+        },
+        "anchor": {
+          "name": "Zeit",
+          "description": "Wann getankt oder geladen wurde. Entweder diese oder den Start des Kandidaten angeben, nicht beides."
+        },
+        "from_candidate": {
+          "name": "Start des Kandidaten",
+          "description": "Der Start eines erkannten Ereignisses: Der Beleg übernimmt genau dessen Zeit."
+        },
+        "quantity_l": {
+          "name": "Liter",
+          "description": "Die Menge laut Beleg."
+        },
+        "full": {
+          "name": "Volltankung",
+          "description": "Ob vollgetankt wurde."
+        },
+        "total_price": {
+          "name": "Gesamtpreis",
+          "description": "Der bezahlte Betrag."
+        },
+        "unit_price": {
+          "name": "Literpreis",
+          "description": "Der Preis pro Liter laut Beleg."
+        },
+        "place": {
+          "name": "Ort",
+          "description": "Wo, als freier Text."
+        },
+        "fuel": {
+          "name": "Kraftstoff",
+          "description": "Die Kraftstoffsorte laut Beleg."
+        },
+        "note": {
+          "name": "Notiz",
+          "description": "Alles Weitere."
+        },
+        "replaces": {
+          "name": "Ersetzt",
+          "description": "Die UUID des Belegs, den dieser korrigiert; er wird als Ganzes ersetzt."
+        }
+      }
+    },
+    "add_charging_receipt": {
+      "name": "Ladebeleg erfassen",
+      "description": "Erfasst einen Ladebeleg für ein Fahrzeug, wie `vledger receipt add charging`, und antwortet mit der geschriebenen Zeile samt UUID.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fahrzeug",
+          "description": "Das Fahrzeug, zu dem der Beleg gehört."
+        },
+        "anchor": {
+          "name": "Zeit",
+          "description": "Wann getankt oder geladen wurde. Entweder diese oder den Start des Kandidaten angeben, nicht beides."
+        },
+        "from_candidate": {
+          "name": "Start des Kandidaten",
+          "description": "Der Start eines erkannten Ereignisses: Der Beleg übernimmt genau dessen Zeit."
+        },
+        "energy_kwh": {
+          "name": "Energie",
+          "description": "Die abgerechnete Energie in kWh."
+        },
+        "total_price": {
+          "name": "Gesamtpreis",
+          "description": "Der bezahlte Betrag."
+        },
+        "place": {
+          "name": "Ort",
+          "description": "Wo, als freier Text."
+        },
+        "provider": {
+          "name": "Anbieter",
+          "description": "Wer die Ladung abgerechnet hat, als freier Text."
+        },
+        "note": {
+          "name": "Notiz",
+          "description": "Alles Weitere."
+        },
+        "replaces": {
+          "name": "Ersetzt",
+          "description": "Die UUID des Belegs, den dieser korrigiert; er wird als Ganzes ersetzt."
+        }
+      }
+    },
+    "cancel_receipt": {
+      "name": "Beleg stornieren",
+      "description": "Nimmt einen Beleg mit einer eigenen Stornierung heraus, wie `vledger receipt cancel`, und antwortet mit der geschriebenen Zeile.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fahrzeug",
+          "description": "Das Fahrzeug, zu dem der Beleg gehört."
+        },
+        "receipt": {
+          "name": "Beleg",
+          "description": "Die UUID des zu stornierenden Belegs."
+        },
+        "note": {
+          "name": "Notiz",
+          "description": "Alles Weitere."
+        }
+      }
+    },
     "recompute": {
       "name": "Neu berechnen",
       "description": "Berechnet die Ableitung auf der Platte (L1) neu aus dem Rohprotokoll, den Belegen und der Konfiguration, für ein Fahrzeug oder einen Ladepunkt oder für alle. Die Erfassung läuft dabei weiter.",
@@ -206,6 +354,8 @@
     }
   },
   "exceptions": {
+    "refused": { "message": "Beleg abgelehnt: {reason}" },
+    "not_a_vehicle": { "message": "{entry} ist ein Ladepunkt; Belege gehören zu einem Fahrzeug." },
     "entry_not_loaded": { "message": "Kein geladenes Fahrzeug und kein geladener Ladepunkt hat den Eintrag {entry}." }
   }
 }

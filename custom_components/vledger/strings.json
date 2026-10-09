@@ -185,6 +185,44 @@
       "lines_today": { "name": "State lines today" },
       "capture_gaps": { "name": "Capture gaps" },
       "latest_capture_gap": { "name": "Latest capture gap" }
+    },
+    "button": {
+      "refuelling_receipt_enter": { "name": "Enter refuelling receipt" },
+      "charging_receipt_enter": { "name": "Enter charging receipt" }
+    },
+    "datetime": {
+      "refuelling_receipt_time": { "name": "Refuelling receipt: time" },
+      "charging_receipt_time": { "name": "Charging receipt: time" }
+    },
+    "number": {
+      "refuelling_receipt_quantity": { "name": "Refuelling receipt: litres" },
+      "refuelling_receipt_total_price": { "name": "Refuelling receipt: total price" },
+      "refuelling_receipt_unit_price": { "name": "Refuelling receipt: price per litre" },
+      "charging_receipt_quantity": { "name": "Charging receipt: energy" },
+      "charging_receipt_total_price": { "name": "Charging receipt: total price" }
+    },
+    "select": {
+      "refuelling_receipt_event": {
+        "name": "Refuelling receipt: event",
+        "state": {
+          "manual": "Enter time below"
+        }
+      },
+      "charging_receipt_event": {
+        "name": "Charging receipt: event",
+        "state": {
+          "manual": "Enter time below"
+        }
+      }
+    },
+    "switch": {
+      "refuelling_receipt_full": { "name": "Refuelling receipt: full tank" }
+    },
+    "text": {
+      "refuelling_receipt_place": { "name": "Refuelling receipt: place" },
+      "refuelling_receipt_note": { "name": "Refuelling receipt: note" },
+      "charging_receipt_place": { "name": "Charging receipt: place" },
+      "charging_receipt_note": { "name": "Charging receipt: note" }
     }
   },
   "issues": {
@@ -194,6 +232,116 @@
     }
   },
   "services": {
+    "add_refuelling_receipt": {
+      "name": "Add refuelling receipt",
+      "description": "Enters a refuelling receipt for a vehicle, as `vledger receipt add refuelling` does, and answers with the line written, its UUID included.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Vehicle",
+          "description": "The vehicle the receipt belongs to."
+        },
+        "anchor": {
+          "name": "Time",
+          "description": "When the refuelling or charge happened. Give this or the candidate's start, not both."
+        },
+        "from_candidate": {
+          "name": "Candidate start",
+          "description": "The start of a detected event: the receipt takes its time exactly."
+        },
+        "quantity_l": {
+          "name": "Litres",
+          "description": "The quantity on the receipt."
+        },
+        "full": {
+          "name": "Full tank",
+          "description": "Whether the tank was filled up."
+        },
+        "total_price": {
+          "name": "Total price",
+          "description": "The amount paid."
+        },
+        "unit_price": {
+          "name": "Price per litre",
+          "description": "The price per litre on the receipt."
+        },
+        "place": {
+          "name": "Place",
+          "description": "Where, as free text."
+        },
+        "fuel": {
+          "name": "Fuel",
+          "description": "The fuel type, as on the receipt."
+        },
+        "note": {
+          "name": "Note",
+          "description": "Anything else."
+        },
+        "replaces": {
+          "name": "Replaces",
+          "description": "The UUID of the receipt this one corrects; it is replaced whole."
+        }
+      }
+    },
+    "add_charging_receipt": {
+      "name": "Add charging receipt",
+      "description": "Enters a charging receipt for a vehicle, as `vledger receipt add charging` does, and answers with the line written, its UUID included.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Vehicle",
+          "description": "The vehicle the receipt belongs to."
+        },
+        "anchor": {
+          "name": "Time",
+          "description": "When the refuelling or charge happened. Give this or the candidate's start, not both."
+        },
+        "from_candidate": {
+          "name": "Candidate start",
+          "description": "The start of a detected event: the receipt takes its time exactly."
+        },
+        "energy_kwh": {
+          "name": "Energy",
+          "description": "The billed energy in kWh."
+        },
+        "total_price": {
+          "name": "Total price",
+          "description": "The amount paid."
+        },
+        "place": {
+          "name": "Place",
+          "description": "Where, as free text."
+        },
+        "provider": {
+          "name": "Provider",
+          "description": "Who billed the charge, as free text."
+        },
+        "note": {
+          "name": "Note",
+          "description": "Anything else."
+        },
+        "replaces": {
+          "name": "Replaces",
+          "description": "The UUID of the receipt this one corrects; it is replaced whole."
+        }
+      }
+    },
+    "cancel_receipt": {
+      "name": "Cancel receipt",
+      "description": "Takes a receipt out with a cancellation of its own, as `vledger receipt cancel` does, and answers with the line written.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Vehicle",
+          "description": "The vehicle the receipt belongs to."
+        },
+        "receipt": {
+          "name": "Receipt",
+          "description": "The UUID of the receipt to cancel."
+        },
+        "note": {
+          "name": "Note",
+          "description": "Anything else."
+        }
+      }
+    },
     "recompute": {
       "name": "Recompute",
       "description": "Rebuilds the derivation on disk (L1) from the raw log, the receipts and the configuration, for one vehicle or charge point or for all of them. Capture goes on while it runs.",
@@ -206,6 +354,8 @@
     }
   },
   "exceptions": {
+    "refused": { "message": "Receipt refused: {reason}" },
+    "not_a_vehicle": { "message": "{entry} is a charge point; receipts belong to a vehicle." },
     "entry_not_loaded": { "message": "No loaded vehicle or charge point has the entry {entry}." }
   }
 }

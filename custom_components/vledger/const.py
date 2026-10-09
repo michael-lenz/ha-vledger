@@ -20,3 +20,14 @@ STATUS_RECOMPUTING = "recomputing"
 ISSUE_ENTITY_REMOVED = "entity_removed"
 
 SERVICE_RECOMPUTE = "recompute"
+
+#: The receipt actions (HAI-03, ADR-0015).
+SERVICE_ADD_REFUELLING = "add_refuelling_receipt"
+SERVICE_ADD_CHARGING = "add_charging_receipt"
+SERVICE_CANCEL = "cancel_receipt"
+
+#: The form's event select: enter the time by hand rather than pick a candidate.
+EVENT_MANUAL = "manual"
+
+#: At most this many candidates in the form's event select, newest first.
+FORM_CANDIDATES = 10

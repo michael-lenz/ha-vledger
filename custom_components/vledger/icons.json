@@ -19,9 +19,40 @@
       "lines_today": { "default": "mdi:calendar-today" },
       "capture_gaps": { "default": "mdi:timeline-alert-outline" },
       "latest_capture_gap": { "default": "mdi:timer-alert-outline" }
+    },
+    "button": {
+      "refuelling_receipt_enter": { "default": "mdi:gas-station" },
+      "charging_receipt_enter": { "default": "mdi:ev-station" }
+    },
+    "datetime": {
+      "refuelling_receipt_time": { "default": "mdi:clock-edit-outline" },
+      "charging_receipt_time": { "default": "mdi:clock-edit-outline" }
+    },
+    "number": {
+      "refuelling_receipt_quantity": { "default": "mdi:fuel" },
+      "refuelling_receipt_total_price": { "default": "mdi:cash" },
+      "refuelling_receipt_unit_price": { "default": "mdi:cash-multiple" },
+      "charging_receipt_quantity": { "default": "mdi:lightning-bolt" },
+      "charging_receipt_total_price": { "default": "mdi:cash" }
+    },
+    "select": {
+      "refuelling_receipt_event": { "default": "mdi:receipt-text-clock-outline" },
+      "charging_receipt_event": { "default": "mdi:receipt-text-clock-outline" }
+    },
+    "switch": {
+      "refuelling_receipt_full": { "default": "mdi:gauge-full" }
+    },
+    "text": {
+      "refuelling_receipt_place": { "default": "mdi:map-marker-outline" },
+      "refuelling_receipt_note": { "default": "mdi:note-text-outline" },
+      "charging_receipt_place": { "default": "mdi:map-marker-outline" },
+      "charging_receipt_note": { "default": "mdi:note-text-outline" }
     }
   },
   "services": {
+    "add_refuelling_receipt": { "service": "mdi:gas-station" },
+    "add_charging_receipt": { "service": "mdi:ev-station" },
+    "cancel_receipt": { "service": "mdi:receipt-text-remove-outline" },
     "recompute": { "service": "mdi:refresh" }
   }
 }

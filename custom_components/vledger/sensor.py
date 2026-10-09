@@ -17,14 +17,14 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.const import EntityCategory, UnitOfInformation, UnitOfTime
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from vledger import clock
 
 from . import VledgerConfigEntry
 from .capture import Capture
-from .const import DOMAIN, STATUS_RECOMPUTING, STATUS_RUNNING, STATUS_STOPPED
+from .const import STATUS_RECOMPUTING, STATUS_RUNNING, STATUS_STOPPED
+from .entity import device_info
 
 
 def _time(t: str | None) -> datetime | None:
@@ -109,12 +109,7 @@ class _CaptureSensor(SensorEntity):
     def __init__(self, capture: Capture, key: str) -> None:
         self._capture = capture
         self._attr_unique_id = f"{capture.subject.id}_{key}"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, capture.subject.id)},
-            name=capture.config.get("name", capture.subject.id),
-            manufacturer="vledger",
-            model=capture.subject.kind,
-        )
+        self._attr_device_info = device_info(capture.subject, capture.config)
 
     async def async_added_to_hass(self) -> None:
         self.async_on_remove(self._capture.listen(self._changed))
