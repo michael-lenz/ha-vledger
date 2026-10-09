@@ -1,0 +1,186 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Was hinzufügen",
+        "menu_options": {
+          "vehicle": "Ein Fahrzeug",
+          "chargepoint": "Ein Ladepunkt"
+        }
+      },
+      "vehicle": {
+        "title": "Fahrzeug",
+        "data": { "name": "Name" }
+      },
+      "roles": {
+        "title": "Rollen",
+        "description": "Ordne die Entitäten zu, die dieses Fahrzeug melden. Jede Rolle ist optional; mindestens eine Bewegungsrolle wird gebraucht ({movement}).",
+        "data": {
+          "odometer": "Kilometerstand",
+          "position": "Position (Device-Tracker)",
+          "position_latitude": "Position: Breitengrad-Sensor",
+          "position_longitude": "Position: Längengrad-Sensor",
+          "trip_distance": "Trip-Zähler",
+          "fuel_level": "Kraftstoffstand",
+          "soc": "Ladezustand (SoC)",
+          "charging_state": "Ladestatus",
+          "plug_state": "Steckerstatus",
+          "ignition": "Zündung",
+          "outside_temperature": "Außentemperatur",
+          "fuel_price": "Kraftstoffpreis"
+        }
+      },
+      "mapping": {
+        "title": "Zuordnung",
+        "description": "Welche Quellwerte den positiven Zustand bedeuten.",
+        "data": {
+          "charging_state": "Werte, die „lädt“ bedeuten",
+          "plug_state": "Werte, die „eingesteckt“ bedeuten",
+          "ignition": "Werte, die „Zündung an“ bedeuten"
+        }
+      },
+      "parameters": {
+        "title": "Parameter",
+        "description": "Nur, was eine Ableitung braucht; alles andere behält seinen Default und steht in den Optionen.",
+        "data": {
+          "fuel": "Kraftstoff",
+          "tank_capacity_l": "Tankkapazität",
+          "battery_net_kwh": "Netto-Batteriekapazität"
+        }
+      },
+      "chargepoint": {
+        "title": "Ladepunkt",
+        "data": {
+          "name": "Name",
+          "location": "Ort und Radius",
+          "meter": "Energiezähler (optional)",
+          "eur_per_kwh": "Tarif",
+          "from": "Tarif gültig ab"
+        }
+      }
+    },
+    "error": {
+      "no_movement_role": "Mindestens eine Bewegungsrolle wird gebraucht.",
+      "tank_capacity_required": "Der Kraftstoffstand wird in % gemeldet, deshalb wird die Tankkapazität gebraucht."
+    },
+    "abort": {
+      "already_configured": "Dieses Subjekt ist bereits eingerichtet."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Was ändern",
+        "menu_options": {
+          "roles": "Rollen",
+          "mapping": "Zuordnung",
+          "parameters": "Parameter",
+          "thresholds": "Schwellwerte und Zeitkonstanten",
+          "meter": "Energiezähler",
+          "add_tariff": "Tarif ab Datum hinzufügen",
+          "storage": "Ablage"
+        }
+      },
+      "roles": {
+        "title": "Rollen",
+        "description": "Jede Rolle ist optional; mindestens eine Bewegungsrolle wird gebraucht ({movement}).",
+        "data": {
+          "odometer": "Kilometerstand",
+          "position": "Position (Device-Tracker)",
+          "position_latitude": "Position: Breitengrad-Sensor",
+          "position_longitude": "Position: Längengrad-Sensor",
+          "trip_distance": "Trip-Zähler",
+          "fuel_level": "Kraftstoffstand",
+          "soc": "Ladezustand (SoC)",
+          "charging_state": "Ladestatus",
+          "plug_state": "Steckerstatus",
+          "ignition": "Zündung",
+          "outside_temperature": "Außentemperatur",
+          "fuel_price": "Kraftstoffpreis"
+        }
+      },
+      "mapping": {
+        "title": "Zuordnung",
+        "data": {
+          "charging_state": "Werte, die „lädt“ bedeuten",
+          "plug_state": "Werte, die „eingesteckt“ bedeuten",
+          "ignition": "Werte, die „Zündung an“ bedeuten"
+        }
+      },
+      "parameters": {
+        "title": "Parameter",
+        "data": {
+          "fuel": "Kraftstoff",
+          "tank_capacity_l": "Tankkapazität",
+          "battery_net_kwh": "Netto-Batteriekapazität",
+          "fuel_level_resolution_l": "Auflösung des Kraftstoffstandsensors",
+          "charging_loss_factor": "Ladeverlustfaktor (netzseitig / batterieseitig)",
+          "eta_el": "Wirkungsgrad Batterie bis Rad",
+          "eta_ice": "Wirkungsgrad Kraftstoff bis Rad",
+          "charge_cycles_start": "Ladezyklen vor Erfassungsbeginn",
+          "tank_fills_start": "Tankfüllungen vor Erfassungsbeginn"
+        }
+      },
+      "thresholds": {
+        "title": "Schwellwerte und Zeitkonstanten",
+        "data": {
+          "t_still_s": "Stillstand (T_still)",
+          "refuel_threshold_l": "Tankschwelle",
+          "t_settle_s": "Beruhigungszeit nach dem Tanken (T_settle)",
+          "charging_threshold_pct": "Ladeschwelle (SoC-Fallback)",
+          "matching_tolerance_s": "Abgleichtoleranz für Belege",
+          "plausibility_pct": "Plausibilitätsschwelle Beleg/Sensor",
+          "heartbeat_s": "Heartbeat-Intervall",
+          "outage_s": "Ausfallschwelle",
+          "rolling_period_d": "Rollierender Zeitraum",
+          "consumption_error_pct": "Verbrauchsfehlerschwelle",
+          "heating_value_kwh_per_l": "Heizwert",
+          "beta_per_k": "Wärmeausdehnungskoeffizient",
+          "temperature_tau_s": "Tiefpass-Zeitkonstante der Außentemperatur"
+        }
+      },
+      "meter": {
+        "title": "Energiezähler",
+        "data": { "meter": "Energiezähler-Entität (leer: keiner)" }
+      },
+      "add_tariff": {
+        "title": "Tarif hinzufügen",
+        "description": "Tarife werden nie bearbeitet: Ein neuer Preis ist ein neuer Eintrag ab einem Datum, eine Korrektur ein neuer Eintrag unter demselben Datum. Bisher {count} Tarif(e).",
+        "data": {
+          "eur_per_kwh": "Tarif",
+          "from": "Gültig ab"
+        }
+      },
+      "storage": {
+        "title": "Ablage",
+        "data": { "base_path": "Datenverzeichnis" }
+      }
+    },
+    "error": {
+      "no_movement_role": "Mindestens eine Bewegungsrolle wird gebraucht."
+    }
+  },
+  "selector": {
+    "fuel": {
+      "options": { "petrol": "Benzin", "diesel": "Diesel" }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "capture_status": {
+        "name": "Erfassungsstatus",
+        "state": {
+          "running": "Läuft",
+          "stopped": "Gestoppt",
+          "recomputing": "Neuberechnung"
+        }
+      }
+    }
+  },
+  "issues": {
+    "entity_removed": {
+      "title": "{name}: {entity} wurde entfernt",
+      "description": "Die der Rolle {role} von {name} zugeordnete Entität existiert nicht mehr. Sie wird als unavailable protokolliert, bis in den Optionen eine andere Entität zugeordnet wird."
+    }
+  }
+}

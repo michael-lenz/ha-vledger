@@ -1,0 +1,186 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "What to add",
+        "menu_options": {
+          "vehicle": "A vehicle",
+          "chargepoint": "A charge point"
+        }
+      },
+      "vehicle": {
+        "title": "Vehicle",
+        "data": { "name": "Name" }
+      },
+      "roles": {
+        "title": "Roles",
+        "description": "Assign the entities that report this vehicle. Every role is optional; at least one movement role is needed ({movement}).",
+        "data": {
+          "odometer": "Odometer",
+          "position": "Position (device tracker)",
+          "position_latitude": "Position: latitude sensor",
+          "position_longitude": "Position: longitude sensor",
+          "trip_distance": "Trip counter",
+          "fuel_level": "Fuel level",
+          "soc": "State of charge",
+          "charging_state": "Charging state",
+          "plug_state": "Plug state",
+          "ignition": "Ignition",
+          "outside_temperature": "Outside temperature",
+          "fuel_price": "Fuel price"
+        }
+      },
+      "mapping": {
+        "title": "Mapping",
+        "description": "Which source values mean the positive state.",
+        "data": {
+          "charging_state": "Values that mean charging",
+          "plug_state": "Values that mean plugged in",
+          "ignition": "Values that mean ignition on"
+        }
+      },
+      "parameters": {
+        "title": "Parameters",
+        "description": "Only what a derivation needs; everything else keeps its default and is in the options.",
+        "data": {
+          "fuel": "Fuel",
+          "tank_capacity_l": "Tank capacity",
+          "battery_net_kwh": "Net battery capacity"
+        }
+      },
+      "chargepoint": {
+        "title": "Charge point",
+        "data": {
+          "name": "Name",
+          "location": "Location and radius",
+          "meter": "Energy meter (optional)",
+          "eur_per_kwh": "Tariff",
+          "from": "Tariff valid from"
+        }
+      }
+    },
+    "error": {
+      "no_movement_role": "At least one movement role is needed.",
+      "tank_capacity_required": "The fuel level is reported in %, so the tank capacity is needed."
+    },
+    "abort": {
+      "already_configured": "This subject is already set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "What to change",
+        "menu_options": {
+          "roles": "Roles",
+          "mapping": "Mapping",
+          "parameters": "Parameters",
+          "thresholds": "Thresholds and time constants",
+          "meter": "Energy meter",
+          "add_tariff": "Add a tariff from a date",
+          "storage": "Storage"
+        }
+      },
+      "roles": {
+        "title": "Roles",
+        "description": "Every role is optional; at least one movement role is needed ({movement}).",
+        "data": {
+          "odometer": "Odometer",
+          "position": "Position (device tracker)",
+          "position_latitude": "Position: latitude sensor",
+          "position_longitude": "Position: longitude sensor",
+          "trip_distance": "Trip counter",
+          "fuel_level": "Fuel level",
+          "soc": "State of charge",
+          "charging_state": "Charging state",
+          "plug_state": "Plug state",
+          "ignition": "Ignition",
+          "outside_temperature": "Outside temperature",
+          "fuel_price": "Fuel price"
+        }
+      },
+      "mapping": {
+        "title": "Mapping",
+        "data": {
+          "charging_state": "Values that mean charging",
+          "plug_state": "Values that mean plugged in",
+          "ignition": "Values that mean ignition on"
+        }
+      },
+      "parameters": {
+        "title": "Parameters",
+        "data": {
+          "fuel": "Fuel",
+          "tank_capacity_l": "Tank capacity",
+          "battery_net_kwh": "Net battery capacity",
+          "fuel_level_resolution_l": "Fuel level sensor resolution",
+          "charging_loss_factor": "Charging loss factor (grid-side / battery-side)",
+          "eta_el": "Efficiency battery to wheel",
+          "eta_ice": "Efficiency fuel to wheel",
+          "charge_cycles_start": "Charge cycles before capture began",
+          "tank_fills_start": "Tank fills before capture began"
+        }
+      },
+      "thresholds": {
+        "title": "Thresholds and time constants",
+        "data": {
+          "t_still_s": "Standstill (T_still)",
+          "refuel_threshold_l": "Refuelling threshold",
+          "t_settle_s": "Settling time after refuelling (T_settle)",
+          "charging_threshold_pct": "Charging threshold (SoC fallback)",
+          "matching_tolerance_s": "Receipt matching tolerance",
+          "plausibility_pct": "Plausibility threshold receipt vs sensor",
+          "heartbeat_s": "Heartbeat interval",
+          "outage_s": "Outage threshold",
+          "rolling_period_d": "Rolling period",
+          "consumption_error_pct": "Consumption error threshold",
+          "heating_value_kwh_per_l": "Lower heating value",
+          "beta_per_k": "Thermal expansion coefficient",
+          "temperature_tau_s": "Temperature low-pass time constant"
+        }
+      },
+      "meter": {
+        "title": "Energy meter",
+        "data": { "meter": "Energy meter entity (empty: none)" }
+      },
+      "add_tariff": {
+        "title": "Add a tariff",
+        "description": "Tariffs are never edited: a new price is a new entry from a date, and a correction is a new entry under the same date. {count} tariff(s) so far.",
+        "data": {
+          "eur_per_kwh": "Tariff",
+          "from": "Valid from"
+        }
+      },
+      "storage": {
+        "title": "Storage",
+        "data": { "base_path": "Data directory" }
+      }
+    },
+    "error": {
+      "no_movement_role": "At least one movement role is needed."
+    }
+  },
+  "selector": {
+    "fuel": {
+      "options": { "petrol": "Petrol", "diesel": "Diesel" }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "capture_status": {
+        "name": "Capture status",
+        "state": {
+          "running": "Running",
+          "stopped": "Stopped",
+          "recomputing": "Recomputing"
+        }
+      }
+    }
+  },
+  "issues": {
+    "entity_removed": {
+      "title": "{name}: {entity} was removed",
+      "description": "The entity assigned to the role {role} of {name} no longer exists. It is logged as unavailable until a different entity is assigned in the options."
+    }
+  }
+}

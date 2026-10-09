@@ -8,12 +8,13 @@ consumption and cost. Passively, from whatever integration already exposes
 the vehicle, without a line of manufacturer-specific code, and without
 touching anything else the vehicle reports: it is a ledger, not a monitor.
 
-**Status:** the raw log exists — its format, and the `vledger l0` verbs
-that write, read, validate it and list its gaps. Nothing captures into it
-from Home Assistant yet, and nothing derives from it. Every behaviour
-described below is the design, held as requirements in the project's
-register (`ha-vledger-pm`); a section is marked *(planned)* until it
-exists.
+**Status:** capture works. The integration sets up a vehicle or a charge
+point through the UI and writes its raw log — the format, and the
+`vledger l0` verbs that write, read, validate it and list its gaps, are the
+library's. Nothing derives from the log yet: no trips, no sessions, no
+metrics, no receipts. Every behaviour described below is the design, held
+as requirements in the project's register (`ha-vledger-pm`); a section is
+marked *(planned)* until it exists.
 
 ## What it does *(planned)*
 
@@ -78,12 +79,13 @@ configured in the UI; no YAML.
 Decisions, requirements and the work queue are records in the project's
 register, `ha-vledger-pm`, not prose here.
 
-## Installing *(planned)*
+## Installing
 
-Through HACS, as a custom repository, once the first release exists; or by
-copying `custom_components/vledger` into your configuration directory. The
-library installs on its own with `pip install vledger` and brings the
-`vledger` command.
+Copy `custom_components/vledger` into your configuration directory and
+restart; HACS as a custom repository follows with the first release. Then
+*Settings → Devices & services → Add integration → Vehicle Ledger*: the
+[user guide](docs/user-guide.md) walks the four steps. The library installs
+on its own with `pip install vledger` and brings the `vledger` command.
 
 ## Developing
 

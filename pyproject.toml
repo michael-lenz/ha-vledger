@@ -33,7 +33,7 @@ vledger = "vledger.cli:main"
 # Two extras on purpose: the library's own loop needs no Home Assistant
 # (ARC-03), and the HA test stack is heavy. Integration tests (QUA-02)
 # install both.
-dev = ["pytest", "ruff"]
+dev = ["pytest", "pytest-asyncio", "ruff"]
 ha = ["pytest-homeassistant-custom-component"]
 
 [tool.setuptools.packages.find]
@@ -41,6 +41,7 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+asyncio_mode = "auto"
 
 [tool.ruff]
 src = ["src", "tests", "custom_components"]

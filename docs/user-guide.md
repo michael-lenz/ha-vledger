@@ -3,8 +3,50 @@
 *What a participant types. The design is in the other documents under
 `docs/`; this page is the tour of the `vledger` command, verb by verb.*
 
-**Status:** the `l0` verbs exist. Receipts, derivations, exports and reports
-are planned; the Home Assistant integration captures nothing yet.
+**Status:** the integration captures, and the `l0` verbs exist. Receipts,
+derivations, exports and reports are planned.
+
+## In Home Assistant
+
+*Settings → Devices & services → Add integration → Vehicle Ledger*, then
+choose what to add.
+
+**A vehicle**, in four steps:
+
+1. **Name.**
+2. **Roles.** Pick the entity that reports each thing the vehicle reports —
+   odometer, position, fuel level, state of charge, charging state and so
+   on. Every role is optional; at least one movement role (odometer,
+   position or trip counter) is required. What the ledger can do for the
+   vehicle follows from the roles it has.
+3. **Mapping**, only when a charging state, plug state or ignition was
+   assigned: tick the source's values that mean *charging*, *plugged in*
+   or *ignition on*. Anything else, including *unavailable*, holds the last
+   known state.
+4. **Parameters.** Fuel, tank capacity, net battery capacity — only what a
+   derivation needs; the tank capacity is required when the fuel level is
+   reported in percent. Everything else keeps its default.
+
+**A charge point**, in one step: name, location and radius on the map, an
+optional energy meter entity, and the first tariff with the date it is
+valid from. A charge point serves every vehicle.
+
+From the moment an entry is set up its raw log is written under
+`<config>/vledger/`, and the entity **Capture status** shows `running`
+with the lines written since start, the last line's time and the last
+heartbeat. Stopping Home Assistant, unloading or reloading the entry ends
+the stream orderly; a crash does not, and the next start shows as a gap.
+
+**Options** (the entry's *Configure*): a menu over the same steps,
+pre-filled, plus the thresholds and time constants, the remaining
+parameters, and the data directory. For a charge point: the meter, and
+*add a tariff from a date* — tariffs are never edited; a new price is a new
+entry, and a correction is a new entry under the same date. Saving any of
+them reloads the entry, which the stream records as stop, start and the
+new configuration.
+
+If an assigned entity disappears, it is logged as `unavailable` and a
+repair issue names it until another entity is assigned.
 
 ## Where the data is
 
