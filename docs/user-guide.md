@@ -24,7 +24,9 @@ choose what to add.
    combustion engine, not an ignition (a plug-in hybrid driving on the
    battery says *not running*), assign that as the ignition: it refines a
    trip's boundaries only when the engine ran, and never starts or ends a
-   trip on its own.
+   trip on its own. A plug state and a charging state refine them too — a
+   vehicle that is plugged in or charging is not driving — so assign them
+   even if the ledger is not to account for charging.
 3. **Mapping**, only when a charging state, plug state or ignition was
    assigned: tick the source's values that mean *charging*, *plugged in*
    or *ignition on*. *unavailable* and *unknown* hold the last known
@@ -180,8 +182,16 @@ vledger derive trips --vehicle a7c1 --since 2026-10-01T00:00:00Z | jq '{start, e
 
 A trip is the span between two standstills: from the first sample that
 moved after at least T_still of nothing moving, to the last before the
-next such span. An ignition that was assigned refines the start. Every
-trip carries its distance with its source and quality (`odometer`
+next such span. Ignition, plug state and charging state, where assigned,
+refine both ends: the start moves back to the latest *ignition on* or
+*unplugged* within T_still before the first moving sample, the end forward
+to the earliest *ignition off*, *plugged in* or *charging* within T_still
+after the last — each a moment the vehicle was not driving, so the closest
+one is the best bound ([glossary](glossary.md), *Not-driving marker*).
+`refined_by` names the role that set each end, and
+`movements_while_plugged` counts moving samples taken while the vehicle
+was plugged in or charging: a few at a trip's end are sample timing, many
+mean the plug or charging mapping is wrong. Every trip carries its distance with its source and quality (`odometer`
 measured, `trip_counter` measured, `waypoints` estimated), the positions
 and zones at both ends, every fix in between, the mean outside
 temperature, and ΔSoC and Δfuel as estimates. A trip that spans a capture

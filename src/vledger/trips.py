@@ -5,7 +5,8 @@ A movement event is a change of a movement role that means the vehicle
 moved: an odometer or trip counter going up, a position fix that moved. A
 standstill is at least T_still without one. A trip runs from the first
 movement event after a standstill to the last before the next, refined by
-the ignition where it is assigned (FAH-02) — never defined by it.
+the not-driving markers of ignition, plug state and charging state where
+they are assigned (FAH-02, ADR-0012) — never defined by them.
 
 What the sampling cannot show, the trip cannot show either: a stop shorter
 than the sampling interval merges into the trip (FAH-06), and a trip's
@@ -14,6 +15,7 @@ start is the first sample that moved, not the moment the wheels turned.
 
 from __future__ import annotations
 
+from bisect import bisect_right
 from dataclasses import asdict, dataclass
 from datetime import timedelta
 from itertools import pairwise
@@ -50,7 +52,8 @@ class Trip:
     outside_temperature_c: float | None
     delta_soc_pct: float | None        # estimated, FAH-05
     delta_fuel_l: float | None         # estimated, FAH-05
-    refined_by_ignition: bool
+    refined_by: dict                   # {"start": role | None, "end": role | None}
+    movements_while_plugged: int       # contradictions, reported (ADR-0012, point 5)
     version: str
 
 
@@ -106,31 +109,82 @@ def _spans(moves: list[Movement], t_still_s: float, gaps: list[l0.Gap]) -> list[
     return spans
 
 
-def _refine(s: Stream, start: str, end: str, t_still_s: float) -> tuple[str, str, bool]:
-    """Ignition on shortly before the first movement starts the trip; off
-    shortly after the last ends it (FAH-02). Bounded by T_still, and never
-    the sole criterion: without movement there is no trip."""
-    ign = s.domain.get("ignition")
-    if not ign:
-        return start, end, False
+#: The not-driving markers (ADR-0012): a change into one of these domain
+#: states ends driving, a change into one of the start states begins it.
+END_MARKERS = {"ignition": "off", "plug_state": "plugged", "charging_state": "charging"}
+START_MARKERS = {"ignition": "on", "plug_state": "unplugged"}
+
+#: The domain states in which the vehicle cannot drive.
+NOT_DRIVING = {"plug_state": "plugged", "charging_state": "charging"}
+
+
+@dataclass(frozen=True)
+class Marker:
+    t: str
+    role: str
+
+
+def markers(s: Stream, wanted: dict[str, str]) -> list[Marker]:
+    """Every change into a wanted domain state, in time order. A change is
+    judged against the last known state: unavailable and unknown hold, so a
+    sensor dropping out and coming back says nothing (ADR-0008)."""
+    out: list[Marker] = []
+    for role, target in wanted.items():
+        known = None
+        for x in s.domain.get(role, []):
+            if x.state is None:
+                continue
+            if x.state != known and x.state == target:
+                out.append(Marker(x.t, role))
+            known = x.state
+    out.sort(key=lambda m: clock.parse(m.t))
+    return out
+
+
+def _refine(start: str, end: str, t_still_s: float, starts: list[Marker],
+            ends: list[Marker], floor: str | None) -> tuple[str, str, dict]:
+    """The latest start marker within T_still before the first movement
+    starts the trip; the earliest end marker within T_still after the last
+    ends it (ADR-0012). Each is a time the vehicle was not driving, so each
+    bounds the true boundary and the closest is the best. Never the sole
+    criterion — without movement there is no trip — and never across the
+    previous trip's end, ``floor``."""
     still = timedelta(seconds=t_still_s)
-    refined = False
     ts, te = clock.parse(start), clock.parse(end)
-    for x in reversed(ign):
-        tx = clock.parse(x.t)
-        if tx > ts:
+    lo = clock.parse(floor) if floor else None
+    by = {"start": None, "end": None}
+    for m in reversed(starts):
+        tm = clock.parse(m.t)
+        if tm > ts:
             continue
-        if x.state == "on" and ts - tx <= still:
-            start, refined = x.t, True
+        if ts - tm <= still and (lo is None or tm > lo):
+            start, by["start"] = m.t, m.role
         break
-    for x in ign:
-        tx = clock.parse(x.t)
-        if tx < te:
+    for m in ends:
+        tm = clock.parse(m.t)
+        if tm < te:
             continue
-        if x.state is not None and x.state != "on" and tx - te <= still:
-            end, refined = x.t, True
+        if tm - te <= still:
+            end, by["end"] = m.t, m.role
         break
-    return start, end, refined
+    return start, end, by
+
+
+def _while_plugged(s: Stream, moves: list[Movement]) -> int:
+    """How many movements fall where plug or charging state says the vehicle
+    could not drive — sample timing, or a wrong mapping (ADR-0012, point 5)."""
+    known = {role: [(clock.parse(x.t), x.state) for x in s.domain.get(role, [])
+                    if x.state is not None]
+             for role in NOT_DRIVING}
+    n = 0
+    for m in moves:
+        tm = clock.parse(m.t)
+        for role, state in NOT_DRIVING.items():
+            i = bisect_right(known[role], tm, key=lambda k: k[0])
+            if i and known[role][i - 1][1] == state:
+                n += 1
+                break
+    return n
 
 
 def _strictly_before(samples: list, t: str):
@@ -214,13 +268,19 @@ def derive(s: Stream, *, completed_only: bool = False) -> list[Trip]:
     t_still = float(thr["t_still_s"])
     settle = float(thr["t_settle_s"])
     out: list[Trip] = []
-    spans = _spans(movements(s), t_still, s.gaps)
+    moves = movements(s)
+    spans = _spans(moves, t_still, s.gaps)
+    starts, ends = markers(s, START_MARKERS), markers(s, END_MARKERS)
     if completed_only and spans and s.last_t:
         first, last, crossed = spans[-1]
         if clock.parse(s.last_t) - clock.parse(last) < timedelta(seconds=t_still):
             spans = spans[:-1]
+    floor = None
     for first, last, crossed in spans:
-        start, end, refined = _refine(s, first, last, t_still)
+        start, end, refined_by = _refine(first, last, t_still, starts, ends, floor)
+        floor = end
+        inside_moves = [m for m in moves
+                        if clock.parse(first) <= clock.parse(m.t) <= clock.parse(last)]
         # Where the vehicle was before it moved, then every fix while moving.
         start_fix = _strictly_before(s.fixes, start) or series.last_at_or_before(s.fixes, start)
         inside = series.between(s.fixes, start, end)
@@ -240,7 +300,9 @@ def derive(s: Stream, *, completed_only: bool = False) -> list[Trip]:
             outside_temperature_c=temp,
             delta_soc_pct=_delta(s, "soc", start, end, settle),
             delta_fuel_l=_delta(s, "fuel_level", start, end, settle),
-            refined_by_ignition=refined, version=__version__,
+            refined_by=refined_by,
+            movements_while_plugged=_while_plugged(s, inside_moves),
+            version=__version__,
         ))
     return out
 

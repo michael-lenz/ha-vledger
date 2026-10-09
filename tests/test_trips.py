@@ -43,7 +43,9 @@ class Builder:
         ]
         self.run("start", *self.b, "--t", at(-60), "--homeassistant", "2026.9.4", "--snapshot", json.dumps(snapshot))
         cfg = {"name": "V", "roles": {"odometer": {"entity": "sensor.o"}, "position": {"entity": "device_tracker.v"},
-                                      "ignition": {"entity": "binary_sensor.i", "map": {"on": ["on"]}}},
+                                      "ignition": {"entity": "binary_sensor.i", "map": {"on": ["on"]}},
+                                      "plug_state": {"entity": "binary_sensor.p", "map": {"plugged": ["on"]}},
+                                      "charging_state": {"entity": "sensor.c", "map": {"charging": ["Charging"]}}},
                "thresholds": dict({"t_still_s": 1800, "heartbeat_s": 3600, "t_settle_s": 360}, **(thresholds or {}))}
         self.run("config", *self.b, "--t", at(-60), "--config", json.dumps(cfg))
 
@@ -89,8 +91,9 @@ def test_a_drive_between_two_standstills(tmp_path, capsys):
     found = trips.derive_from(tmp_path, V)
     assert len(found) == 1
     t = found[0]
-    assert t.start == at(60) and t.refined_by_ignition          # ignition on refined the start
-    assert t.end == at(107)                                       # ignition off refined the end (ADR-0008)
+    assert t.start == at(60) and t.end == at(107)                 # ignition on and off refined both
+    assert t.refined_by == {"start": "ignition", "end": "ignition"}
+    assert t.movements_while_plugged == 0
     assert t.distance_km == 22 and t.distance_quality == "measured" and t.distance_source == "odometer"
     assert t.start_zone == "home" and t.end_zone == "not_home"
     assert [w["latitude"] for w in t.waypoints] == [HOME[0], *[r[0] for r in ROAD]]
@@ -98,6 +101,106 @@ def test_a_drive_between_two_standstills(tmp_path, capsys):
     assert t.delta_soc_pct == -18 and t.delta_fuel_l == -1.6
     assert t.quality == "measured"
     assert series.load(tmp_path, V).unmapped == {"ignition": {"off"}}   # met, not listed, negative
+
+
+def plain_drive(b, m, odo_start=1000.0):
+    """The drive of :meth:`Builder.drive` without an ignition: the vehicles
+    that have a plug state and no ignition entity."""
+    b.state(m + 15, "odometer", odo_start + 7, "km").fix(m + 15, *ROAD[0])
+    b.state(m + 30, "odometer", odo_start + 15, "km").fix(m + 30, *ROAD[1])
+    b.state(m + 45, "odometer", odo_start + 22, "km").fix(m + 45, *ROAD[2])
+    return m + 45
+
+
+def test_plug_state_refines_both_ends_without_an_ignition(tmp_path, capsys):
+    b = Builder(tmp_path, capsys)
+    b.heartbeat(0)
+    b.state(50, "plug_state", "on")                 # plugged: no marker before any drive matters
+    b.state(65, "plug_state", "off")                # unplugged 10 min before the first movement
+    end = plain_drive(b, 60)
+    b.state(end + 4, "plug_state", "on")            # plugged in 4 min after the last
+    b.heartbeat(end + 60)
+    t, = trips.derive_from(tmp_path, V)
+    assert (t.start, t.end) == (at(65), at(109))
+    assert t.refined_by == {"start": "plug_state", "end": "plug_state"}
+    assert t.distance_km == 22 and t.movements_while_plugged == 0
+
+
+def test_the_earliest_end_marker_and_the_latest_start_marker_win(tmp_path, capsys):
+    b = Builder(tmp_path, capsys)
+    b.heartbeat(0)
+    b.state(55, "plug_state", "off")                # unplugged, then the ignition: ignition is later
+    end = b.drive(60)                               # ignition on at 60, off at 107
+    b.state(end + 1, "plug_state", "on")            # plugged in at 106, before the ignition went off
+    b.state(end + 3, "charging_state", "Charging")
+    b.heartbeat(end + 60)
+    t, = trips.derive_from(tmp_path, V)
+    assert (t.start, t.end) == (at(60), at(106))
+    assert t.refined_by == {"start": "ignition", "end": "plug_state"}
+
+
+def test_charging_ends_a_trip_but_its_end_starts_none(tmp_path, capsys):
+    b = Builder(tmp_path, capsys)
+    b.heartbeat(0)
+    b.state(10, "charging_state", "Charging").state(55, "charging_state", "Done")
+    end = plain_drive(b, 60)
+    b.state(end + 6, "charging_state", "Charging")
+    b.heartbeat(end + 60)
+    t, = trips.derive_from(tmp_path, V)
+    assert t.start == at(75)                        # the full battery says nothing of leaving
+    assert t.end == at(111) and t.refined_by == {"start": None, "end": "charging_state"}
+
+
+def test_markers_beyond_t_still_or_through_an_outage_refine_nothing(tmp_path, capsys):
+    b = Builder(tmp_path, capsys)
+    b.heartbeat(0)
+    b.state(30, "plug_state", "off")                # 45 min before the first movement: too early
+    end = plain_drive(b, 60)
+    b.state(end + 2, "plug_state", "unavailable")
+    b.state(end + 3, "plug_state", "off")           # back from the outage, still unplugged: no change
+    b.state(end + 40, "plug_state", "on")           # beyond T_still
+    b.heartbeat(end + 60)
+    t, = trips.derive_from(tmp_path, V)
+    assert (t.start, t.end) == (at(75), at(105))
+    assert t.refined_by == {"start": None, "end": None}
+
+
+def test_a_movement_while_plugged_counts_and_is_reported(tmp_path, capsys):
+    b = Builder(tmp_path, capsys)
+    b.heartbeat(0).heartbeat(60)
+    b.state(70, "odometer", 1007, "km").fix(70, *ROAD[0])
+    b.state(84, "plug_state", "on")
+    # Measured before the plug-in, reported after it: sample timing.
+    b.state(85, "odometer", 1015, "km").fix(85, *ROAD[1])
+    b.heartbeat(150)
+    t, = trips.derive_from(tmp_path, V)
+    assert t.distance_km == 15 and t.end == at(85)  # nothing cut
+    assert t.movements_while_plugged == 2           # the odometer and the fix
+    assert t.refined_by["end"] is None              # the plug-in came before the last movement
+
+
+def test_a_start_marker_never_reaches_back_across_the_previous_trip(tmp_path, capsys):
+    b = Builder(tmp_path, capsys)
+    b.heartbeat(0)
+    end = plain_drive(b, 0)                         # last movement at 45
+    b.state(end + 20, "plug_state", "on")           # ends the first trip at 65
+    b.state(end + 25, "plug_state", "off")
+    b.heartbeat(end + 30)
+    plain_drive(b, end + 15)                        # first movement at 75
+    first, second = trips.derive_from(tmp_path, V)
+    assert first.end == at(65)
+    assert second.start == at(70) and second.refined_by["start"] == "plug_state"
+    b2 = Builder(tmp_path / "crossed", capsys)
+    b2.heartbeat(0)
+    end = plain_drive(b2, 0)
+    b2.state(end + 10, "plug_state", "off")         # an unplug at 55, no plug-in seen before it
+    b2.state(end + 25, "plug_state", "on")          # ends the first trip at 70
+    b2.heartbeat(end + 30)
+    plain_drive(b2, end + 15)                       # first movement at 75
+    first, second = trips.derive_from(tmp_path / "crossed", V)
+    assert first.end == at(70) and first.refined_by["end"] == "plug_state"
+    # The unplug at 55 is within T_still of 75, but behind the first trip's end.
+    assert second.start == at(75) and second.refined_by["start"] is None
 
 
 def test_two_drives_split_by_a_standstill_but_not_by_a_short_stop(tmp_path, capsys):

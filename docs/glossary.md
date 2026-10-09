@@ -69,6 +69,14 @@ zones, distance, waypoints and mean outside temperature.
 **Standstill.** A span of at least **T_still** in which no movement role
 changes.
 
+**Not-driving marker.** A change of ignition, plug state or charging state
+that says when the vehicle was not driving: *ignition off*, *plugged in*
+and *charging* begin not driving and can end a trip; *ignition on* and
+*unplugged* end it and can start one. The end of charging is none — it
+comes when the battery is full, not when the driver leaves. A marker only
+moves the boundary of a trip the movement roles found, by at most T_still,
+never creates one (FAH-02, ADR-0012).
+
 **Waypoint.** A position recorded during a trip, plus the one the vehicle
 stood at before it moved. A fix's `gps_accuracy` of 0 means unknown, not
 exact — the reference vehicle reports 0 for every fix (ISSUE-0004).
