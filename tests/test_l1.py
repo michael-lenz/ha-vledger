@@ -6,7 +6,7 @@ import json
 import shutil
 
 from test_trips import Builder, at
-from vledger import l1, trips
+from vledger import l1, series, trips
 from vledger.cli import main
 from vledger.layout import Subject
 
@@ -130,3 +130,14 @@ def test_the_verbs(tmp_path, capsys):
     assert main(["l1", "clean", *b.b]) == 0
     assert not l1.l1_dir(tmp_path, V).exists()
     shutil.rmtree(tmp_path / "vehicle-a7c1")
+
+
+def test_a_cursor_is_seeded_from_a_snapshot_too(tmp_path, capsys):
+    """ISSUE-0011: a role whose last value before the cursor came from a
+    start line's snapshot still seeds the read from there."""
+    b = Builder(tmp_path, capsys)
+    b.heartbeat(0).state(2, "soc", 79, "%")
+    s = series.load(tmp_path, V, since=at(5))
+    assert [(f.t, f.latitude) for f in s.fixes] == [(at(-120), 51.0)]   # the snapshot's, never changed
+    assert [x.value for x in s.series["soc"]] == [79]                     # a later state line beats it
+    assert s.series["odometer"][0].value == 1000

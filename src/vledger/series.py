@@ -86,11 +86,12 @@ def _position_from(line: dict) -> Fix | None:
 
 
 def _seed_lines(base: Path, subject: Subject, since: str) -> list[dict]:
-    """The last state line of every role, and the last config line, before
-    ``since`` — read backwards from the month file ``since`` falls in, so a
+    """The last value of every role — from a state line or a start line's
+    snapshot, whichever came later — and the last config line, before
+    ``since``; read backwards from the month file ``since`` falls in, so a
     derivation from a cursor starts from the value the vehicle had, not
-    from its first change (ADR-0009, 3). Stops at the first month with
-    nothing new to find."""
+    from its first change (ADR-0009, 3; ISSUE-0011). Stops at the first
+    month with nothing new to find."""
     limit = clock.parse(since)
     found: dict[str, dict] = {}
     config = None
@@ -104,6 +105,11 @@ def _seed_lines(base: Path, subject: Subject, since: str) -> list[dict]:
                 config, new = line, True
             elif kind == "state" and line.get("role") not in found:
                 found[line["role"]], new = line, True
+            elif kind == "start":
+                for entry in line.get("snapshot") or []:
+                    if entry["role"] not in found:
+                        found[entry["role"]] = dict(entry, kind="state", t=entry.get("since") or line["t"])
+                        new = True
         if not new and config is not None:
             break
     out = list(found.values())
@@ -237,6 +243,18 @@ def last_at_or_before(samples: list, t: str):
     best = None
     for x in samples:
         if clock.parse(x.t) <= limit:
+            best = x
+        else:
+            break
+    return best
+
+
+def last_before(samples: list, t: str):
+    """The latest sample strictly before ``t``, or ``None``."""
+    limit = clock.parse(t)
+    best = None
+    for x in samples:
+        if clock.parse(x.t) < limit:
             best = x
         else:
             break

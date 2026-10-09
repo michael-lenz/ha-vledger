@@ -4,9 +4,9 @@
 project's register. This page is what a reader of their own `l1/` needs;
 the reasoning is in the decision.*
 
-**Status:** `trips.jsonl`, `refuellings.jsonl`, the manifest, the
-cursor, rebuilds and the `l1` verbs exist. The other kinds, and the live
-derivation in Home Assistant that appends as events complete, are
+**Status:** `trips.jsonl`, `refuellings.jsonl`, `charging-sessions.jsonl`,
+the manifest, the cursor, rebuilds and the `l1` verbs exist. Periods, and
+the live derivation in Home Assistant that appends as events complete, are
 planned.
 
 ## Files
@@ -15,15 +15,15 @@ planned.
 <base>/vehicle-<subject>/l1/
   manifest.json              what this L1 was derived from, and by what
   trips.jsonl                one line per trip, in order of start
-  charging-sessions.jsonl    one line per charging session        (planned)
+  charging-sessions.jsonl    one line per charging session
   refuellings.jsonl          one line per refuelling candidate
   periods.jsonl              one line per period with its metrics  (planned)
 ```
 
 Event files hold **completed** events only — a trip once its standstill
 has elapsed, a refuelling once T_settle has elapsed after its last rise,
-a session once the charging state went away — one JSON
-object per line, in order of `start`. Every event carries `kind` (`trip`,
+a session once the charging state went away (by SoC, once its run of
+rises was broken) — one JSON object per line, in order of `start`. Every event carries `kind` (`trip`,
 `charging`, `refuelling`, `period`), `subject`, `start`, `end`, `quality`
 (`measured`, `receipt`, `estimated`, `incomplete`) and `version`, then the
 keys of its kind, exactly as `vledger derive …` prints them. A derived
@@ -31,7 +31,9 @@ event has no id: it is named by `(kind, subject, start)`, and a receipt
 that matched it is referenced by the receipt's UUID in the event.
 
 A charge point's `l1/` holds a manifest and nothing else: meter
-attribution and cost are derived on the vehicle's side.
+attribution and cost are derived on the vehicle's side, which reads the
+charge points' streams and config lines, and the other vehicles' streams
+to know whether one of them charged at the same meter meanwhile (LAD-07).
 
 ## The manifest
 
@@ -73,6 +75,12 @@ and L1.
 No manifest; a manifest from another library version; a `config` hash
 that is not the latest config line's; a `receipts` hash that is not the
 file's. `vledger l1 status` says which, and exits 1.
+
+The hashes cover the vehicle's own configuration and receipts only. A
+charging session also depends on the charge points' configuration and
+streams and on the other vehicles' streams, and a change there — a
+corrected tariff, above all — does not make a rebuild due; `derive all
+--write` brings it in by hand (ISSUE-0013).
 
 ## Determinism
 

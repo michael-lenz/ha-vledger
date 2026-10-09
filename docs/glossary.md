@@ -83,7 +83,8 @@ exact — the reference vehicle reports 0 for every fix (ISSUE-0004).
 
 **Charging session.** From the charging state turning to `charging` until
 it turns away, with SoC at start and end, position, charge point and the
-energies below.
+energies below. A vehicle without a charging state has a session where
+its SoC rises at standstill by more than the **charging threshold**.
 
 **Refuelling.** A rise of the fuel quantity, at unchanged odometer, by at
 least the refuelling threshold within one sampling interval; where no

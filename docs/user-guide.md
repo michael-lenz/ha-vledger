@@ -4,9 +4,10 @@
 `docs/`; this page is the tour of the `vledger` command, verb by verb.*
 
 **Status:** the integration captures; the `l0` verbs exist; `derive trips`,
-`derive refuellings` and the `calc` atoms exist; L1 is written and read with `derive … --write`
-and the `l1` verbs. Receipts, the other derivations, the live derivation in
-Home Assistant, exports and reports are planned.
+`derive refuellings`, `derive charging` and the `calc` atoms exist; L1 is
+written and read with `derive … --write` and the `l1` verbs. Receipts,
+metrics, the live derivation in Home Assistant, exports and reports are
+planned.
 
 ## In Home Assistant
 
@@ -179,6 +180,7 @@ JSON Lines — one event per line, so it composes with `jq` like `l0 read`.
 vledger derive trips --vehicle a7c1
 vledger derive trips --vehicle a7c1 --since 2026-10-01T00:00:00Z | jq '{start, end, distance_km, distance_source}'
 vledger derive refuellings --vehicle a7c1 | jq '{start, zone, level_before_l, level_after_l}'
+vledger derive charging --vehicle a7c1 | jq '{start, chargepoint, delta_soc_pct, grid_kwh, grid_kwh_source, cost_eur}'
 ```
 
 A trip is the span between two standstills: from the first sample that
@@ -219,6 +221,34 @@ one whose settle time spans a capture gap is `incomplete`, without a level
 after. A fuel level in % is converted with the tank capacity; without
 one, nothing is detected, and the verb says why on stderr.
 
+A charging session runs from the charging state turning to `charging`
+until it turns to anything else; `unavailable` and `unknown` hold, so a
+sensor dropping out mid-charge does not split the session. A vehicle with
+no charging state assigned gets its sessions from its SoC instead: a run
+of rises at standstill whose total exceeds the charging threshold, broken
+by a sample that does not rise, a movement, a capture gap, or T_still
+without a rise (`source` says `charging_state` or `soc`). Only finished
+sessions are printed — one still charging appears once it ends.
+
+Every session carries SoC at both ends, the position, and the charge
+point whose radius holds that position — its subject id, or `foreign`.
+`battery_kwh` is ΔSoC × the net battery capacity, an estimate, and only
+when the capacity is set. `grid_kwh` comes from the charge point's meter
+(`grid_kwh_source` `meter`, measured), read from the charge point's own
+stream, when no other vehicle charged there during the session —
+otherwise `meter_attributable` is `false` — else from `battery_kwh` × the
+charging loss factor (`loss_factor`, estimated), else it is empty. A
+charging receipt will take precedence over both once receipts exist.
+`cost_eur` is `grid_kwh` × the charge point's tariff valid at the start,
+with the energy's quality; a tariff of 0 costs 0 without any energy; a
+foreign charge has no cost until a receipt gives one. Where the meter
+measured, `kwh_per_pct` is the grid-side kWh per % SoC and
+`charging_loss_kwh` grid- minus battery-side energy — never derived from
+the loss factor, and the capacity is never calibrated from them.
+`movements_while_charging` counts moving samples inside the session, as
+trips count them while plugged. A session across a capture gap is
+`incomplete`.
+
 ## The derivation on disk: `vledger l1`
 
 What `derive` prints can also be kept: L1, files next to L0 under
@@ -228,6 +258,7 @@ they were derived from ([l1-format.md](l1-format.md)).
 ```bash
 vledger derive trips --vehicle a7c1 --write      # replace l1/trips.jsonl with every completed trip
 vledger derive refuellings --vehicle a7c1 --write   # likewise l1/refuellings.jsonl
+vledger derive charging --vehicle a7c1 --write      # likewise l1/charging-sessions.jsonl
 vledger derive all --vehicle a7c1 --write        # rebuild all of l1/ from scratch, swapped in whole
 vledger l1 status --vehicle a7c1                 # the manifest, and whether a rebuild is due and why
 vledger l1 read --vehicle a7c1 --kind trip       # the events, as l0 read prints lines
@@ -235,9 +266,9 @@ vledger l1 clean --vehicle a7c1                  # delete l1/ — it is regenera
 ```
 
 L1 holds completed events only: a trip is written once its standstill has
-elapsed, a refuelling once it has settled, judged by the stream's last
-line rather than the clock, so the same stream always yields the same
-files. `l1 status` exits 1 when a
+elapsed, a refuelling once it has settled, a charging session once it has
+ended, judged by the stream's last line rather than the clock, so the
+same stream always yields the same files. `l1 status` exits 1 when a
 rebuild is due — no manifest, a different library version, a changed
 configuration or changed receipts — which is what the integration will
 check at startup.
@@ -255,6 +286,6 @@ vledger calc convert 72 "°F" --quantity temperature     # 22.2222 °C
 
 ## Planned
 
-`vledger receipt …`, the other derivations, `vledger export …` and
+`vledger receipt …`, `derive periods`, `vledger export …` and
 `vledger report …` follow the same shape: a noun, a verb, `--base` and the
 subject.

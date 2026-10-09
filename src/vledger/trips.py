@@ -187,15 +187,6 @@ def _while_plugged(s: Stream, moves: list[Movement]) -> int:
     return n
 
 
-def _strictly_before(samples: list, t: str):
-    limit = clock.parse(t)
-    best = None
-    for x in samples:
-        if clock.parse(x.t) < limit:
-            best = x
-        else:
-            break
-    return best
 
 
 def _start_value(s: Stream, samples: list, start: str):
@@ -203,7 +194,7 @@ def _start_value(s: Stream, samples: list, start: str):
     movement — unless a capture gap lies between the two, or there is none,
     in which case the sample at the start itself. Nothing is read across a
     gap (ABL-04)."""
-    before = _strictly_before(samples, start)
+    before = series.last_before(samples, start)
     if before is None or series.gap_between(s, before.t, start):
         return series.last_at_or_before(samples, start)
     return before
@@ -268,7 +259,7 @@ def derive(s: Stream, *, completed_only: bool = False) -> list[Trip]:
         inside_moves = [m for m in moves
                         if clock.parse(first) <= clock.parse(m.t) <= clock.parse(last)]
         # Where the vehicle was before it moved, then every fix while moving.
-        start_fix = _strictly_before(s.fixes, start) or series.last_at_or_before(s.fixes, start)
+        start_fix = series.last_before(s.fixes, start) or series.last_at_or_before(s.fixes, start)
         inside = series.between(s.fixes, start, end)
         waypoints = ([start_fix] if start_fix and start_fix not in inside else []) + inside
         end_fix = waypoints[-1] if waypoints else None

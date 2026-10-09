@@ -17,6 +17,7 @@ from pathlib import Path
 
 from vledger import (
     __version__,
+    charging,
     clock,
     geo,
     l0,
@@ -259,6 +260,19 @@ def cmd_derive_refuellings(args) -> int:
     return 0
 
 
+def cmd_derive_charging(args) -> int:
+    base, subject = _base(args), _subject(args)
+    if subject.kind != "vehicle":
+        raise Usage("charging sessions are a vehicle's; a charge point's meter is read from there")
+    if args.write:
+        return _write_kind(args, "charging", "charging session")
+    found = charging.derive_from(base, subject, since=args.since, until=args.until)
+    for session in found:
+        print(json.dumps(charging.to_dict(session), ensure_ascii=False))
+    print(f"{len(found)} charging session(s)", file=sys.stderr)
+    return 0
+
+
 def cmd_derive_all(args) -> int:
     base, subject = _base(args), _subject(args)
     if not args.write:
@@ -413,6 +427,13 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--write", action="store_true",
                     help="replace l1/refuellings.jsonl instead of printing")
     sp.set_defaults(func=cmd_derive_refuellings)
+    sp = dverbs.add_parser("charging", help="the charging sessions in a vehicle's stream, as JSON Lines")
+    _add_stream_args(sp)
+    sp.add_argument("--since", help="first time to read, inclusive")
+    sp.add_argument("--until", help="last time to read, inclusive")
+    sp.add_argument("--write", action="store_true",
+                    help="replace l1/charging-sessions.jsonl instead of printing")
+    sp.set_defaults(func=cmd_derive_charging)
     sp = dverbs.add_parser("all", help="rebuild L1 from scratch, atomically")
     _add_stream_args(sp)
     sp.add_argument("--write", action="store_true", help="required: this writes")
