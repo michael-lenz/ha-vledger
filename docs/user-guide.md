@@ -51,7 +51,8 @@ line (with its role) were written, the state lines since start and
 today, the number of capture gaps, and the latest gap's length with its
 reason, start and end. They are counted once when capture starts and
 then kept up to date from the lines written — the same counts as
-`vledger l0 stats`.
+`vledger l0 stats`. Sizes are shown in KiB and gaps in seconds; the
+entity's settings switch either to another unit (MiB, hours).
 
 **Download diagnostics** (the entry's menu) adds what only a full count of
 the log gives: the measured sampling interval of every role (median and

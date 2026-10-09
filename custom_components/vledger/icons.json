@@ -1,0 +1,24 @@
+{
+  "entity": {
+    "sensor": {
+      "capture_status": {
+        "default": "mdi:record-circle-outline",
+        "state": {
+          "running": "mdi:record-rec",
+          "stopped": "mdi:stop-circle-outline",
+          "recomputing": "mdi:refresh"
+        }
+      },
+      "month_file_size": { "default": "mdi:file-outline" },
+      "stream_size": { "default": "mdi:database-outline" },
+      "month_files": { "default": "mdi:file-multiple-outline" },
+      "last_line": { "default": "mdi:text-box-check-outline" },
+      "last_heartbeat": { "default": "mdi:heart-pulse" },
+      "last_state_line": { "default": "mdi:car-clock" },
+      "lines_since_start": { "default": "mdi:counter" },
+      "lines_today": { "default": "mdi:calendar-today" },
+      "capture_gaps": { "default": "mdi:timeline-alert-outline" },
+      "latest_capture_gap": { "default": "mdi:timer-alert-outline" }
+    }
+  }
+}

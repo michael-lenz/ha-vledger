@@ -52,7 +52,7 @@ LOG_SENSORS: tuple[LogSensorDescription, ...] = (
         key="stream_size", translation_key="stream_size",
         device_class=SensorDeviceClass.DATA_SIZE, state_class=SensorStateClass.TOTAL_INCREASING,
         native_unit_of_measurement=UnitOfInformation.BYTES,
-        suggested_unit_of_measurement=UnitOfInformation.MEBIBYTES,
+        suggested_unit_of_measurement=UnitOfInformation.KIBIBYTES,
         value_fn=lambda c: c.stream_bytes),
     LogSensorDescription(
         key="month_files", translation_key="month_files",
@@ -87,7 +87,7 @@ LOG_SENSORS: tuple[LogSensorDescription, ...] = (
     LogSensorDescription(
         key="latest_capture_gap", translation_key="latest_capture_gap",
         device_class=SensorDeviceClass.DURATION, state_class=SensorStateClass.MEASUREMENT,
-        native_unit_of_measurement=UnitOfTime.SECONDS,
+        native_unit_of_measurement=UnitOfTime.SECONDS, suggested_display_precision=0,
         value_fn=lambda c: round(c.gaps[-1].seconds) if c.gaps else None,
         attrs_fn=lambda c: {k: _latest_gap(c).get(k) for k in ("reason", "start", "end")}),
 )

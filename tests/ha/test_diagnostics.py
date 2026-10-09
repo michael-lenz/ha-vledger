@@ -3,6 +3,7 @@
 integration shows is checked against what the library reads back."""
 
 from datetime import timedelta
+from pathlib import Path
 
 import pytest
 from homeassistant.components.diagnostics import REDACTED
@@ -66,7 +67,7 @@ async def test_the_raw_log_as_diagnostic_entities(hass, vehicle_entry, tmp_path)
     counted = stats.scan(tmp_path, V)
     size = layout.l0_file(tmp_path, V, clock.month_of(counted.last_line_at)).stat().st_size
     # Shown in the suggested units; the native bytes are what the file holds.
-    assert float(_value(hass, "raw_log_size").state) * 1024 * 1024 == pytest.approx(size)
+    assert float(_value(hass, "raw_log_size").state) * 1024 == pytest.approx(size)
     assert _value(hass, "raw_log_size").attributes["state_class"] == "total_increasing"
     assert float(_value(hass, "current_month_file_size").state) * 1024 == pytest.approx(size)
     assert _value(hass, "month_files").state == "1"
@@ -103,6 +104,21 @@ async def test_what_the_stream_held_before_start_is_counted(hass, vehicle_entry,
     expected_today = 1 if dt_util.as_local(earlier).date() == dt_util.now().date() else 0
     assert _value(hass, "state_lines_today").state == str(expected_today)
     assert _value(hass, "last_state_line").attributes["role"] == "odometer"
+    # Whole seconds, shown as whole seconds.
+    entity = er.async_get(hass).async_get("sensor.volvo_latest_capture_gap")
+    assert entity.options["sensor"]["suggested_display_precision"] == 0
+
+
+def test_every_sensor_has_a_name_and_an_icon():
+    import json
+
+    from custom_components.vledger.sensor import LOG_SENSORS
+
+    root = Path(__file__).resolve().parents[2] / "custom_components/vledger"
+    icons = json.loads((root / "icons.json").read_text())["entity"]["sensor"]
+    names = json.loads((root / "strings.json").read_text())["entity"]["sensor"]
+    keys = {"capture_status", *(d.translation_key for d in LOG_SENSORS)}
+    assert set(icons) == set(names) == keys
 
 
 async def test_lines_today_restart_at_local_midnight(hass, vehicle_entry):
