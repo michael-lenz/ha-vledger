@@ -4,8 +4,9 @@
 `docs/`; this page is the tour of the `vledger` command, verb by verb.*
 
 **Status:** the integration captures; the `l0` verbs exist; `derive trips`
-and the `calc` atoms exist and print. Receipts, the other derivations,
-storing L1, exports and reports are planned.
+and the `calc` atoms exist; L1 is written and read with `derive … --write`
+and the `l1` verbs. Receipts, the other derivations, the live derivation in
+Home Assistant, exports and reports are planned.
 
 ## In Home Assistant
 
@@ -184,6 +185,27 @@ What the sampling cannot show, a trip cannot show either: with positions
 and the odometer every 15 minutes, a stop of 20 minutes may look like 35
 between moving samples and split the trip — that is the sampling, not the
 stop ([glossary](glossary.md), *Sampling interval*).
+
+## The derivation on disk: `vledger l1`
+
+What `derive` prints can also be kept: L1, files next to L0 under
+`l1/`, one JSON Lines file per kind of event and a manifest saying what
+they were derived from ([l1-format.md](l1-format.md)).
+
+```bash
+vledger derive trips --vehicle a7c1 --write      # replace l1/trips.jsonl with every completed trip
+vledger derive all --vehicle a7c1 --write        # rebuild all of l1/ from scratch, swapped in whole
+vledger l1 status --vehicle a7c1                 # the manifest, and whether a rebuild is due and why
+vledger l1 read --vehicle a7c1 --kind trip       # the events, as l0 read prints lines
+vledger l1 clean --vehicle a7c1                  # delete l1/ — it is regenerable
+```
+
+L1 holds completed events only: a trip is written once its standstill has
+elapsed, judged by the stream's last line rather than the clock, so the
+same stream always yields the same files. `l1 status` exits 1 when a
+rebuild is due — no manifest, a different library version, a changed
+configuration or changed receipts — which is what the integration will
+check at startup.
 
 ## The atoms: `vledger calc`
 

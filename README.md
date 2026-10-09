@@ -20,9 +20,11 @@ touching anything else the vehicle reports: it is a ledger, not a monitor.
 point through the UI, writes its raw log and shows it in numbers as
 diagnostic entities and diagnostics — the format, and the `vledger l0`
 verbs that write, read, validate and count it and list its gaps, are the
-library's. The first derivation exists: `vledger derive trips` prints the
-trips in a stream. No charging sessions, refuellings, metrics or receipts
-yet, and nothing is stored as L1. Every behaviour described below is the design, held
+library's. The first derivation exists: `vledger derive trips` finds the
+trips in a stream, and L1 — the derivation on disk, with its manifest and
+cursor — is written and read by the `l1` verbs. No charging sessions,
+refuellings, metrics or receipts yet, and the integration does not derive
+live yet. Every behaviour described below is the design, held
 as requirements in the project's register (`ha-vledger-pm`); a section is
 marked *(planned)* until it exists.
 
@@ -84,7 +86,9 @@ configured in the UI; no YAML.
 |---|---|
 | [docs/user-guide.md](docs/user-guide.md) | What a participant types: the `vledger` command, verb by verb |
 | [docs/l0-format.md](docs/l0-format.md) | The raw log's layout, version 1 — the specification a reader of their own files needs |
+| [docs/l1-format.md](docs/l1-format.md) | The derivation on disk: files, manifest, cursor, rebuilds |
 | [docs/glossary.md](docs/glossary.md) | The one English spelling of every domain term, and what it means |
+| [docs/developing.md](docs/developing.md) | From a fresh clone to green tests, and the conditions behind each step |
 | [docs/releasing.md](docs/releasing.md) | What the person cutting a release does, in order |
 
 Decisions, requirements and the work queue are records in the project's
@@ -105,27 +109,17 @@ its own: `pip install vledger`, which brings the `vledger` command.
 
 ## Developing
 
+[docs/developing.md](docs/developing.md) is the manual; the short form:
+
 ```bash
-pip install -e ".[dev]"        # library and CLI
-pip install -e ".[dev,ha]"     # plus the Home Assistant test stack, for the integration
-python -m pytest
-ruff check src tests custom_components
+python3 -m venv .venv && .venv/bin/pip install -e ".[dev,ha]"
+.venv/bin/python -m pytest -q
+.venv/bin/ruff check src tests custom_components
 ```
 
-The integration's manifest pins a library version that may not be on PyPI
-yet; Home Assistant skips the install when the package already imports, so
-a development instance needs the editable install above first.
-
-The `ha` extra pulls in a full Home Assistant core and its test plugin.
-On a Debian or Ubuntu system Python that install can fail to build one of
-its transitive dependencies against the distribution's patched
-setuptools; a virtual environment (`python3 -m venv .venv`) does not have
-that problem, and is the recommended place for it anyway. Without the
-extra, `python -m pytest` runs the library's tests and leaves `tests/ha`
-out. The library's own tests, the integration's against the oldest and
-the newest Home Assistant, and HACS's validation run on every push
-(`.github/workflows/tests.yml`); a tag `vX.Y.Z` publishes the release
-(`.github/workflows/release.yml`, [docs/releasing.md](docs/releasing.md)).
+The library's tests run in any Python with `.[dev]`; the integration's
+need the `ha` extra and a venv. `CLAUDE.md` says how a Claude session
+works here and with the register.
 
 ## Privacy
 
