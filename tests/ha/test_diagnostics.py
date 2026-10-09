@@ -30,8 +30,8 @@ LOG_ENTITIES = (
 
 async def _settle(hass, entry):
     await hass.async_block_till_done()
-    await entry.runtime_data._queue.join()
-    await hass.async_block_till_done()
+    await entry.runtime_data.capture._queue.join()
+    await hass.async_block_till_done(wait_background_tasks=True)
 
 
 def _at(state, t: str) -> bool:
@@ -127,7 +127,7 @@ async def test_lines_today_restart_at_local_midnight(hass, vehicle_entry):
     await _settle(hass, vehicle_entry)
     assert _value(hass, "state_lines_today").state == "1"
     midnight = dt_util.start_of_local_day() + timedelta(days=1)
-    vehicle_entry.runtime_data._on_midnight(midnight)
+    vehicle_entry.runtime_data.capture._on_midnight(midnight)
     await hass.async_block_till_done()
     assert _value(hass, "state_lines_today").state == "0"
     assert _value(hass, "state_lines_since_start").state == "1"
@@ -185,7 +185,7 @@ async def test_diagnostics_redact_a_charge_point_s_place(hass, hass_client, tmp_
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
-    await entry.runtime_data._queue.join()
+    await entry.runtime_data.capture._queue.join()
 
     d = await get_diagnostics_for_config_entry(hass, hass_client, entry)
     assert d["entry"]["options"]["latitude"] == REDACTED

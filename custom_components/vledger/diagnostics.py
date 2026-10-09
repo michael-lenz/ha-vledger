@@ -26,7 +26,7 @@ POSITION_ROLES = ("position_latitude", "position_longitude")
 
 async def async_get_config_entry_diagnostics(hass: HomeAssistant,
                                              entry: VledgerConfigEntry) -> dict:
-    capture = entry.runtime_data
+    capture = entry.runtime_data.capture
     counted = await hass.async_add_executor_job(stats.scan, capture.base, capture.subject)
     counted.finder.close(clock.to_text(clock.now()))
     stream = stats.to_dict(counted)
@@ -36,5 +36,6 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant,
     return async_redact_data({
         "entry": {"data": dict(entry.data), "options": dict(entry.options)},
         "capture": capture.counts(),
+        "l1": entry.runtime_data.l1.counts(),
         "stream": stream,
     }, TO_REDACT)

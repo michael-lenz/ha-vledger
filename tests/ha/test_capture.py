@@ -15,9 +15,10 @@ V = Subject("vehicle", "a7c1")
 
 
 async def _settle(hass, entry):
-    """Let the writer drain."""
+    """Let the writer drain, and the L1 writer's runs finish."""
     await hass.async_block_till_done()
-    await entry.runtime_data._queue.join()
+    await entry.runtime_data.capture._queue.join()
+    await hass.async_block_till_done(wait_background_tasks=True)
 
 
 async def test_a_stream_is_written_start_to_stop(hass, vehicle_entry, tmp_path):

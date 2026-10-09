@@ -192,5 +192,20 @@
       "title": "{name}: {entity} wurde entfernt",
       "description": "Die der Rolle {role} von {name} zugeordnete Entität existiert nicht mehr. Sie wird als unavailable protokolliert, bis in den Optionen eine andere Entität zugeordnet wird."
     }
+  },
+  "services": {
+    "recompute": {
+      "name": "Neu berechnen",
+      "description": "Berechnet die Ableitung auf der Platte (L1) neu aus dem Rohprotokoll, den Belegen und der Konfiguration, für ein Fahrzeug oder einen Ladepunkt oder für alle. Die Erfassung läuft dabei weiter.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fahrzeug oder Ladepunkt",
+          "description": "Welches neu berechnet wird; leer: alle."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "entry_not_loaded": { "message": "Kein geladenes Fahrzeug und kein geladener Ladepunkt hat den Eintrag {entry}." }
   }
 }

@@ -179,7 +179,11 @@ def thresholds(base: Path, subject: Subject) -> dict:
 def kinds(base: Path, subject: Subject) -> list[str]:
     """The kinds L1 holds: every derivation, and a receipt kind whose
     receipts exist even before its derivation does — a receipt that meets
-    nothing is an event of its own (BEL-06)."""
+    nothing is an event of its own (BEL-06). A charge point's L1 is a
+    manifest and nothing else in v1 (ADR-0009, 1): its meter and cost are
+    derived on the vehicle's side (ISSUE-0010)."""
+    if subject.kind != "vehicle":
+        return []
     out = list(DERIVATIONS)
     led = None
     for kind in receipts.EVENT_KINDS:
@@ -269,7 +273,7 @@ def incremental(base: Path, subject: Subject) -> dict[str, list[dict]]:
     manifest = read_manifest(base, subject) or {}
     through = dict(manifest.get("through") or {})
     found: dict[str, list[dict]] = {}
-    for kind in DERIVATIONS:
+    for kind in (k for k in kinds(base, subject) if k in DERIVATIONS):
         cursor = through.get(kind)
         found[kind] = [e for e in detected(base, subject, kind, cursor)
                        if cursor is None or clock.parse(e["start"]) > clock.parse(cursor)]

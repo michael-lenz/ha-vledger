@@ -192,5 +192,20 @@
       "title": "{name}: {entity} was removed",
       "description": "The entity assigned to the role {role} of {name} no longer exists. It is logged as unavailable until a different entity is assigned in the options."
     }
+  },
+  "services": {
+    "recompute": {
+      "name": "Recompute",
+      "description": "Rebuilds the derivation on disk (L1) from the raw log, the receipts and the configuration, for one vehicle or charge point or for all of them. Capture goes on while it runs.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Vehicle or charge point",
+          "description": "Which one to recompute; empty: all of them."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "entry_not_loaded": { "message": "No loaded vehicle or charge point has the entry {entry}." }
   }
 }

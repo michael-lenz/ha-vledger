@@ -128,26 +128,34 @@ def load(base: Path, subject: Subject, *, since: str | None = None,
     s = Stream(subject)
     pending_lat: dict[str, float] = {}
     fuel_pct: list[Sample] = []
+    seeding = False
+
+    def add(items: list, item) -> None:
+        # A restart's snapshot repeats the last value at the time it was
+        # set; read twice, it would land again inside whatever event
+        # already holds it (ISSUE-0014).
+        if not (seeding and item in items):
+            items.append(item)
 
     def take(role: str, line: dict, t: str) -> None:
         q = units.quantity_of(role)
         if q is not None:
             n = units.number(line.get("state"))
             if n is None:
-                s.dropouts.setdefault(role, []).append(t)
+                add(s.dropouts.setdefault(role, []), t)
                 return
             if role == "fuel_level" and line.get("unit") == "%":
-                fuel_pct.append(Sample(t, n))
+                add(fuel_pct, Sample(t, n))
                 return
             try:
                 v = units.convert(n, line.get("unit"), q)
             except ValueError:
                 return
-            s.series.setdefault(role, []).append(Sample(t, v))
+            add(s.series.setdefault(role, []), Sample(t, v))
         elif role == "position":
             fix = _position_from(dict(line, t=t))
             if fix:
-                s.fixes.append(fix)
+                add(s.fixes, fix)
         elif role in ("position_latitude", "position_longitude"):
             n = units.number(line.get("state"))
             if n is None:
@@ -155,14 +163,14 @@ def load(base: Path, subject: Subject, *, since: str | None = None,
             key = "lat" if role == "position_latitude" else "lon"
             pending_lat[key] = n
             if "lat" in pending_lat and "lon" in pending_lat:
-                s.fixes.append(Fix(t, pending_lat["lat"], pending_lat["lon"], None, None))
+                add(s.fixes, Fix(t, pending_lat["lat"], pending_lat["lon"], None, None))
         elif role in vconfig.DOMAIN_STATES:
             mapping = ((s.config or {}).get("roles", {}).get(role) or {}).get("map") or {}
             raw = line.get("state")
             state = vconfig.domain_state(role, raw, mapping)
             if vconfig.unlisted(role, raw, mapping):
                 s.unmapped.setdefault(role, set()).add(raw)
-            s.domain.setdefault(role, []).append(DomainSample(t, state, raw))
+            add(s.domain.setdefault(role, []), DomainSample(t, state, raw))
 
     seeds = _seed_lines(base, subject, since) if since else []
     for line in seeds + [r.line for r in l0.read(base, subject, since=since, until=until)]:
@@ -174,8 +182,10 @@ def load(base: Path, subject: Subject, *, since: str | None = None,
         if kind == "config":
             s.config = line["config"]
         elif kind == "start":
+            seeding = True
             for entry in line.get("snapshot") or []:
                 take(entry["role"], entry, entry.get("since") or t)
+            seeding = False
         elif kind == "state":
             take(line["role"], line, t)
     if fuel_pct:

@@ -5,10 +5,10 @@
 
 **Status:** the integration captures; the `l0` verbs exist; `derive trips`,
 `derive refuellings`, `derive charging` and the `calc` atoms exist; L1 is
-written and read with `derive … --write` and the `l1` verbs; receipts are
-entered, corrected, cancelled and matched with the `receipt` verbs and
-`derive match`. Receipt entry in Home Assistant, metrics, the live
-derivation in Home Assistant, exports and reports are planned.
+written and read with `derive … --write` and the `l1` verbs, and the
+integration keeps it live; receipts are entered, corrected, cancelled and
+matched with the `receipt` verbs and `derive match`. Receipt entry in Home
+Assistant, metrics, exports and reports are planned.
 
 ## In Home Assistant
 
@@ -77,6 +77,21 @@ new configuration.
 
 If an assigned entity disappears, it is logged as `unavailable` and a
 repair issue names it until another entity is assigned.
+
+The integration also keeps the derivation on disk, L1
+([below](#the-derivation-on-disk-vledger-l1)), the moment events complete.
+At startup it checks whether L1 has to be rebuilt — none yet, another
+version, changed configuration or receipts — and if so rebuilds it while
+capture goes on; meanwhile **Capture status** shows `recomputing`. To
+rebuild on demand, call the action **Vehicle Ledger: Recompute**
+(`vledger.recompute`) — for one vehicle or charge point, or, left empty,
+for all:
+
+```yaml
+action: vledger.recompute
+data:
+  config_entry_id: 01J…      # optional
+```
 
 ## Where the data is
 
@@ -199,8 +214,10 @@ mean the plug or charging mapping is wrong. Every trip carries its distance with
 measured, `trip_counter` measured, `waypoints` estimated), the positions
 and zones at both ends, every fix in between, the mean outside
 temperature, and ΔSoC and Δfuel as estimates. A trip that spans a capture
-gap is `incomplete`, and nothing is read across a gap: the distance driven
-inside one belongs to no trip.
+gap is `incomplete`, and so is one whose standstill a gap falls into —
+its end is unknown; a gap after the standstill has elapsed leaves the
+completed trip as it was. Nothing is read across a gap: the distance
+driven inside one belongs to no trip.
 
 What the sampling cannot show, a trip cannot show either: with positions
 and the odometer every 15 minutes, a stop of 20 minutes may look like 35
@@ -308,8 +325,8 @@ elapsed, a refuelling once it has settled, a charging session once it has
 ended, judged by the stream's last line rather than the clock, so the
 same stream always yields the same files. `l1 status` exits 1 when a
 rebuild is due — no manifest, a different library version, a changed
-configuration or changed receipts — which is what the integration will
-check at startup.
+configuration or changed receipts — which is what the integration checks
+at startup.
 
 ## The atoms: `vledger calc`
 

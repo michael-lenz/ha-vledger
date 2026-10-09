@@ -141,3 +141,14 @@ def test_a_cursor_is_seeded_from_a_snapshot_too(tmp_path, capsys):
     assert [(f.t, f.latitude) for f in s.fixes] == [(at(-120), 51.0)]   # the snapshot's, never changed
     assert [x.value for x in s.series["soc"]] == [79]                     # a later state line beats it
     assert s.series["odometer"][0].value == 1000
+
+
+def test_a_charge_points_l1_is_a_manifest_and_nothing_else(tmp_path, capsys):
+    """ADR-0009, 1: no event of its own in v1 (ISSUE-0010)."""
+    b = ["--base", str(tmp_path), "--chargepoint", "cp1"]
+    assert main(["l0", "start", *b, "--t", at(0), "--homeassistant", "2026.9.4", "--snapshot", "[]"]) == 0
+    assert main(["derive", "all", *b, "--write"]) == 0
+    cp = Subject("chargepoint", "cp1")
+    assert [p.name for p in l1.l1_dir(tmp_path, cp).iterdir()] == ["manifest.json"]
+    assert l1.incremental(tmp_path, cp) == {}
+    assert [p.name for p in l1.l1_dir(tmp_path, cp).iterdir()] == ["manifest.json"]

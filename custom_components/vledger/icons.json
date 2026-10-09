@@ -20,5 +20,8 @@
       "capture_gaps": { "default": "mdi:timeline-alert-outline" },
       "latest_capture_gap": { "default": "mdi:timer-alert-outline" }
     }
+  },
+  "services": {
+    "recompute": { "service": "mdi:refresh" }
   }
 }

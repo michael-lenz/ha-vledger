@@ -95,7 +95,7 @@ LOG_SENSORS: tuple[LogSensorDescription, ...] = (
 
 async def async_setup_entry(hass: HomeAssistant, entry: VledgerConfigEntry,
                             add_entities: AddEntitiesCallback) -> None:
-    capture = entry.runtime_data
+    capture = entry.runtime_data.capture
     add_entities([CaptureStatusSensor(capture),
                   *(LogSensor(capture, d) for d in LOG_SENSORS)])
 

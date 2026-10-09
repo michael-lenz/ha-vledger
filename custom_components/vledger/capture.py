@@ -42,7 +42,13 @@ from homeassistant.util import dt as dt_util
 from vledger import __version__, clock, l0, stats
 from vledger.layout import Subject
 
-from .const import DOMAIN, ISSUE_ENTITY_REMOVED, STATUS_RUNNING, STATUS_STOPPED
+from .const import (
+    DOMAIN,
+    ISSUE_ENTITY_REMOVED,
+    STATUS_RECOMPUTING,
+    STATUS_RUNNING,
+    STATUS_STOPPED,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -113,7 +119,10 @@ class Capture:
         self.specs = {role: spec for role, spec in self.roles.items()}
         self.heartbeat_s = int((config.get("thresholds") or {}).get("heartbeat_s", l0.DEFAULT_HEARTBEAT_S))
 
-        self.status = STATUS_STOPPED
+        self.running = False
+        # Set by the L1 writer while it rebuilds: capture goes on, the
+        # status says so (ABL-08).
+        self.recomputing = False
         self.stop_reason: str | None = None
 
         # What the stream holds, counted once on start and carried forward
@@ -132,6 +141,7 @@ class Capture:
         self._writer: asyncio.Task | None = None
         self._unsubscribe: list[CALLBACK_TYPE] = []
         self._listeners: list[Callable[[], None]] = []
+        self._line_listeners: list[Callable[[l0.Line], None]] = []
 
     # --- lifecycle ---------------------------------------------------------
 
@@ -148,11 +158,11 @@ class Capture:
             async_track_time_interval(self.hass, self._on_heartbeat, timedelta(seconds=self.heartbeat_s)))
         self._unsubscribe.append(
             async_track_time_change(self.hass, self._on_midnight, hour=0, minute=0, second=0))
-        self.status = STATUS_RUNNING
+        self.running = True
         self._notify()
 
     async def async_stop(self, reason: str) -> None:
-        if self.status != STATUS_RUNNING:
+        if not self.running:
             return
         for unsub in self._unsubscribe:
             unsub()
@@ -162,8 +172,22 @@ class Capture:
         if self._writer:
             self._writer.cancel()
             self._writer = None
-        self.status = STATUS_STOPPED
+        self.running = False
         self._notify()
+
+    @property
+    def status(self) -> str:
+        if not self.running:
+            return STATUS_STOPPED
+        return STATUS_RECOMPUTING if self.recomputing else STATUS_RUNNING
+
+    def set_recomputing(self, on: bool) -> None:
+        self.recomputing = on
+        self._notify()
+
+    async def async_flushed(self) -> None:
+        """Wait until every line put so far is on disk."""
+        await self._queue.join()
 
     # --- lines -------------------------------------------------------------
 
@@ -240,6 +264,8 @@ class Capture:
                     _append, self.base, self.subject, line)
                 self._wrote(line, month, size)
                 self._notify()
+                for cb in list(self._line_listeners):
+                    cb(line)
             except Exception:
                 _LOGGER.exception("vledger: could not write %s line for %s", line["kind"], self.subject.id)
             finally:
@@ -324,6 +350,15 @@ class Capture:
 
         def remove() -> None:
             self._listeners.remove(cb)
+
+        return remove
+
+    def listen_lines(self, cb: Callable[[l0.Line], None]) -> CALLBACK_TYPE:
+        """Call ``cb`` with every line once it is on disk."""
+        self._line_listeners.append(cb)
+
+        def remove() -> None:
+            self._line_listeners.remove(cb)
 
         return remove
 

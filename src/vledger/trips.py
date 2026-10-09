@@ -92,20 +92,25 @@ def _spans(moves: list[Movement], t_still_s: float, gaps: list[l0.Gap]) -> list[
     still = timedelta(seconds=t_still_s)
     gap_ranges = [(clock.parse(g.start), clock.parse(g.end)) for g in gaps]
 
-    def gap_between(a: str, b: str) -> bool:
-        ta, tb = clock.parse(a), clock.parse(b)
+    def gap_between(ta, tb) -> bool:
         return any(gs < tb and ge > ta for gs, ge in gap_ranges)
 
     spans: list[tuple[str, str, bool]] = []
     start = last = moves[0].t
     incomplete = False
     for m in moves[1:]:
-        if clock.parse(m.t) - clock.parse(last) >= still or gap_between(last, m.t):
-            crossed = gap_between(last, m.t)
-            spans.append((start, last, incomplete or crossed))
+        tl, tm = clock.parse(last), clock.parse(m.t)
+        crossed = gap_between(tl, tm)
+        if tm - tl >= still or crossed:
+            spans.append((start, last, incomplete or gap_between(tl, min(tm, tl + still))))
             start, incomplete = m.t, crossed
         last = m.t
-    spans.append((start, last, incomplete))
+    # A gap inside a trip's standstill leaves its end unknown; one after T_still
+    # had elapsed comes after the completed trip, and only the next trip, which
+    # began in it, is incomplete. Either way the answer is fixed the moment the
+    # trip completes, whatever the stream holds later (ISSUE-0014).
+    tl = clock.parse(last)
+    spans.append((start, last, incomplete or gap_between(tl, tl + still)))
     return spans
 
 

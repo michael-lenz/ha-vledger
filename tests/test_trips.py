@@ -237,6 +237,39 @@ def test_a_gap_inside_a_trip_makes_it_incomplete_and_splits_it(tmp_path, capsys)
     assert [(t.quality, t.distance_km) for t in found] == [("incomplete", 7), ("incomplete", 7)]
 
 
+def test_a_gap_after_the_standstill_leaves_the_trip_before_it_complete(tmp_path, capsys):
+    """ISSUE-0014: a completed trip stays what it was when it completed."""
+    b = Builder(tmp_path, capsys)
+    end = b.drive(60)
+    b.heartbeat(end + 40)                              # T_still elapsed: complete
+    before = trips.derive_from(tmp_path, V, completed_only=True)
+    assert [t.quality for t in before] == ["measured"]
+    b.run("stop", *b.b, "--t", at(end + 50), "--reason", "reload")
+    # The restart's snapshot repeats the last values, at the time they were set.
+    snapshot = [
+        {"role": "odometer", "entity": "x.odometer", "state": "1022.0", "unit": "km", "since": at(end)},
+        {"role": "position", "entity": "x.position", "state": "not_home", "since": at(end),
+         "attrs": {"latitude": ROAD[2][0], "longitude": ROAD[2][1], "gps_accuracy": 0}},
+    ]
+    b.run("start", *b.b, "--t", at(end + 50), "--homeassistant", "2026.9.4", "--snapshot", json.dumps(snapshot))
+    b.state(end + 75, "odometer", 1029, "km")          # moved across the reload
+    found = trips.derive_from(tmp_path, V)
+    assert found[0] == before[0]
+    assert [t.quality for t in found] == ["measured", "incomplete"]
+
+
+def test_a_gap_inside_the_standstill_is_counted_when_the_trip_completes(tmp_path, capsys):
+    """ISSUE-0014: the same answer before and after the next trip begins."""
+    b = Builder(tmp_path, capsys)
+    end = b.drive(60)
+    b.run("start", *b.b, "--t", at(end + 10), "--homeassistant", "2026.9.4")   # a crash inside it
+    b.heartbeat(end + 40)
+    before = trips.derive_from(tmp_path, V, completed_only=True)
+    assert [t.quality for t in before] == ["incomplete"]
+    b.state(end + 75, "odometer", 1029, "km")
+    assert trips.derive_from(tmp_path, V)[0] == before[0]
+
+
 def test_distance_falls_back_to_the_trip_counter_then_to_straight_lines(tmp_path, capsys):
     # No odometer at all, a trip counter that resets mid-trip, and fixes.
     b = Builder(tmp_path, capsys)

@@ -18,3 +18,5 @@ STATUS_STOPPED = "stopped"
 STATUS_RECOMPUTING = "recomputing"
 
 ISSUE_ENTITY_REMOVED = "entity_removed"
+
+SERVICE_RECOMPUTE = "recompute"

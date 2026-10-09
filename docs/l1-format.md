@@ -5,9 +5,8 @@ project's register. This page is what a reader of their own `l1/` needs;
 the reasoning is in the decision.*
 
 **Status:** `trips.jsonl`, `refuellings.jsonl`, `charging-sessions.jsonl`,
-the manifest, the cursor, rebuilds, the `l1` verbs and receipts in events
-exist. Periods, and the live derivation in Home Assistant that appends as
-events complete, are planned.
+the manifest, the cursor, rebuilds, the `l1` verbs, receipts in events and
+the live derivation in Home Assistant exist. Periods are planned.
 
 ## Files
 
@@ -90,6 +89,13 @@ one is, the new event could change a match on disk, and it rebuilds.
   into `l1.tmp/`, which is then renamed into place, so a reader never sees
   a half-built L1 and a crash mid-way leaves the old one.
 - The manifest is rewritten after every rebuild and every incremental run.
+- In Home Assistant **one writer per subject** does all three, beside
+  capture and never in its way: the rebuild check once the start's
+  `config` line is on disk, then an incremental run on every heartbeat and
+  at most once a minute after state lines, and a rebuild whenever the
+  check says so or the action `vledger.recompute` asks. Runs are
+  serialised, so an incremental run never meets a rebuild; while a rebuild
+  runs, capture status reads `recomputing`.
 
 ## The cursor
 
