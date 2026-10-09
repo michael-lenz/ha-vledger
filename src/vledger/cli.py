@@ -15,7 +15,7 @@ import os
 import sys
 from pathlib import Path
 
-from vledger import __version__, clock, geo, l0, trips, units
+from vledger import __version__, clock, geo, l0, l1, trips, units
 from vledger.layout import Subject
 
 ENV_BASE = "VLEDGER_BASE"
@@ -174,10 +174,67 @@ def cmd_l0_gaps(args) -> int:
 # --- derive verbs ----------------------------------------------------------
 
 def cmd_derive_trips(args) -> int:
-    found = trips.derive_from(_base(args), _subject(args), since=args.since, until=args.until)
+    base, subject = _base(args), _subject(args)
+    if args.write:
+        if args.since or args.until:
+            raise Usage("--write replaces the whole file; it takes no --since or --until")
+        events = l1.DERIVATIONS["trip"](base, subject, None)
+        path = l1.write_kind(base, subject, "trip", events)
+        manifest = l1.read_manifest(base, subject) or {}
+        through = dict(manifest.get("through") or {})
+        t = l1.through_of(events)
+        if t:
+            through["trip"] = t
+        l1.write_manifest(base, subject, through)
+        print(f"{path.name}: {len(events)} completed trip(s)")
+        return 0
+    found = trips.derive_from(base, subject, since=args.since, until=args.until)
     for trip in found:
         print(json.dumps(trips.to_dict(trip), ensure_ascii=False))
     print(f"{len(found)} trip(s)", file=sys.stderr)
+    return 0
+
+
+def cmd_derive_all(args) -> int:
+    base, subject = _base(args), _subject(args)
+    if not args.write:
+        raise Usage("derive all rebuilds L1 on disk; say --write")
+    manifest = l1.rebuild(base, subject)
+    for kind, t in manifest["through"].items():
+        print(f"{kind}: through {t}")
+    print(f"rebuilt {l1.l1_dir(base, subject)}")
+    return 0
+
+
+# --- l1 verbs --------------------------------------------------------------
+
+def cmd_l1_read(args) -> int:
+    n = 0
+    for event in l1.read(_base(args), _subject(args), args.kind):
+        print(l1.encode(event))
+        n += 1
+    print(f"{n} event(s)", file=sys.stderr)
+    return 0
+
+
+def cmd_l1_status(args) -> int:
+    base, subject = _base(args), _subject(args)
+    manifest = l1.read_manifest(base, subject)
+    if manifest is None:
+        print("no L1")
+    else:
+        print(f"derived by vledger {manifest['vledger']} at {manifest['derived_at']}")
+        for kind, t in (manifest.get("through") or {}).items():
+            print(f"  {kind}: through {t}")
+        print(f"  L0 read through {manifest.get('l0_through')}")
+    due = l1.rebuild_due(base, subject)
+    print(f"rebuild due: {due}" if due else "current")
+    return 1 if due else 0
+
+
+def cmd_l1_clean(args) -> int:
+    gone = l1.clean(_base(args), _subject(args))
+    print("deleted" if gone else "nothing to delete")
     return 0
 
 
@@ -271,7 +328,25 @@ def build_parser() -> argparse.ArgumentParser:
     _add_stream_args(sp)
     sp.add_argument("--since", help="first time to read, inclusive")
     sp.add_argument("--until", help="last time to read, inclusive")
+    sp.add_argument("--write", action="store_true", help="replace l1/trips.jsonl instead of printing")
     sp.set_defaults(func=cmd_derive_trips)
+    sp = dverbs.add_parser("all", help="rebuild L1 from scratch, atomically")
+    _add_stream_args(sp)
+    sp.add_argument("--write", action="store_true", help="required: this writes")
+    sp.set_defaults(func=cmd_derive_all)
+
+    p_l1 = nouns.add_parser("l1", help="the derivation on disk: read, status, clean")
+    lverbs = p_l1.add_subparsers(dest="verb", metavar="<verb>", required=True)
+    sp = lverbs.add_parser("read", help="print one kind's events as JSON Lines")
+    _add_stream_args(sp)
+    sp.add_argument("--kind", required=True, choices=list(l1.FILES))
+    sp.set_defaults(func=cmd_l1_read)
+    sp = lverbs.add_parser("status", help="the manifest, and whether a rebuild is due")
+    _add_stream_args(sp)
+    sp.set_defaults(func=cmd_l1_status)
+    sp = lverbs.add_parser("clean", help="delete L1; it is regenerable")
+    _add_stream_args(sp)
+    sp.set_defaults(func=cmd_l1_clean)
 
     p_calc = nouns.add_parser("calc", help="the atoms the derivations are built from")
     cverbs = p_calc.add_subparsers(dest="verb", metavar="<verb>", required=True)

@@ -19,9 +19,11 @@ touching anything else the vehicle reports: it is a ledger, not a monitor.
 **Status:** capture works. The integration sets up a vehicle or a charge
 point through the UI and writes its raw log — the format, and the
 `vledger l0` verbs that write, read, validate it and list its gaps, are the
-library's. The first derivation exists: `vledger derive trips` prints the
-trips in a stream. No charging sessions, refuellings, metrics or receipts
-yet, and nothing is stored as L1. Every behaviour described below is the design, held
+library's. The first derivation exists: `vledger derive trips` finds the
+trips in a stream, and L1 — the derivation on disk, with its manifest and
+cursor — is written and read by the `l1` verbs. No charging sessions,
+refuellings, metrics or receipts yet, and the integration does not derive
+live yet. Every behaviour described below is the design, held
 as requirements in the project's register (`ha-vledger-pm`); a section is
 marked *(planned)* until it exists.
 
@@ -83,6 +85,7 @@ configured in the UI; no YAML.
 |---|---|
 | [docs/user-guide.md](docs/user-guide.md) | What a participant types: the `vledger` command, verb by verb |
 | [docs/l0-format.md](docs/l0-format.md) | The raw log's layout, version 1 — the specification a reader of their own files needs |
+| [docs/l1-format.md](docs/l1-format.md) | The derivation on disk: files, manifest, cursor, rebuilds |
 | [docs/glossary.md](docs/glossary.md) | The one English spelling of every domain term, and what it means |
 | [docs/releasing.md](docs/releasing.md) | What the person cutting a release does, in order |
 

@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from vledger import clock, geo, l0, units
+from vledger import clock, geo, l0, layout, units
 from vledger import config as vconfig
 from vledger.layout import Subject
 
@@ -80,11 +80,40 @@ def _position_from(line: dict) -> Fix | None:
     return Fix(line["t"], lat, lon, geo.accuracy_m(attrs.get("gps_accuracy")), zone)
 
 
+def _seed_lines(base: Path, subject: Subject, since: str) -> list[dict]:
+    """The last state line of every role, and the last config line, before
+    ``since`` — read backwards from the month file ``since`` falls in, so a
+    derivation from a cursor starts from the value the vehicle had, not
+    from its first change (ADR-0009, 3). Stops at the first month with
+    nothing new to find."""
+    limit = clock.parse(since)
+    found: dict[str, dict] = {}
+    config = None
+    files = [p for p in layout.l0_files(base, subject) if p.stem <= clock.month_of(since)]
+    for path in reversed(files):
+        lines = [r.line for r in l0.read_file(path) if clock.parse(r.line["t"]) < limit]
+        new = False
+        for line in reversed(lines):
+            kind = line.get("kind")
+            if kind == "config" and config is None:
+                config, new = line, True
+            elif kind == "state" and line.get("role") not in found:
+                found[line["role"]], new = line, True
+        if not new and config is not None:
+            break
+    out = list(found.values())
+    if config is not None:
+        out.append(config)
+    out.sort(key=lambda x: clock.parse(x["t"]))
+    return out
+
+
 def load(base: Path, subject: Subject, *, since: str | None = None,
          until: str | None = None) -> Stream:
     """Read a stream into series. The latest config line in range wins; the
     snapshot of a start line seeds every series with the value before the
-    first change, at the snapshot's ``since`` time."""
+    first change, at the snapshot's ``since`` time; a ``since`` is seeded
+    with the last value of every role before it."""
     s = Stream(subject)
     pending_lat: dict[str, float] = {}
 
@@ -121,11 +150,12 @@ def load(base: Path, subject: Subject, *, since: str | None = None,
                 s.unmapped.setdefault(role, set()).add(raw)
             s.domain.setdefault(role, []).append(DomainSample(t, state, raw))
 
-    for r in l0.read(base, subject, since=since, until=until):
-        line = r.line
+    seeds = _seed_lines(base, subject, since) if since else []
+    for line in seeds + [r.line for r in l0.read(base, subject, since=since, until=until)]:
         t = line["t"]
-        s.first_t = s.first_t or t
-        s.last_t = t
+        if line not in seeds:
+            s.first_t = s.first_t or t
+            s.last_t = t
         kind = line["kind"]
         if kind == "config":
             s.config = line["config"]

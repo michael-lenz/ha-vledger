@@ -19,7 +19,7 @@ from datetime import timedelta
 from itertools import pairwise
 from pathlib import Path
 
-from vledger import __version__, clock, geo, l0, series
+from vledger import __version__, clock, geo, l0, l1, series
 from vledger.layout import Subject
 from vledger.series import Fix, Sample, Stream
 
@@ -202,13 +202,24 @@ def _fix_dict(f: Fix | None) -> dict | None:
     return d
 
 
-def derive(s: Stream) -> list[Trip]:
-    """Every trip in the stream, in order (FAH-01 to FAH-07)."""
+def derive(s: Stream, *, completed_only: bool = False) -> list[Trip]:
+    """Every trip in the stream, in order (FAH-01 to FAH-07).
+
+    With ``completed_only``, only trips whose standstill has elapsed —
+    T_still after the last movement, judged by the stream's last line, not
+    by the clock, so the answer is the same whenever it is asked (ABL-01)
+    — which is what L1 holds (ADR-0009).
+    """
     thr = s.thresholds()
     t_still = float(thr["t_still_s"])
     settle = float(thr["t_settle_s"])
     out: list[Trip] = []
-    for first, last, crossed in _spans(movements(s), t_still, s.gaps):
+    spans = _spans(movements(s), t_still, s.gaps)
+    if completed_only and spans and s.last_t:
+        first, last, crossed = spans[-1]
+        if clock.parse(s.last_t) - clock.parse(last) < timedelta(seconds=t_still):
+            spans = spans[:-1]
+    for first, last, crossed in spans:
         start, end, refined = _refine(s, first, last, t_still)
         # Where the vehicle was before it moved, then every fix while moving.
         start_fix = _strictly_before(s.fixes, start) or series.last_at_or_before(s.fixes, start)
@@ -235,9 +246,16 @@ def derive(s: Stream) -> list[Trip]:
 
 
 def derive_from(base: Path, subject: Subject, *, since: str | None = None,
-                until: str | None = None) -> list[Trip]:
-    return derive(series.load(base, subject, since=since, until=until))
+                until: str | None = None, completed_only: bool = False) -> list[Trip]:
+    return derive(series.load(base, subject, since=since, until=until), completed_only=completed_only)
 
 
 def to_dict(trip: Trip) -> dict:
     return asdict(trip)
+
+
+def _completed_dicts(base: Path, subject: Subject, since: str | None) -> list[dict]:
+    return [to_dict(t) for t in derive_from(base, subject, since=since, completed_only=True)]
+
+
+l1.DERIVATIONS["trip"] = _completed_dicts
