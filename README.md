@@ -1,10 +1,12 @@
 # ha-vledger
 
-A vehicle ledger for Home Assistant. It keeps a raw log of every state a
-vehicle reports and derives from it what the vehicle's own app never tells
-you reliably: trips, charging sessions, refuellings, consumption and cost —
-passively, from whatever integration already exposes the vehicle, and
-without a line of manufacturer-specific code.
+A vehicle ledger for Home Assistant. It keeps a raw log of the handful of
+vehicle states that matter to a ledger — odometer, position, fuel level,
+state of charge, charging state — and derives from it what the vehicle's
+own app never tells you reliably: trips, charging sessions, refuellings,
+consumption and cost. Passively, from whatever integration already exposes
+the vehicle, without a line of manufacturer-specific code, and without
+touching anything else the vehicle reports: it is a ledger, not a monitor.
 
 **Status:** structure only. Nothing captures or derives yet. Every
 behaviour described below is the design, held as requirements in the
@@ -13,8 +15,8 @@ until it exists.
 
 ## What it does *(planned)*
 
-- **Captures, losslessly.** Every change of a source entity assigned to a
-  role becomes one record in a raw log (L0): JSON Lines, append-only, one
+- **Captures, losslessly.** Every change of a source entity you assign to
+  a role becomes one record in a raw log (L0): JSON Lines, append-only, one
   stream per vehicle and per charge point, rotated monthly, kept outside
   the Home Assistant recorder and its retention. Start, stop and heartbeat
   markers make any capture gap visible; nothing is interpolated across one.
