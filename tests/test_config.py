@@ -59,11 +59,14 @@ def test_tariff_at_takes_the_latest_from_and_the_last_appended_on_a_tie():
     assert config.tariff_at(tariffs, "2026-06-30T23:00:00-02:00")["eur_per_kwh"] == 0.34  # already July in UTC
 
 
-def test_domain_state_holds_on_unmapped_and_unavailable():
+def test_domain_state_holds_only_on_unavailable_and_unknown():
     m = {"charging": ["Charging"]}
     assert config.domain_state("charging_state", "Charging", m) == "charging"
-    assert config.domain_state("charging_state", "Idle", m) is None
+    assert config.domain_state("charging_state", "Idle", m) == "not_charging"   # ADR-0008
     assert config.domain_state("charging_state", "unavailable", m) is None
+    assert config.domain_state("charging_state", "unknown", m) is None
+    assert config.domain_state("ignition", "off", {"on": ["on"]}) == "off"
+    assert config.domain_state("plug_state", "off", {"plugged": ["on"]}) == "unplugged"
 
 
 def test_a_chargepoint_is_checked():

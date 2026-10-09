@@ -35,7 +35,7 @@ class Fix:
 @dataclass(frozen=True)
 class DomainSample:
     t: str
-    state: str | None  # None: hold (unmapped, unavailable, unknown)
+    state: str | None  # None: hold (unavailable, unknown)
     raw: str
 
 
@@ -115,7 +115,9 @@ def load(base: Path, subject: Subject, *, since: str | None = None,
             mapping = ((s.config or {}).get("roles", {}).get(role) or {}).get("map") or {}
             raw = line.get("state")
             state = vconfig.domain_state(role, raw, mapping)
-            if state is None and raw not in ("unavailable", "unknown"):
+            if state == vconfig.NEGATIVE_STATES[role]:
+                # Met and not listed: negative by ADR-0008, reported so the
+                # map can be completed if that was wrong.
                 s.unmapped.setdefault(role, set()).add(raw)
             s.domain.setdefault(role, []).append(DomainSample(t, state, raw))
 

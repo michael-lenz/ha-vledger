@@ -22,8 +22,9 @@ choose what to add.
    vehicle follows from the roles it has.
 3. **Mapping**, only when a charging state, plug state or ignition was
    assigned: tick the source's values that mean *charging*, *plugged in*
-   or *ignition on*. Anything else, including *unavailable*, holds the last
-   known state.
+   or *ignition on*. *unavailable* and *unknown* hold the last known
+   state; any other value means the opposite — not charging, unplugged,
+   off.
 4. **Parameters.** Fuel, tank capacity, net battery capacity — only what a
    derivation needs; the tank capacity is required when the fuel level is
    reported in percent. Everything else keeps its default.

@@ -90,16 +90,14 @@ def test_a_drive_between_two_standstills(tmp_path, capsys):
     assert len(found) == 1
     t = found[0]
     assert t.start == at(60) and t.refined_by_ignition          # ignition on refined the start
-    # Ignition off cannot refine the end yet: with only the positive state
-    # mapped (ADR-0007) an "off" holds — see ISSUE-0005. The end is the last
-    # movement sample.
-    assert t.end == at(105)
+    assert t.end == at(107)                                       # ignition off refined the end (ADR-0008)
     assert t.distance_km == 22 and t.distance_quality == "measured" and t.distance_source == "odometer"
     assert t.start_zone == "home" and t.end_zone == "not_home"
     assert [w["latitude"] for w in t.waypoints] == [HOME[0], *[r[0] for r in ROAD]]
     assert "accuracy_m" not in t.waypoints[0]                     # 0 is unknown (ISSUE-0004)
     assert t.delta_soc_pct == -18 and t.delta_fuel_l == -1.6
     assert t.quality == "measured"
+    assert series.load(tmp_path, V).unmapped == {"ignition": {"off"}}   # met, not listed, negative
 
 
 def test_two_drives_split_by_a_standstill_but_not_by_a_short_stop(tmp_path, capsys):

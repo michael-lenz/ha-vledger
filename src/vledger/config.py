@@ -21,8 +21,8 @@ MOVEMENT_ROLES = ("odometer", "position", "position_latitude",
                   "position_longitude", "trip_distance")
 
 #: The enumerated roles and the one positive domain state each maps to
-#: (FZG-05). A source value not mapped, and unavailable or unknown, holds
-#: the last known domain state.
+#: (FZG-05). unavailable and unknown hold the last known domain state; any
+#: other value not mapped means the negative state (ADR-0008).
 DOMAIN_STATES = {"charging_state": "charging", "plug_state": "plugged", "ignition": "on"}
 
 FUELS = ("petrol", "diesel")
@@ -161,16 +161,23 @@ def tariff_at(tariffs: list[dict], t: str) -> dict | None:
     return best
 
 
+#: The negative domain state per enumerated role (ADR-0008).
+NEGATIVE_STATES = {"charging_state": "not_charging", "plug_state": "unplugged", "ignition": "off"}
+
+
 def domain_state(role: str, value: str, mapping: dict) -> str | None:
-    """The domain state a source value means, or ``None`` to hold (FZG-05)."""
-    positive = DOMAIN_STATES[role]
+    """The domain state a source value means (FZG-05, ADR-0008).
+
+    ``unavailable`` and ``unknown`` say nothing and hold (``None``); a value
+    the map lists means the positive state; every other known value means
+    the negative one. What was met and not mapped is reported alongside, so
+    the map can be completed.
+    """
     if value in ("unavailable", "unknown"):
         return None
-    if value in (mapping.get(positive) or []):
-        return positive
-    if value in (mapping.get("not") or []):
-        return f"not_{positive}"
-    return None
+    if value in (mapping.get(DOMAIN_STATES[role]) or []):
+        return DOMAIN_STATES[role]
+    return NEGATIVE_STATES[role]
 
 
 def is_chargepoint(config: dict) -> bool:
@@ -179,6 +186,6 @@ def is_chargepoint(config: dict) -> bool:
 
 __all__ = [
     "CHARGEPOINT_ROLES", "DEFAULT_PARAMETERS", "DEFAULT_THRESHOLDS", "DOMAIN_STATES",
-    "FUELS", "MOVEMENT_ROLES", "VEHICLE_ROLES", "chargepoint", "domain_state",
+    "FUELS", "MOVEMENT_ROLES", "NEGATIVE_STATES", "VEHICLE_ROLES", "chargepoint", "domain_state",
     "is_chargepoint", "missing", "tariff_at", "vehicle",
 ]
