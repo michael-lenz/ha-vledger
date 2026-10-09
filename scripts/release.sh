@@ -157,8 +157,9 @@ fi
 
 git commit --quiet -m "Release $new" -- "${files[@]}"
 git tag -a "$tag" -m "vledger $new"
-git push --quiet origin main
-git push --quiet origin "$tag"
+git push --quiet origin main || die "nothing is pushed; the commit and $tag are local — push main, then $tag"
+git push --quiet origin "$tag" \
+    || die "main is pushed, $tag is not — the release has not started: git push origin $tag"
 
 echo "release: $tag pushed. The release workflow now publishes to PyPI and creates the GitHub release:"
 echo "  https://github.com/michael-lenz/ha-vledger/actions"
