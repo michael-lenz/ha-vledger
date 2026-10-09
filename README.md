@@ -1,5 +1,13 @@
 # ha-vledger
 
+> **Pre-alpha. Do not install this.** It captures a raw log and nothing
+> else yet: no trips, no charging sessions, no consumption, no cost. The
+> log format is decided and will be read by every later version, but the
+> integration has run on exactly one vehicle, the options may change
+> between releases, and there is no support. It is public so that the
+> author can test it through HACS and so that the design can be read.
+> When it is ready for other people, this notice goes away.
+
 A vehicle ledger for Home Assistant. It keeps a raw log of the handful of
 vehicle states that matter to a ledger — odometer, position, fuel level,
 state of charge, charging state — and derives from it what the vehicle's
@@ -75,17 +83,23 @@ configured in the UI; no YAML.
 | [docs/user-guide.md](docs/user-guide.md) | What a participant types: the `vledger` command, verb by verb |
 | [docs/l0-format.md](docs/l0-format.md) | The raw log's layout, version 1 — the specification a reader of their own files needs |
 | [docs/glossary.md](docs/glossary.md) | The one English spelling of every domain term, and what it means |
+| [docs/releasing.md](docs/releasing.md) | What the person cutting a release does, in order |
 
 Decisions, requirements and the work queue are records in the project's
 register, `ha-vledger-pm`, not prose here.
 
 ## Installing
 
-Copy `custom_components/vledger` into your configuration directory and
-restart; HACS as a custom repository follows with the first release. Then
-*Settings → Devices & services → Add integration → Vehicle Ledger*: the
-[user guide](docs/user-guide.md) walks the four steps. The library installs
-on its own with `pip install vledger` and brings the `vledger` command.
+Not yet — see the notice at the top. For the author's own test
+instances: in HACS, *Integrations → ⋮ → Custom repositories*, add
+`https://github.com/michael-lenz/ha-vledger` as an *Integration*, then
+install it and restart; or copy `custom_components/vledger` into the
+configuration directory by hand. Either way Home Assistant installs the
+library from PyPI (`vledger==<version>`, pinned in the manifest), so the
+version has to be published first — [docs/releasing.md](docs/releasing.md).
+Then *Settings → Devices & services → Add integration → Vehicle Ledger*:
+the [user guide](docs/user-guide.md) walks the four steps. The library on
+its own: `pip install vledger`, which brings the `vledger` command.
 
 ## Developing
 
@@ -99,6 +113,17 @@ ruff check src tests custom_components
 The integration's manifest pins a library version that may not be on PyPI
 yet; Home Assistant skips the install when the package already imports, so
 a development instance needs the editable install above first.
+
+The `ha` extra pulls in a full Home Assistant core and its test plugin.
+On a Debian or Ubuntu system Python that install can fail to build one of
+its transitive dependencies against the distribution's patched
+setuptools; a virtual environment (`python3 -m venv .venv`) does not have
+that problem, and is the recommended place for it anyway. Without the
+extra, `python -m pytest` runs the library's tests and leaves `tests/ha`
+out. The library's own tests, the integration's against the oldest and
+the newest Home Assistant, and HACS's validation run on every push
+(`.github/workflows/tests.yml`); a tag `vX.Y.Z` publishes the release
+(`.github/workflows/release.yml`, [docs/releasing.md](docs/releasing.md)).
 
 ## Privacy
 

@@ -1,0 +1,45 @@
+# The library's tests on their own, and the integration's against the
+# oldest Home Assistant the project claims and the newest there is
+# (QUA-04) — the claim in hacs.json is a tested one.
+name: tests
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  library:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -e ".[dev]"
+      - run: python -m pytest -q
+      - run: ruff check src tests custom_components
+
+  integration:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        homeassistant: ["2026.2.0", ""]   # the declared minimum, and the latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -e ".[dev,ha]"
+      - if: matrix.homeassistant != ''
+        run: pip install "homeassistant==${{ matrix.homeassistant }}"
+      - run: python -m pytest -q tests/ha
+
+  hacs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hacs/action@main
+        with:
+          category: integration
