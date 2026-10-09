@@ -98,7 +98,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: VledgerConfigEntry) -> b
     await capture.async_start()
     await writer.async_start()
     if desk:
-        await desk.async_start()
+        desk.async_start()
 
     async def on_hass_stop(_: Event) -> None:
         await writer.async_stop()

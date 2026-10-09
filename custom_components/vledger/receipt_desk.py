@@ -99,9 +99,11 @@ class ReceiptDesk:
         self._listeners: list[Callable[[], None]] = []
         self._unlisten: CALLBACK_TYPE | None = None
 
-    async def async_start(self) -> None:
+    @callback
+    def async_start(self) -> None:
+        """Follow the writer. Its first run comes at every start and calls
+        back here, so setup itself reads nothing and waits for nothing."""
         self._unlisten = self._writer.listen_runs(self._on_run)
-        await self.async_refresh()
 
     @callback
     def async_stop(self) -> None:

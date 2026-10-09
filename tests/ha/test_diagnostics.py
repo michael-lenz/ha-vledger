@@ -135,9 +135,13 @@ async def test_lines_today_restart_at_local_midnight(hass, vehicle_entry):
 
 async def test_diagnostics_count_the_stream_and_redact_positions(
         hass, hass_client, vehicle_entry, tmp_path):
-    hass.states.async_set("sensor.volvo_odometer", "100", {"unit_of_measurement": "km"})
+    # Heard a minute before capture starts: in the same millisecond as the
+    # start line, the first report would count as seen within the run.
+    before = dt_util.utcnow().timestamp() - 60
+    hass.states.async_set("sensor.volvo_odometer", "100", {"unit_of_measurement": "km"},
+                          timestamp=before)
     hass.states.async_set("device_tracker.volvo", "not_home",
-                          {"latitude": 48.1, "longitude": 11.5, "gps_accuracy": 10})
+                          {"latitude": 48.1, "longitude": 11.5, "gps_accuracy": 10}, timestamp=before)
     await _set_up(hass, vehicle_entry)
     for km in ("101", "102", "103"):
         hass.states.async_set("sensor.volvo_odometer", km, {"unit_of_measurement": "km"})
