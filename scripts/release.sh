@@ -130,6 +130,8 @@ for name, pairs in edits.items():
     path.write_text(text)
 EOF
 
+# This tree's library, whatever checkout the interpreter's install points at.
+export PYTHONPATH="$PWD/src${PYTHONPATH:+:$PYTHONPATH}"
 if ! "$py" -m pytest -q || ! "$py" -m ruff check src tests custom_components; then
     restore
     die "tests or ruff failed; the files are put back"
