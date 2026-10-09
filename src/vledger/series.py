@@ -49,6 +49,11 @@ class Stream:
     fixes: list[Fix] = field(default_factory=list)
     domain: dict[str, list[DomainSample]] = field(default_factory=dict)
     unmapped: dict[str, set[str]] = field(default_factory=dict)
+    #: Per measuring role, the times it reported something that is not a
+    #: number (unavailable, unknown): a sensor dropping out, not a value.
+    dropouts: dict[str, list[str]] = field(default_factory=dict)
+    #: Per measuring role whose lines could not become a series, why.
+    unconverted: dict[str, str] = field(default_factory=dict)
     gaps: list[l0.Gap] = field(default_factory=list)
     first_t: str | None = None
     last_t: str | None = None
@@ -116,12 +121,17 @@ def load(base: Path, subject: Subject, *, since: str | None = None,
     with the last value of every role before it."""
     s = Stream(subject)
     pending_lat: dict[str, float] = {}
+    fuel_pct: list[Sample] = []
 
     def take(role: str, line: dict, t: str) -> None:
         q = units.quantity_of(role)
         if q is not None:
             n = units.number(line.get("state"))
             if n is None:
+                s.dropouts.setdefault(role, []).append(t)
+                return
+            if role == "fuel_level" and line.get("unit") == "%":
+                fuel_pct.append(Sample(t, n))
                 return
             try:
                 v = units.convert(n, line.get("unit"), q)
@@ -162,6 +172,8 @@ def load(base: Path, subject: Subject, *, since: str | None = None,
                 take(entry["role"], entry, entry.get("since") or t)
         elif kind == "state":
             take(line["role"], line, t)
+    if fuel_pct:
+        _fuel_from_percent(s, fuel_pct)
     # Snapshot seeds may predate lines read before them: keep every series
     # in time order, stable so equal times keep their file order.
     for role in s.series:
@@ -169,8 +181,54 @@ def load(base: Path, subject: Subject, *, since: str | None = None,
     s.fixes.sort(key=lambda x: clock.parse(x.t))
     for role in s.domain:
         s.domain[role].sort(key=lambda x: clock.parse(x.t))
+    for role in s.dropouts:
+        s.dropouts[role].sort(key=clock.parse)
     s.gaps = l0.gaps(base, subject, now=s.last_t) if s.last_t else []
     return s
+
+
+def _fuel_from_percent(s: Stream, samples: list[Sample]) -> None:
+    """A fuel level reported in % is litres of the tank capacity (FZG-08,
+    TNK-01) — the latest configuration's, since the capacity is the
+    vehicle's and not the moment's. Without it there is no fuel series at
+    all, and ``unconverted`` says why: a guessed capacity would be
+    invention (ISSUE-0009)."""
+    capacity = s.parameters().get("tank_capacity_l")
+    if not capacity:
+        s.unconverted["fuel_level"] = "fuel_level reports % and tank_capacity_l is not set"
+        return
+    s.series.setdefault("fuel_level", []).extend(
+        Sample(x.t, x.value / 100 * float(capacity)) for x in samples)
+
+
+def gap_between(s: Stream, a: str, b: str) -> bool:
+    """Whether a capture gap lies between ``a`` and ``b``."""
+    ta, tb = clock.parse(a), clock.parse(b)
+    return any(clock.parse(g.start) < tb and clock.parse(g.end) > ta for g in s.gaps)
+
+
+def fix_dict(f: Fix | None) -> dict | None:
+    """A fix as an event holds it; an unknown accuracy is left out."""
+    if f is None:
+        return None
+    d = {"t": f.t, "latitude": f.latitude, "longitude": f.longitude}
+    if f.accuracy_m is not None:
+        d["accuracy_m"] = f.accuracy_m
+    return d
+
+
+def in_effect(s: Stream, role: str, t: str) -> Sample | None:
+    """The value a measuring role held at ``t``: its latest sample not
+    after ``t`` — or ``None`` when its latest report by then was a dropout,
+    or a capture gap lies between that sample and ``t``. A dropout says
+    nothing, and nothing is read across a gap (ABL-04)."""
+    x = last_at_or_before(s.series.get(role, []), t)
+    if x is None:
+        return None
+    lo, hi = clock.parse(x.t), clock.parse(t)
+    if any(lo < clock.parse(d) <= hi for d in s.dropouts.get(role, [])):
+        return None
+    return None if gap_between(s, x.t, t) else x
 
 
 def last_at_or_before(samples: list, t: str):

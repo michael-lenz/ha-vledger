@@ -86,8 +86,13 @@ it turns away, with SoC at start and end, position, charge point and the
 energies below.
 
 **Refuelling.** A rise of the fuel quantity, at unchanged odometer, by at
-least the refuelling threshold within one sampling interval. Its level
-after is read only once **T_settle** has elapsed.
+least the refuelling threshold within one sampling interval; where no
+odometer is assigned, while no other movement role moved. Rises that
+follow one another within **T_settle** at unchanged odometer are one
+refuelling. Its level after is read only once T_settle has elapsed after
+the last rise — the value in effect then, or the first after the sensor
+came back if it had dropped out. A fuel level in % is litres of the tank
+capacity; without one, no refuelling is detected.
 
 **Candidate.** An event the derivation detected that still waits for a
 receipt: every refuelling, and every charging session whose charge point is

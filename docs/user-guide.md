@@ -3,8 +3,8 @@
 *What a participant types. The design is in the other documents under
 `docs/`; this page is the tour of the `vledger` command, verb by verb.*
 
-**Status:** the integration captures; the `l0` verbs exist; `derive trips`
-and the `calc` atoms exist; L1 is written and read with `derive … --write`
+**Status:** the integration captures; the `l0` verbs exist; `derive trips`,
+`derive refuellings` and the `calc` atoms exist; L1 is written and read with `derive … --write`
 and the `l1` verbs. Receipts, the other derivations, the live derivation in
 Home Assistant, exports and reports are planned.
 
@@ -178,6 +178,7 @@ JSON Lines — one event per line, so it composes with `jq` like `l0 read`.
 ```bash
 vledger derive trips --vehicle a7c1
 vledger derive trips --vehicle a7c1 --since 2026-10-01T00:00:00Z | jq '{start, end, distance_km, distance_source}'
+vledger derive refuellings --vehicle a7c1 | jq '{start, zone, level_before_l, level_after_l}'
 ```
 
 A trip is the span between two standstills: from the first sample that
@@ -203,6 +204,21 @@ and the odometer every 15 minutes, a stop of 20 minutes may look like 35
 between moving samples and split the trip — that is the sampling, not the
 stop ([glossary](glossary.md), *Sampling interval*).
 
+A refuelling candidate is a rise of the fuel level by at least the
+refuelling threshold (3 L) between two samples while the odometer stood
+([glossary](glossary.md), *Refuelling*); a pump the sensor sees in
+several steps is one candidate, from `start`, the first sample that rose,
+to `end`, the last. It carries the position and zone where the vehicle
+stood, `level_before_l`, `level_after_l` read once T_settle (6 min) has
+passed after `end` together with `settled_at`, the time of that reading,
+the `sensor_delta_l` between the two — always `estimated`, the receipt
+says what was bought — and, with a fuel price role assigned, its value at
+`start` as `price_suggestion`. No fuel flap is needed. A candidate still
+settling is printed with `level_after_l` empty and not yet written to L1;
+one whose settle time spans a capture gap is `incomplete`, without a level
+after. A fuel level in % is converted with the tank capacity; without
+one, nothing is detected, and the verb says why on stderr.
+
 ## The derivation on disk: `vledger l1`
 
 What `derive` prints can also be kept: L1, files next to L0 under
@@ -211,6 +227,7 @@ they were derived from ([l1-format.md](l1-format.md)).
 
 ```bash
 vledger derive trips --vehicle a7c1 --write      # replace l1/trips.jsonl with every completed trip
+vledger derive refuellings --vehicle a7c1 --write   # likewise l1/refuellings.jsonl
 vledger derive all --vehicle a7c1 --write        # rebuild all of l1/ from scratch, swapped in whole
 vledger l1 status --vehicle a7c1                 # the manifest, and whether a rebuild is due and why
 vledger l1 read --vehicle a7c1 --kind trip       # the events, as l0 read prints lines
@@ -218,8 +235,9 @@ vledger l1 clean --vehicle a7c1                  # delete l1/ — it is regenera
 ```
 
 L1 holds completed events only: a trip is written once its standstill has
-elapsed, judged by the stream's last line rather than the clock, so the
-same stream always yields the same files. `l1 status` exits 1 when a
+elapsed, a refuelling once it has settled, judged by the stream's last
+line rather than the clock, so the same stream always yields the same
+files. `l1 status` exits 1 when a
 rebuild is due — no manifest, a different library version, a changed
 configuration or changed receipts — which is what the integration will
 check at startup.

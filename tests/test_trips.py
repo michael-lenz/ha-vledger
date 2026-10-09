@@ -30,7 +30,7 @@ def at(minutes: float) -> str:
 class Builder:
     """Builds a stream the way the integration would, verb by verb."""
 
-    def __init__(self, base, capsys, thresholds=None):
+    def __init__(self, base, capsys, thresholds=None, roles=None, parameters=None):
         self.b = ["--base", str(base), "--vehicle", "a7c1"]
         self.capsys = capsys
         self.n = 0
@@ -47,6 +47,9 @@ class Builder:
                                       "plug_state": {"entity": "binary_sensor.p", "map": {"plugged": ["on"]}},
                                       "charging_state": {"entity": "sensor.c", "map": {"charging": ["Charging"]}}},
                "thresholds": dict({"t_still_s": 1800, "heartbeat_s": 3600, "t_settle_s": 360}, **(thresholds or {}))}
+        cfg["roles"].update(roles or {})
+        if parameters:
+            cfg["parameters"] = parameters
         self.run("config", *self.b, "--t", at(-60), "--config", json.dumps(cfg))
 
     def run(self, *argv):

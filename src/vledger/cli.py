@@ -15,7 +15,18 @@ import os
 import sys
 from pathlib import Path
 
-from vledger import __version__, clock, geo, l0, l1, stats, trips, units
+from vledger import (
+    __version__,
+    clock,
+    geo,
+    l0,
+    l1,
+    refuellings,
+    series,
+    stats,
+    trips,
+    units,
+)
 from vledger.layout import Subject
 
 ENV_BASE = "VLEDGER_BASE"
@@ -205,25 +216,46 @@ def cmd_l0_stats(args) -> int:
 
 # --- derive verbs ----------------------------------------------------------
 
-def cmd_derive_trips(args) -> int:
+def _write_kind(args, kind: str, noun: str) -> int:
+    """``derive … --write``: replace one kind's file with every completed
+    event, and move that kind's cursor."""
+    if args.since or args.until:
+        raise Usage("--write replaces the whole file; it takes no --since or --until")
     base, subject = _base(args), _subject(args)
+    events = l1.DERIVATIONS[kind](base, subject, None)
+    path = l1.write_kind(base, subject, kind, events)
+    manifest = l1.read_manifest(base, subject) or {}
+    through = dict(manifest.get("through") or {})
+    t = l1.through_of(events)
+    if t:
+        through[kind] = t
+    l1.write_manifest(base, subject, through)
+    print(f"{path.name}: {len(events)} completed {noun}(s)")
+    return 0
+
+
+def cmd_derive_trips(args) -> int:
     if args.write:
-        if args.since or args.until:
-            raise Usage("--write replaces the whole file; it takes no --since or --until")
-        events = l1.DERIVATIONS["trip"](base, subject, None)
-        path = l1.write_kind(base, subject, "trip", events)
-        manifest = l1.read_manifest(base, subject) or {}
-        through = dict(manifest.get("through") or {})
-        t = l1.through_of(events)
-        if t:
-            through["trip"] = t
-        l1.write_manifest(base, subject, through)
-        print(f"{path.name}: {len(events)} completed trip(s)")
-        return 0
-    found = trips.derive_from(base, subject, since=args.since, until=args.until)
+        return _write_kind(args, "trip", "trip")
+    found = trips.derive_from(_base(args), _subject(args), since=args.since, until=args.until)
     for trip in found:
         print(json.dumps(trips.to_dict(trip), ensure_ascii=False))
     print(f"{len(found)} trip(s)", file=sys.stderr)
+    return 0
+
+
+def cmd_derive_refuellings(args) -> int:
+    base, subject = _base(args), _subject(args)
+    s = series.load(base, subject, since=args.since, until=args.until)
+    reason = refuellings.cannot_detect(s)
+    if reason:
+        print(f"no refuelling detection: {reason}", file=sys.stderr)
+    if args.write:
+        return _write_kind(args, "refuelling", "refuelling")
+    found = refuellings.derive(s)
+    for r in found:
+        print(json.dumps(refuellings.to_dict(r), ensure_ascii=False))
+    print(f"{len(found)} refuelling candidate(s)", file=sys.stderr)
     return 0
 
 
@@ -374,6 +406,13 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--until", help="last time to read, inclusive")
     sp.add_argument("--write", action="store_true", help="replace l1/trips.jsonl instead of printing")
     sp.set_defaults(func=cmd_derive_trips)
+    sp = dverbs.add_parser("refuellings", help="the refuelling candidates in a stream, as JSON Lines")
+    _add_stream_args(sp)
+    sp.add_argument("--since", help="first time to read, inclusive")
+    sp.add_argument("--until", help="last time to read, inclusive")
+    sp.add_argument("--write", action="store_true",
+                    help="replace l1/refuellings.jsonl instead of printing")
+    sp.set_defaults(func=cmd_derive_refuellings)
     sp = dverbs.add_parser("all", help="rebuild L1 from scratch, atomically")
     _add_stream_args(sp)
     sp.add_argument("--write", action="store_true", help="required: this writes")

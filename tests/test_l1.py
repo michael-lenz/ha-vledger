@@ -33,7 +33,8 @@ def test_rebuild_writes_files_and_manifest_and_swaps_whole(tmp_path, capsys):
     b.heartbeat(end + 60)
     manifest = l1.rebuild(tmp_path, V)
     d = l1.l1_dir(tmp_path, V)
-    assert sorted(p.name for p in d.iterdir()) == ["manifest.json", "trips.jsonl"]
+    assert sorted(p.name for p in d.iterdir()) == sorted(
+        ["manifest.json", *(l1.FILES[k] for k in l1.DERIVATIONS)])
     assert not (d.with_name("l1.tmp")).exists() and not d.with_name("l1.old").exists()
     assert manifest["through"] == {"trip": at(107)}
     assert manifest["config"].startswith("sha256:") and manifest["receipts"].startswith("sha256:")
@@ -69,9 +70,9 @@ def test_incremental_appends_only_what_starts_after_the_cursor(tmp_path, capsys)
     b.heartbeat(end + 60)
     added = l1.incremental(tmp_path, V)          # no manifest: a rebuild
     assert [e["start"] for e in added["trip"]] == [at(60)]
-    assert l1.incremental(tmp_path, V) == {"trip": []}   # nothing new
+    assert l1.incremental(tmp_path, V)["trip"] == []   # nothing new
     end2 = b.drive(end + 90, odo_start=1022)
-    assert l1.incremental(tmp_path, V) == {"trip": []}   # second trip still open
+    assert l1.incremental(tmp_path, V)["trip"] == []   # second trip still open
     b.heartbeat(end2 + 60)
     added = l1.incremental(tmp_path, V)
     assert [e["start"] for e in added["trip"]] == [at(end + 90)]

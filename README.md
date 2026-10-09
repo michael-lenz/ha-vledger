@@ -20,11 +20,11 @@ touching anything else the vehicle reports: it is a ledger, not a monitor.
 point through the UI, writes its raw log and shows it in numbers as
 diagnostic entities and diagnostics — the format, and the `vledger l0`
 verbs that write, read, validate and count it and list its gaps, are the
-library's. The first derivation exists: `vledger derive trips` finds the
-trips in a stream, and L1 — the derivation on disk, with its manifest and
-cursor — is written and read by the `l1` verbs. No charging sessions,
-refuellings, metrics or receipts yet, and the integration does not derive
-live yet. Every behaviour described below is the design, held
+library's. Two derivations exist: `vledger derive trips` finds the trips
+in a stream and `vledger derive refuellings` the refuelling candidates,
+and L1 — the derivation on disk, with its manifest and cursor — is
+written and read by the `l1` verbs. No charging sessions, metrics or
+receipts yet, and the integration does not derive live yet. Every behaviour described below is the design, held
 as requirements in the project's register (`ha-vledger-pm`); a section is
 marked *(planned)* until it exists.
 

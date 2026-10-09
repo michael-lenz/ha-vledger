@@ -4,9 +4,10 @@
 project's register. This page is what a reader of their own `l1/` needs;
 the reasoning is in the decision.*
 
-**Status:** `trips.jsonl`, the manifest, the cursor, rebuilds and the
-`l1` verbs exist. The other kinds, and the live derivation in Home
-Assistant that appends as events complete, are planned.
+**Status:** `trips.jsonl`, `refuellings.jsonl`, the manifest, the
+cursor, rebuilds and the `l1` verbs exist. The other kinds, and the live
+derivation in Home Assistant that appends as events complete, are
+planned.
 
 ## Files
 
@@ -15,12 +16,13 @@ Assistant that appends as events complete, are planned.
   manifest.json              what this L1 was derived from, and by what
   trips.jsonl                one line per trip, in order of start
   charging-sessions.jsonl    one line per charging session        (planned)
-  refuellings.jsonl          one line per refuelling               (planned)
+  refuellings.jsonl          one line per refuelling candidate
   periods.jsonl              one line per period with its metrics  (planned)
 ```
 
 Event files hold **completed** events only — a trip once its standstill
-has elapsed, a session once the charging state went away — one JSON
+has elapsed, a refuelling once T_settle has elapsed after its last rise,
+a session once the charging state went away — one JSON
 object per line, in order of `start`. Every event carries `kind` (`trip`,
 `charging`, `refuelling`, `period`), `subject`, `start`, `end`, `quality`
 (`measured`, `receipt`, `estimated`, `incomplete`) and `version`, then the

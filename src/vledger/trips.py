@@ -198,18 +198,13 @@ def _strictly_before(samples: list, t: str):
     return best
 
 
-def _gap_between(s: Stream, a: str, b: str) -> bool:
-    ta, tb = clock.parse(a), clock.parse(b)
-    return any(clock.parse(g.start) < tb and clock.parse(g.end) > ta for g in s.gaps)
-
-
 def _start_value(s: Stream, samples: list, start: str):
     """The value a trip starts from: the last sample before its first
     movement — unless a capture gap lies between the two, or there is none,
     in which case the sample at the start itself. Nothing is read across a
     gap (ABL-04)."""
     before = _strictly_before(samples, start)
-    if before is None or _gap_between(s, before.t, start):
+    if before is None or series.gap_between(s, before.t, start):
         return series.last_at_or_before(samples, start)
     return before
 
@@ -245,15 +240,6 @@ def _delta(s: Stream, role: str, start: str, end: str, settle_s: float) -> float
     if before is None or after is None or clock.parse(after.t) < clock.parse(start):
         return None
     return round(after.value - before.value, 3)
-
-
-def _fix_dict(f: Fix | None) -> dict | None:
-    if f is None:
-        return None
-    d = {"t": f.t, "latitude": f.latitude, "longitude": f.longitude}
-    if f.accuracy_m is not None:
-        d["accuracy_m"] = f.accuracy_m
-    return d
 
 
 def derive(s: Stream, *, completed_only: bool = False) -> list[Trip]:
@@ -293,10 +279,10 @@ def derive(s: Stream, *, completed_only: bool = False) -> list[Trip]:
             kind="trip", subject=s.subject.id, start=start, end=end,
             quality=INCOMPLETE if crossed else MEASURED,
             distance_km=km, distance_quality=kq, distance_source=ksrc,
-            start_position=_fix_dict(start_fix), end_position=_fix_dict(end_fix),
+            start_position=series.fix_dict(start_fix), end_position=series.fix_dict(end_fix),
             start_zone=start_fix.zone if start_fix else None,
             end_zone=end_fix.zone if end_fix else None,
-            waypoints=[_fix_dict(f) for f in waypoints],
+            waypoints=[series.fix_dict(f) for f in waypoints],
             outside_temperature_c=temp,
             delta_soc_pct=_delta(s, "soc", start, end, settle),
             delta_fuel_l=_delta(s, "fuel_level", start, end, settle),
