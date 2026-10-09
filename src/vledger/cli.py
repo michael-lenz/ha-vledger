@@ -18,6 +18,7 @@ from pathlib import Path
 
 from vledger import (
     __version__,
+    anonymise,
     charging,
     clock,
     export,
@@ -216,6 +217,18 @@ def cmd_l0_stats(args) -> int:
     latest = s.gaps[-1] if s.gaps else None
     print(f"{len(s.gaps)} gap(s)" + (f", latest {latest.reason} of {latest.seconds:.0f} s "
                                       f"from {latest.start}" if latest else ""))
+    return 0
+
+
+def cmd_l0_anonymise(args) -> int:
+    try:
+        dlat, dlon = (float(x) for x in args.shift.split(","))
+    except ValueError:
+        raise Usage(f"--shift is LAT,LON in degrees, not {args.shift!r}") from None
+    only = _subject(args) if args.vehicle or args.chargepoint else None
+    counts = anonymise.copy(_base(args), Path(args.to), dlat, dlon, only=only)
+    for subject, n in counts.items():
+        print(f"{subject.dirname}: {n} line(s)")
     return 0
 
 
@@ -551,6 +564,14 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--now", help="the time the stream is judged against (default: now)")
     sp.add_argument("--json", action="store_true", help="the counts as JSON")
     sp.set_defaults(func=cmd_l0_stats)
+
+    sp = verbs.add_parser("anonymise", help="copy the streams with positions shifted and "
+                                            "names dropped, to become a fixture")
+    _add_stream_args(sp)
+    sp.add_argument("--shift", required=True, metavar="LAT,LON",
+                    help="degrees every position moves by, e.g. 0.1,-2.5")
+    sp.add_argument("--to", required=True, metavar="DIR", help="the base to copy into")
+    sp.set_defaults(func=cmd_l0_anonymise)
 
     p_derive = nouns.add_parser("derive", help="the derivations, one at a time")
     dverbs = p_derive.add_subparsers(dest="verb", metavar="<verb>", required=True)

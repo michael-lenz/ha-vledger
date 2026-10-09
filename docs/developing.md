@@ -88,6 +88,35 @@ vledger derive trips --vehicle demo
 The [user guide](user-guide.md) walks every verb. `vledger` is on `PATH`
 once the venv is activated, or as `.venv/bin/vledger`.
 
+## Real streams as fixtures
+
+A real stream catches what a scenario built by hand does not think of
+(QUA-01). It enters `tests/fixtures/` anonymised, with the L1 it yields
+beside it, and `tests/test_fixtures.py` runs every directory there: a
+fresh rebuild has to yield that L1 (the `version` key aside, which a
+release changes), every vehicle's stream replayed line by line has to
+yield the same files as one rebuild, and every stream has to validate.
+
+1. Copy the data directory from the Home Assistant configuration
+   directory (`vledger/`), or the subjects of it that belong together: a
+   vehicle, the charge points it charges at, the other vehicles that
+   charge there.
+2. Anonymise it into a new directory named for what it shows:
+   `vledger l0 anonymise --base copy --shift LAT,LON --to tests/fixtures/first-week`
+   ([user guide](user-guide.md#anonymising)). Pick an offset of your own
+   and do not record it.
+3. Derive and read it: `vledger derive all --write --base tests/fixtures/first-week --vehicle ID`,
+   then check `l1/` against what happened — the drives, charges and
+   refuellings you remember, their distances, energies and litres. The
+   expected L1 is a statement about the vehicle, not a snapshot of the
+   code: what is wrong in it is a finding, registered before the fixture
+   is committed.
+4. Delete the `manifest.json` files and commit L0, receipts and `l1/`.
+
+When a change of the derivation changes a fixture's L1 on purpose,
+step 3 rewrites it; the diff of `l1/` is then part of the change and is
+read like code.
+
 ## Running the integration in a Home Assistant
 
 A development instance needs the library importable before it loads the
@@ -103,7 +132,8 @@ be loaded ([releasing.md](releasing.md)).
 ```
 src/vledger/               the library and CLI — all derivation logic, no Home Assistant
 custom_components/vledger/ the integration: flows, capture, entities, translations
-tests/                     the library's tests; tests/ha/ the integration's
+tests/                     the library's tests; tests/ha/ the integration's;
+                           tests/fixtures/ real streams, anonymised
 docs/                      design documents, operating manuals, the user guide
 .github/workflows/         tests.yml on every push, release.yml on a tag
 ```

@@ -3,7 +3,8 @@
 *What a participant types. The design is in the other documents under
 `docs/`; this page is the tour of the `vledger` command, verb by verb.*
 
-**Status:** the integration captures; the `l0` verbs exist; `derive trips`,
+**Status:** the integration captures; the `l0` verbs exist, `anonymise`
+among them; `derive trips`,
 `derive refuellings`, `derive charging`, `derive periods` and the `calc`
 atoms exist; L1 is written and read with `derive … --write` and the `l1`
 verbs, and the integration keeps it live; receipts are entered,
@@ -237,6 +238,25 @@ Lists every span in which nothing was captured, with its reason: `crash`,
 `--tolerance` is how late a heartbeat may be (default 300 s); `--min` hides
 gaps shorter than that; `--now` judges the end of the stream against a time
 other than now.
+
+### Anonymising
+
+```bash
+vledger l0 anonymise --shift 0.05,-3.2 --to ~/fixture             # every subject under --base
+vledger l0 anonymise --shift=-0.05,3.2 --to ~/fixture --vehicle a7c1   # one; '=' before a leading minus
+```
+
+Copies the streams and receipts into a fresh directory with every position
+moved by the same offset in degrees, latitude first, and every name
+dropped: subject names, entity ids (now `<domain>.<role>`), zones other
+than `home` and `not_home` (now `zone_1`, …), a receipt's place, provider
+and note. Times and values are kept, so the copy derives the same trips,
+refuellings and sessions. The longitude shift keeps every distance; a
+latitude shift scales east–west distances by a little, about 2 % per
+degree at 51° N, so keep it small. Anonymise all subjects in one run: the
+charge points then move with the vehicles and sessions still fall within
+their radius. What becomes of the copy is
+[developing.md](developing.md#real-streams-as-fixtures).
 
 ## The derivations: `vledger derive`
 
