@@ -19,7 +19,11 @@ choose what to add.
    odometer, position, fuel level, state of charge, charging state and so
    on. Every role is optional; at least one movement role (odometer,
    position or trip counter) is required. What the ledger can do for the
-   vehicle follows from the roles it has.
+   vehicle follows from the roles it has. If the vehicle reports only its
+   combustion engine, not an ignition (a plug-in hybrid driving on the
+   battery says *not running*), assign that as the ignition: it refines a
+   trip's boundaries only when the engine ran, and never starts or ends a
+   trip on its own.
 3. **Mapping**, only when a charging state, plug state or ignition was
    assigned: tick the source's values that mean *charging*, *plugged in*
    or *ignition on*. *unavailable* and *unknown* hold the last known
