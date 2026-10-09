@@ -8,10 +8,12 @@ consumption and cost. Passively, from whatever integration already exposes
 the vehicle, without a line of manufacturer-specific code, and without
 touching anything else the vehicle reports: it is a ledger, not a monitor.
 
-**Status:** structure only. Nothing captures or derives yet. Every
-behaviour described below is the design, held as requirements in the
-project's register (`ha-vledger-pm`); a section is marked *(planned)*
-until it exists.
+**Status:** the raw log exists — its format, and the `vledger l0` verbs
+that write, read, validate it and list its gaps. Nothing captures into it
+from Home Assistant yet, and nothing derives from it. Every behaviour
+described below is the design, held as requirements in the project's
+register (`ha-vledger-pm`); a section is marked *(planned)* until it
+exists.
 
 ## What it does *(planned)*
 
@@ -69,6 +71,8 @@ configured in the UI; no YAML.
 
 | Document | What it is |
 |---|---|
+| [docs/user-guide.md](docs/user-guide.md) | What a participant types: the `vledger` command, verb by verb |
+| [docs/l0-format.md](docs/l0-format.md) | The raw log's layout, version 1 — the specification a reader of their own files needs |
 | [docs/glossary.md](docs/glossary.md) | The one English spelling of every domain term, and what it means |
 
 Decisions, requirements and the work queue are records in the project's
