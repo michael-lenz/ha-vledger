@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """Capture: ``state_changed`` events become L0 lines (ADR-0008, point 5).
+An update that repeats a value writes nothing; the next line carries when
+it was last heard, ``reported_before`` (ADR-0010).
 
 One :class:`Capture` per subject. Every line goes through one writer: a
 queue the event loop puts lines on, drained by one task that appends them
@@ -64,6 +66,18 @@ def _measured_at(spec: dict, state: State) -> str | None:
         return clock.to_text(clock.parse(str(value)))
     except ValueError:
         return None
+
+
+def _reported_before(old: State | None, t: str) -> str | None:
+    """When the value a new line at ``t`` replaces was last reported
+    (ADR-0010): the old state's ``last_reported``. None without an old state,
+    and when the old value was reported only once, at its ``last_updated``.
+    A clock that ran backwards gives None too: the line matters more than
+    its measurement."""
+    if old is None or old.last_reported == old.last_updated:
+        return None
+    before = clock.to_text(old.last_reported)
+    return before if clock.parse(before) <= clock.parse(t) else None
 
 
 def _append(base: Path, subject: Subject, line: l0.Line) -> tuple[str, int]:
@@ -196,7 +210,8 @@ class Capture:
         self._put(l0.state(
             t, self.subject, role, entity_id, new.state,
             unit=new.attributes.get("unit_of_measurement"),
-            attrs=new.attributes, measured_at=_measured_at(self.specs[role], new)))
+            attrs=new.attributes, measured_at=_measured_at(self.specs[role], new),
+            reported_before=_reported_before(old, t)))
 
     @callback
     def _on_heartbeat(self, now: datetime) -> None:

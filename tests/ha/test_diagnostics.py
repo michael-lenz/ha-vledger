@@ -153,8 +153,10 @@ async def test_diagnostics_count_the_stream_and_redact_positions(
     assert capture["lines_since_start"] == stream["lines_since_start"] == 6
     assert capture["stream_bytes"] == stream["bytes"]
     assert capture["gaps"] == len(stream["gaps"]) == 0
-    assert stream["intervals"]["odometer"]["count"] == 2
-    assert set(stream["intervals"]["odometer"]) == {"count", "median_s", "p95_s"}
+    assert stream["change_intervals"]["odometer"]["count"] == 2
+    assert set(stream["change_intervals"]["odometer"]) == {"count", "median_s", "p95_s"}
+    # Every value changed at its first report: nothing to measure sampling by.
+    assert stream["sampling_intervals"] == {}
     assert stream["unlisted"] == {"charging_state": ["Done"]}
     position = stream["last_states"]["position"]
     assert position["state"] == "home"

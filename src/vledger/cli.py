@@ -90,7 +90,8 @@ def _add_t(sp: argparse.ArgumentParser) -> None:
 def cmd_l0_state(args) -> int:
     subject = _subject(args)
     line = l0.state(_t(args), subject, args.role, args.entity, args.state,
-                    unit=args.unit, attrs=_kv(args.attr), measured_at=args.measured_at)
+                    unit=args.unit, attrs=_kv(args.attr), measured_at=args.measured_at,
+                    reported_before=args.reported_before)
     path = l0.append(_base(args), subject, line)
     print(f"{path.name}: {l0.encode(line)}")
     return 0
@@ -185,11 +186,15 @@ def cmd_l0_stats(args) -> int:
     print(f"state lines since the last start: {s.lines_since_start}"
           + (f", since {args.since}: {s.lines_since}" if args.since else ""))
     print(f"last line at {s.last_line_at or '-'}, last heartbeat at {s.last_heartbeat_at or '-'}")
+    def summary(name: str, i: stats.Intervals | None) -> str:
+        if i is None:
+            return f"no {name} interval measured"
+        return f"{name} median {i.median_s:.0f} s, p95 {i.p95_s:.0f} s over {i.count}"
+
     for role in sorted(s.by_role):
-        i = s.intervals.get(role)
-        sampled = (f"interval median {i.median_s:.0f} s, p95 {i.p95_s:.0f} s over {i.count}"
-                   if i else "no interval yet")
-        print(f"  {role}: {s.by_role[role]} line(s), last at {s.last_states[role]['t']}, {sampled}")
+        print(f"  {role}: {s.by_role[role]} line(s), last at {s.last_states[role]['t']}; "
+              f"{summary('sampling', s.sampling.get(role))}; "
+              f"{summary('change', s.changes.get(role))}")
     for role, values in sorted(s.unlisted.items()):
         print(f"  {role}: met and not in the map: {', '.join(sorted(values))}")
     latest = s.gaps[-1] if s.gaps else None
@@ -298,6 +303,8 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--attr", action="append", metavar="KEY=VALUE",
                     help="an attribute; only the role-relevant ones are kept")
     sp.add_argument("--measured-at", help="the source's own measurement time, if it gives one")
+    sp.add_argument("--reported-before",
+                    help="when Home Assistant last reported the value this one replaces")
     sp.set_defaults(func=cmd_l0_state)
 
     sp = verbs.add_parser("start", help="capture begins: write the start marker and snapshot")
@@ -350,7 +357,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.set_defaults(func=cmd_l0_gaps)
 
     sp = verbs.add_parser("stats", help="count a stream: sizes, lines, last lines, "
-                                        "sampling intervals, unlisted values, gaps")
+                                        "sampling and change intervals, unlisted values, gaps")
     _add_stream_args(sp)
     sp.add_argument("--since", help="also count the state lines at or after this time")
     sp.add_argument("--tolerance", type=float, default=300,

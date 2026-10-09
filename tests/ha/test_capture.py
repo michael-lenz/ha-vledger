@@ -122,6 +122,32 @@ async def test_lines_keep_their_order_under_a_burst(hass, vehicle_entry, tmp_pat
     assert l0.validate(tmp_path, V).problems == []
 
 
+async def test_a_line_carries_when_the_old_value_was_last_reported(
+        hass, vehicle_entry, tmp_path, freezer):
+    """An update repeating a value writes nothing but moves last_reported;
+    the next line carries it, so t minus it is one sampling interval
+    (ADR-0010)."""
+    kms = {"unit_of_measurement": "km"}
+    freezer.move_to("2026-10-09T06:00:00Z")
+    hass.states.async_set("sensor.volvo_odometer", "100", kms)
+    vehicle_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(vehicle_entry.entry_id)
+    await _settle(hass, vehicle_entry)
+    freezer.move_to("2026-10-09T06:01:00Z")
+    hass.states.async_set("sensor.volvo_odometer", "100", kms)   # reported, unchanged
+    freezer.move_to("2026-10-09T06:02:00Z")
+    hass.states.async_set("sensor.volvo_odometer", "101", kms)
+    freezer.move_to("2026-10-09T06:03:00Z")
+    hass.states.async_set("sensor.volvo_odometer", "102", kms)   # changed at its first report
+    await _settle(hass, vehicle_entry)
+
+    first, second = [r.line for r in l0.read(tmp_path, V, kind="state")]
+    assert first["t"] == "2026-10-09T06:02:00.000Z"
+    assert first["reported_before"] == "2026-10-09T06:01:00.000Z"
+    assert "reported_before" not in second
+    assert l0.validate(tmp_path, V).problems == []
+
+
 @pytest.mark.parametrize("unit", ["%", "L"])
 async def test_tank_capacity_is_demanded_only_for_percent(hass, unit):
     from custom_components.vledger.config_flow import _needs_tank_capacity

@@ -1,11 +1,13 @@
 # The L0 record format
 
-*Design document — the layout of the raw log, version 1, as decided in
-ADR-0004 of the project's register. This page is the specification a reader
-of their own files needs; the reasoning is in the decision.*
+*Design document — the layout of the raw log, version 2, as decided in
+ADR-0004 and ADR-0010 of the project's register. This page is the
+specification a reader of their own files needs; the reasoning is in the
+decisions.*
 
 **Status:** writing, reading, validation and gap detection exist, as
-`vledger l0 …` ([user guide](user-guide.md)). Nothing captures into it yet.
+`vledger l0 …` ([user guide](user-guide.md)), and the integration captures
+into it.
 
 ## One envelope for every line
 
@@ -13,12 +15,12 @@ L0 is JSON Lines, UTF-8, one JSON object per line. Every line has four
 fixed keys, then the keys of its kind:
 
 ```json
-{"v": 1, "t": "2026-10-09T07:12:03.412Z", "kind": "state", "subject": "a7c1…", …}
+{"v": 2, "t": "2026-10-09T07:12:03.412Z", "kind": "state", "subject": "a7c1…", …}
 ```
 
 | key | meaning |
 |---|---|
-| `v` | schema version, integer; this page defines 1 |
+| `v` | schema version, integer; this page defines 2, and what 1 lacks ([Versioning](#versioning)) |
 | `t` | the Home Assistant time of the event: UTC, ISO 8601, milliseconds, `Z` |
 | `kind` | `state`, `start`, `stop`, `heartbeat` or `config` |
 | `subject` | the vehicle or charge point this line belongs to |
@@ -37,12 +39,13 @@ One line per change of the state, or of a role-relevant attribute, of an
 assigned entity:
 
 ```json
-{"v":1,"t":"2026-10-09T07:12:03.412Z","kind":"state","subject":"a7c1…",
- "role":"odometer","entity":"sensor.volvo_odometer","state":"123456","unit":"km"}
-{"v":1,"t":"2026-10-09T07:12:03.418Z","kind":"state","subject":"a7c1…",
+{"v":2,"t":"2026-10-09T07:12:03.412Z","kind":"state","subject":"a7c1…",
+ "role":"odometer","entity":"sensor.volvo_odometer","state":"123456","unit":"km",
+ "reported_before":"2026-10-09T06:57:03.120Z"}
+{"v":2,"t":"2026-10-09T07:12:03.418Z","kind":"state","subject":"a7c1…",
  "role":"position","entity":"device_tracker.volvo","state":"not_home",
  "attrs":{"latitude":48.1371,"longitude":11.5754,"gps_accuracy":12,"source_type":"gps"}}
-{"v":1,"t":"2026-10-09T07:14:00.001Z","kind":"state","subject":"a7c1…",
+{"v":2,"t":"2026-10-09T07:14:00.001Z","kind":"state","subject":"a7c1…",
  "role":"charging_state","entity":"sensor.volvo_charging","state":"unavailable"}
 ```
 
@@ -54,8 +57,16 @@ assigned entity:
 | `unit` | `unit_of_measurement` at the time of writing, when present — the source unit the derivation converts from |
 | `attrs` | only the role-relevant attributes, by a fixed list per role (below); absent when empty |
 | `measured_at` | the source's own measurement time, only when the role's configuration names an attribute that carries one |
+| `reported_before` | when Home Assistant last heard the value this line replaces — its `last_reported` (since version 2) |
 
-Role-relevant attributes in version 1: `position` → `latitude`,
+An update that repeats a value writes no line; it only moves that value's
+`last_reported`. So `t − reported_before` is one **sampling interval** of
+the role — the time between two updates — where the time between two lines
+is only the time between two changes ([glossary](glossary.md)).
+`reported_before` is absent when there was no old state, and when the old
+value was reported only once, at its `last_updated`.
+
+Role-relevant attributes in versions 1 and 2: `position` → `latitude`,
 `longitude`, `gps_accuracy`, `source_type`; every other role → none. What
 is not on this list is not captured and cannot be captured retroactively;
 adding to the list is a new schema version.
@@ -66,7 +77,7 @@ Written when capture for a subject begins, with a snapshot of every
 assigned role as it stands:
 
 ```json
-{"v":1,"t":"2026-10-09T06:00:00.000Z","kind":"start","subject":"a7c1…",
+{"v":2,"t":"2026-10-09T06:00:00.000Z","kind":"start","subject":"a7c1…",
  "vledger":"0.1.0","homeassistant":"2026.10.1",
  "snapshot":[{"role":"odometer","entity":"sensor.volvo_odometer","state":"123456",
               "unit":"km","since":"2026-10-08T22:41:10.000Z"}]}
@@ -94,7 +105,7 @@ The complete configuration of the subject, written at start (after the
 start line) and on every change:
 
 ```json
-{"v":1,"t":"2026-10-09T06:00:00.050Z","kind":"config","subject":"a7c1…",
+{"v":2,"t":"2026-10-09T06:00:00.050Z","kind":"config","subject":"a7c1…",
  "config":{"name":"Volvo",
    "roles":{"odometer":{"entity":"sensor.volvo_odometer"},
             "charging_state":{"entity":"sensor.volvo_charging",
@@ -158,3 +169,8 @@ reader of version N reads every version ≤ N and refuses a newer one; a new
 version may add keys and kinds; anything that changes the meaning of an
 existing key or kind is a new version. `vledger l0 validate` names the
 versions a stream holds.
+
+| version | adds |
+|---|---|
+| 1 | the format as first decided (ADR-0004) |
+| 2 | `reported_before` on `state` lines (ADR-0010); a version 1 stream has no sampling interval to measure |

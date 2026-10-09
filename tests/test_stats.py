@@ -47,13 +47,50 @@ def test_stats_counts_a_stream(tmp_path, capsys):
     assert d["last_heartbeat_at"] == "2026-10-09T07:00:00Z"
     assert d["last_state"] == {"role": "odometer", "t": "2026-10-09T10:05:00Z"}
     assert d["last_states"]["charging_state"]["state"] == "Idle"
-    # 10, 25 and 10 minutes — the 3 h 10 min across the crash is not one.
-    odo = d["intervals"]["odometer"]
+    # 10, 25 and 10 minutes between changes — the 3 h 10 min across the
+    # crash is not one. No line says when a value was last reported, so
+    # there is no sampling interval, and the change interval is no stand-in.
+    assert d["sampling_intervals"] == {}
+    odo = d["change_intervals"]["odometer"]
     assert odo["count"] == 3 and odo["median_s"] == 600
     assert 600 < odo["p95_s"] <= 1500
     # Done and Idle are not listed; unavailable says nothing; Charging is.
     assert d["unlisted"] == {"charging_state": ["Done", "Idle"]}
     assert [(g["reason"], round(g["seconds"])) for g in d["gaps"]] == [("crash", 10800)]
+
+
+def test_the_sampling_interval_is_measured_from_the_last_report(tmp_path, capsys):
+    """A door polled every minute that changes rarely: the change interval
+    says hours, the sampling interval says a minute (ADR-0010)."""
+    b = ["--base", str(tmp_path), "--vehicle", "a7c1"]
+    run(capsys, "start", *b, "--t", "2026-10-09T06:00:00Z", "--homeassistant", "2026.10.1")
+
+    def door(t, value, before=None):
+        extra = ["--reported-before", before] if before else []
+        run(capsys, "state", *b, "--t", t, "--role", "ignition", "--entity", "binary_sensor.i",
+            "--state", value, *extra)
+
+    # Last heard before this run began: capture did not see it, not counted.
+    def heartbeat(hour):
+        run(capsys, "heartbeat", *b, "--t", f"2026-10-09T{hour:02d}:00:00Z", "--lines", "0")
+
+    door("2026-10-09T06:00:30Z", "on", "2026-10-09T05:59:30Z")
+    heartbeat(7)
+    heartbeat(8)
+    door("2026-10-09T08:00:30Z", "off", "2026-10-09T07:59:30Z")
+    door("2026-10-09T09:00:00Z", "on", "2026-10-09T08:58:00Z")
+    heartbeat(10)
+    heartbeat(11)
+    door("2026-10-09T11:00:30Z", "off", "2026-10-09T10:59:30Z")
+    # Changed at its first and only report: no reported_before, no measurement.
+    door("2026-10-09T11:01:30Z", "on")
+    _, out, _ = run(capsys, "stats", *b, "--json", "--now", "2026-10-09T11:02:00Z")
+    d = json.loads(out)
+    assert d["sampling_intervals"]["ignition"]["count"] == 3
+    assert d["sampling_intervals"]["ignition"]["median_s"] == 60
+    assert d["change_intervals"]["ignition"]["median_s"] > 3000
+    _, out, _ = run(capsys, "stats", *b, "--now", "2026-10-09T11:02:00Z")
+    assert "ignition: 5 line(s)" in out and "sampling median 60 s" in out
 
 
 def test_stats_judges_an_open_end_against_now(tmp_path, capsys):
@@ -67,7 +104,8 @@ def test_stats_speaks(tmp_path, capsys):
     code, out, _ = run(capsys, "stats", *b, "--now", "2026-10-09T10:10:00Z")
     assert code == 0
     assert "1 month file(s)" in out
-    assert "odometer: 5 line(s)" in out and "median 600 s" in out
+    assert "odometer: 5 line(s)" in out
+    assert "no sampling interval measured; change median 600 s" in out
     assert "charging_state: met and not in the map: Done, Idle" in out
     assert "1 gap(s), latest crash of 10800 s" in out
 

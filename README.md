@@ -85,7 +85,7 @@ configured in the UI; no YAML.
 | Document | What it is |
 |---|---|
 | [docs/user-guide.md](docs/user-guide.md) | What a participant types: the `vledger` command, verb by verb |
-| [docs/l0-format.md](docs/l0-format.md) | The raw log's layout, version 1 — the specification a reader of their own files needs |
+| [docs/l0-format.md](docs/l0-format.md) | The raw log's layout, version 2 — the specification a reader of their own files needs |
 | [docs/l1-format.md](docs/l1-format.md) | The derivation on disk: files, manifest, cursor, rebuilds |
 | [docs/glossary.md](docs/glossary.md) | The one English spelling of every domain term, and what it means |
 | [docs/developing.md](docs/developing.md) | From a fresh clone to green tests, and the conditions behind each step |

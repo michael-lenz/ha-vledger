@@ -18,8 +18,9 @@ from pathlib import Path
 from vledger import clock, layout
 from vledger.layout import Subject
 
-#: The schema version this module writes, and the highest it reads.
-VERSION = 1
+#: The schema version this module writes, and the highest it reads. Version
+#: 2 adds ``reported_before`` to the state line (ADR-0010).
+VERSION = 2
 
 KINDS = ("state", "start", "stop", "heartbeat", "config")
 STOP_REASONS = ("shutdown", "unload", "reload")
@@ -36,7 +37,7 @@ ROLES = VEHICLE_ROLES + CHARGEPOINT_ROLES
 
 #: The role-relevant attributes, per role: what a state line carries in
 #: ``attrs`` and what counts as a change worth a line (ERF-01). Fixed for
-#: schema version 1 — adding to it is a version bump (ADR-0004, consequence 1).
+#: schema versions 1 and 2 — adding to it is a version bump (ADR-0004, consequence 1).
 RELEVANT_ATTRS: dict[str, tuple[str, ...]] = {
     "position": ("latitude", "longitude", "gps_accuracy", "source_type"),
 }
@@ -63,8 +64,12 @@ def _envelope(t: str, kind: str, subject: Subject) -> Line:
 
 def state(t: str, subject: Subject, role: str, entity: str, value: str, *,
           unit: str | None = None, attrs: dict | None = None,
-          measured_at: str | None = None) -> Line:
-    """One change of state or of a role-relevant attribute (ERF-01, ERF-02)."""
+          measured_at: str | None = None, reported_before: str | None = None) -> Line:
+    """One change of state or of a role-relevant attribute (ERF-01, ERF-02).
+
+    ``reported_before`` is when Home Assistant last heard the value this line
+    replaces (ADR-0010); ``t`` minus it is one sampling interval of the role.
+    """
     if role not in ROLES:
         raise ValueError(f"unknown role {role!r}")
     if not isinstance(value, str):
@@ -79,6 +84,10 @@ def state(t: str, subject: Subject, role: str, entity: str, value: str, *,
     if measured_at is not None:
         clock.parse(measured_at)
         line["measured_at"] = measured_at
+    if reported_before is not None:
+        if clock.parse(reported_before) > clock.parse(t):
+            raise ValueError("reported_before is later than the line it belongs to")
+        line["reported_before"] = reported_before
     return line
 
 
@@ -289,10 +298,24 @@ def _check(line: Line, where: str, subject: Subject, month: str, report: Report)
         extra = set(line.get("attrs") or {}) - set(RELEVANT_ATTRS.get(line.get("role", ""), ()))
         if extra:
             report.problem("error", where, f"attrs not relevant to the role: {sorted(extra)}")
+        if "reported_before" in line:
+            _check_reported_before(line, where, report)
     elif kind == "stop" and line.get("reason") not in STOP_REASONS:
         report.problem("error", where, f"unknown stop reason {line.get('reason')!r}")
     elif kind == "config" and not isinstance(line.get("config"), dict):
         report.problem("error", where, "config is not an object")
+
+
+def _check_reported_before(line: Line, where: str, report: Report) -> None:
+    if isinstance(line["v"], int) and line["v"] < 2:
+        report.problem("error", where, "reported_before in a version 1 line")
+    try:
+        before = clock.parse(line["reported_before"])
+    except (TypeError, ValueError):
+        report.problem("error", where, f"unreadable reported_before {line['reported_before']!r}")
+        return
+    if before > clock.parse(line["t"]):
+        report.problem("error", where, "reported_before is later than t")
 
 
 def validate(base: Path, subject: Subject) -> Report:

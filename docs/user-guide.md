@@ -55,8 +55,9 @@ then kept up to date from the lines written — the same counts as
 entity's settings switch either to another unit (MiB, hours).
 
 **Download diagnostics** (the entry's menu) adds what only a full count of
-the log gives: the measured sampling interval of every role (median and
-95th percentile of the time between its lines), the last value of every
+the log gives: the measured sampling and change interval of every role
+(median and 95th percentile of each; [glossary](glossary.md)), the last
+value of every
 role, every capture gap, and the source values a charging state, plug
 state or ignition met that its mapping does not list — read as *not
 charging*, *unplugged* or *off*, and worth a tick in the mapping if that
@@ -109,7 +110,9 @@ vledger l0 stop --vehicle a7c1 --reason shutdown
 stdin. `--attr` may be repeated; only the attributes relevant to the role
 are kept — `battery` above is dropped, and the verb prints the line it
 wrote so you can see what was kept. A state is always a string: `--state
-123457`, never a number the shell made of it.
+123457`, never a number the shell made of it. `--measured-at` and
+`--reported-before` take a time each, as [l0-format.md](l0-format.md)
+defines the keys.
 
 ### Reading
 
@@ -143,9 +146,12 @@ vledger l0 stats --vehicle a7c1 --since 2026-10-09T00:00:00Z --json
 
 Counts a stream in one pass: month files and their sizes, lines by kind
 and state lines by role, the state lines since the last start (and since
-`--since`, when given), the last line, heartbeat and state line, the
-sampling interval per role — median and 95th percentile of the time
-between two of its lines, never across a gap or a start — the values the
+`--since`, when given), the last line, heartbeat and state line, two
+intervals per role — the sampling interval, from each line's
+`reported_before`, and the change interval, between two of its lines;
+median and 95th percentile of each, never across a gap or a start, and
+*no sampling interval measured* where no line says, rather than the change
+interval in its place — the values the
 state mapping does not list, and the gaps, judged against `--now` as
 `gaps` does. What Home Assistant shows about the log is this count.
 

@@ -43,9 +43,16 @@ vehicle can do follows from the roles it has.
 change means the vehicle moved. At least one is mandatory.
 
 **Sampling interval.** The actual time between two updates of a source
-entity, as measured, not as promised. It bounds what can be detected:
-T_still must be at least twice the longest sampling interval of the
-movement roles.
+entity, as measured, not as promised: a state line's time minus the last
+report of the value it replaces. It bounds what can be detected: T_still
+must be at least twice the longest sampling interval of the movement
+roles. It is Home Assistant's update cadence; a source that updates more
+slowly than it is polled shows its own only through `measured_at`.
+
+**Change interval.** The time between two changes of a role's value — two
+of its L0 lines. A change happens at an update, but not at every one, so
+the change interval is an upper bound on the sampling interval and never
+stands in for it.
 
 **State mapping.** For an enumerated role such as `charging_state`, the
 configured correspondence between the source's values and the domain

@@ -104,7 +104,7 @@ def test_validate_passes_a_clean_stream_and_names_its_versions(tmp_path, capsys)
     b = build_stream(tmp_path, capsys)
     code, out, _ = run(capsys, "validate", *b, "--json")
     report = json.loads(out)
-    assert code == 0 and report["problems"] == [] and report["versions"] == [1]
+    assert code == 0 and report["problems"] == [] and report["versions"] == [2]
     assert report["by_kind"] == {"start": 3, "config": 1, "state": 3, "heartbeat": 1, "stop": 2}
 
 
@@ -165,11 +165,48 @@ def test_a_newer_schema_version_is_refused_on_reading(tmp_path, capsys):
     run(capsys, "start", *b, "--t", "2026-10-01T06:00:00Z", "--homeassistant", "2026.10.1")
     path = tmp_path / "vehicle-a7c1/l0/2026-10.jsonl"
     with open(path, "a") as f:
-        f.write('{"v":2,"t":"2026-10-01T06:01:00.000Z","kind":"stop","subject":"a7c1","reason":"shutdown"}\n')
+        f.write('{"v":3,"t":"2026-10-01T06:01:00.000Z","kind":"stop","subject":"a7c1","reason":"shutdown"}\n')
     with pytest.raises(ValueError, match="newer than this reader"):
         list(l0.read(tmp_path, V))
     code, out, _ = run(capsys, "validate", *b)
-    assert code == 1 and "schema version 2 is newer" in out
+    assert code == 1 and "schema version 3 is newer" in out
+
+
+def test_a_state_line_carries_when_the_old_value_was_last_reported(tmp_path, capsys):
+    b = ["--base", str(tmp_path), "--vehicle", "a7c1"]
+    code, _, _ = run(capsys, "state", *b, "--t", "2026-10-01T06:02:00Z", "--role", "odometer",
+                       "--entity", "sensor.o", "--state", "101",
+                       "--reported-before", "2026-10-01T06:00:00.000Z")
+    assert code == 0
+    line = next(l0.read(tmp_path, V)).line
+    assert line["v"] == 2 and line["reported_before"] == "2026-10-01T06:00:00.000Z"
+    with pytest.raises(ValueError, match="later than the line"):
+        l0.state("2026-10-01T06:00:00.000Z", V, "odometer", "sensor.o", "102",
+                  reported_before="2026-10-01T06:00:00.001Z")
+
+
+def test_version_1_stays_readable_and_never_carries_reported_before(tmp_path, capsys):
+    """Version 1 lines exist on disk and cannot be written any more, so they
+    are spelled out here."""
+    b = ["--base", str(tmp_path), "--vehicle", "a7c1"]
+    path = tmp_path / "vehicle-a7c1/l0/2026-10.jsonl"
+    path.parent.mkdir(parents=True)
+    with open(path, "w") as f:
+        f.write('{"v":1,"t":"2026-10-01T06:00:00.000Z","kind":"state","subject":"a7c1",'
+                '"role":"odometer","entity":"sensor.o","state":"100"}\n')
+    assert [r.line["state"] for r in l0.read(tmp_path, V)] == ["100"]
+    code, out, _ = run(capsys, "validate", *b, "--json")
+    assert code == 0 and json.loads(out)["versions"] == [1]
+    with open(path, "a") as f:
+        f.write('{"v":1,"t":"2026-10-01T06:01:00.000Z","kind":"state","subject":"a7c1",'
+                '"role":"odometer","entity":"sensor.o","state":"101",'
+                '"reported_before":"2026-10-01T06:00:30.000Z"}\n')
+        f.write('{"v":2,"t":"2026-10-01T06:02:00.000Z","kind":"state","subject":"a7c1",'
+                '"role":"odometer","entity":"sensor.o","state":"102",'
+                '"reported_before":"2026-10-01T06:03:00.000Z"}\n')
+    code, out, _ = run(capsys, "validate", *b)
+    assert code == 1
+    assert "reported_before in a version 1 line" in out and "reported_before is later than t" in out
 
 
 def test_time_is_spelled_one_way():

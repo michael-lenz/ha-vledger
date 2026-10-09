@@ -1,8 +1,15 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """A stream counted: its files and their sizes, its lines, the last of each
-kind, its gaps, the sampling intervals per role and the values the state
-mapping does not list — what ``vledger l0 stats`` prints and what the
-integration's diagnostic entities and diagnostics show.
+kind, its gaps, the sampling and change intervals per role and the values
+the state mapping does not list — what ``vledger l0 stats`` prints and what
+the integration's diagnostic entities and diagnostics show.
+
+Two intervals, named apart (ADR-0010). The *sampling interval* is the time
+between two updates of a role's entity: a line's ``t`` minus its
+``reported_before``. The *change interval* is the time between two of its
+lines — a change of value, which happens at an update but not at every
+one, so it is an upper bound on the sampling interval and never stands in
+for it.
 
 One pass over the stream. Nothing here interprets a state beyond what the
 state mapping already does (ADR-0008).
@@ -21,9 +28,8 @@ from vledger.layout import Subject
 
 @dataclass(frozen=True)
 class Intervals:
-    """The measured sampling interval of one role: the time between two
-    consecutive state lines of it while capture ran, never across a capture
-    gap or a start."""
+    """One measured interval of a role, summarised: how many, median and
+    95th percentile. Never measured across a capture gap or a start."""
 
     count: int
     median_s: float
@@ -55,7 +61,10 @@ class Stats:
     last_heartbeat_at: str | None = None
     #: The last state line per role: t, entity, state, unit and attrs as written.
     last_states: dict[str, dict] = field(default_factory=dict)
-    intervals: dict[str, Intervals] = field(default_factory=dict)
+    #: Per role, the time between two updates (``reported_before``).
+    sampling: dict[str, Intervals] = field(default_factory=dict)
+    #: Per role, the time between two of its lines.
+    changes: dict[str, Intervals] = field(default_factory=dict)
     #: Per enumerated role, the values met that its map does not list.
     unlisted: dict[str, set[str]] = field(default_factory=dict)
     finder: l0.GapFinder = field(default_factory=l0.GapFinder)
@@ -91,17 +100,21 @@ def scan(base: Path, subject: Subject, *, since: str | None = None,
     lo = clock.parse(since) if since else None
     config: dict = {}
     previous: dict[str, str] = {}   # role -> t of its last state line in this run
-    gaps: dict[str, list[float]] = {}
+    run_began = None                # when this run of capture began, as a datetime
+    changes: dict[str, list[float]] = {}
+    sampling: dict[str, list[float]] = {}
     for r in l0.read(base, subject):
         line = r.line
         t, kind = line["t"], line["kind"]
-        if s.finder.feed(line):
+        if s.finder.feed(line) or run_began is None:
             previous.clear()
+            run_began = clock.parse(t)
         s.by_kind[kind] = s.by_kind.get(kind, 0) + 1
         s.last_line_at = t
         if kind == "start":
             s.lines_since_start = 0
             previous.clear()
+            run_began = clock.parse(t)
         elif kind == "config":
             config = line["config"]
         elif kind == "heartbeat":
@@ -113,17 +126,25 @@ def scan(base: Path, subject: Subject, *, since: str | None = None,
             if lo and clock.parse(t) >= lo:
                 s.lines_since += 1
             if role in previous:
-                gaps.setdefault(role, []).append(
+                changes.setdefault(role, []).append(
                     (clock.parse(t) - clock.parse(previous[role])).total_seconds())
             previous[role] = t
+            if "reported_before" in line:
+                before = clock.parse(line["reported_before"])
+                # A report from before this run was not seen by capture.
+                if before >= run_began:
+                    sampling.setdefault(role, []).append(
+                        (clock.parse(t) - before).total_seconds())
             s.last_states[role] = {k: line[k] for k in ("t", "entity", "state", "unit", "attrs")
                                    if k in line}
             if role in vconfig.DOMAIN_STATES:
                 mapping = ((config.get("roles") or {}).get(role) or {}).get("map") or {}
                 if vconfig.unlisted(role, line["state"], mapping):
                     s.unlisted.setdefault(role, set()).add(line["state"])
-    for role, seconds in gaps.items():
-        s.intervals[role] = intervals_of(seconds)
+    for role, seconds in sampling.items():
+        s.sampling[role] = intervals_of(seconds)
+    for role, seconds in changes.items():
+        s.changes[role] = intervals_of(seconds)
     return s
 
 
@@ -142,7 +163,8 @@ def to_dict(s: Stats) -> dict:
         "last_heartbeat_at": s.last_heartbeat_at,
         "last_state": {"role": last[0], "t": last[1]["t"]} if last else None,
         "last_states": {role: dict(v) for role, v in s.last_states.items()},
-        "intervals": {role: i.__dict__ for role, i in s.intervals.items()},
+        "sampling_intervals": {role: i.__dict__ for role, i in s.sampling.items()},
+        "change_intervals": {role: i.__dict__ for role, i in s.changes.items()},
         "unlisted": {role: sorted(v) for role, v in s.unlisted.items()},
         "gaps": [g.__dict__ for g in s.gaps],
     }
