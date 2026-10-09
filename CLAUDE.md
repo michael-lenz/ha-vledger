@@ -61,6 +61,12 @@ that bind here:
   high --affects <path> -d '...'`, even when fixing it now. An issue where
   both sides have a case is deferred (`needs-decision`), not closed by
   editing.
+- **Say what you are taking on, first.** Asked to take on, implement,
+  fix or otherwise act on a particular item — a task, an issue, a
+  requirement, a finding — open the reply with a very short synopsis of
+  it: the id, one line of what it asks, and what the first step will be
+  (the claim, a proposal, the fix). Two or three lines at most, before
+  any work; it is how the owner sees that the right record was picked up.
 - **Say when you are done — and only then.** A finished piece of work ends
   with "done here, nothing left to do"; one that stops at a proposal or a
   blocker ends with "stopped here, waiting on ADR-9999" — the id of what
