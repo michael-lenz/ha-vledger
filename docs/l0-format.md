@@ -15,7 +15,7 @@ L0 is JSON Lines, UTF-8, one JSON object per line. Every line has four
 fixed keys, then the keys of its kind:
 
 ```json
-{"v": 3, "t": "2026-10-09T07:12:03.412Z", "kind": "state", "subject": "a7c1…", …}
+{"v": 4, "t": "2026-10-09T07:12:03.412Z", "kind": "state", "subject": "a7c1…", …}
 ```
 
 | key | meaning |
@@ -39,13 +39,13 @@ One line per change of the state, or of a role-relevant attribute, of an
 assigned entity:
 
 ```json
-{"v":3,"t":"2026-10-09T07:12:03.412Z","kind":"state","subject":"a7c1…",
+{"v":4,"t":"2026-10-09T07:12:03.412Z","kind":"state","subject":"a7c1…",
  "role":"odometer","entity":"sensor.volvo_odometer","state":"123456","unit":"km",
  "reported_before":"2026-10-09T06:57:03.120Z"}
-{"v":3,"t":"2026-10-09T07:12:03.418Z","kind":"state","subject":"a7c1…",
+{"v":4,"t":"2026-10-09T07:12:03.418Z","kind":"state","subject":"a7c1…",
  "role":"position","entity":"device_tracker.volvo","state":"not_home",
  "attrs":{"latitude":48.1371,"longitude":11.5754,"gps_accuracy":12,"source_type":"gps"}}
-{"v":3,"t":"2026-10-09T07:14:00.001Z","kind":"state","subject":"a7c1…",
+{"v":4,"t":"2026-10-09T07:14:00.001Z","kind":"state","subject":"a7c1…",
  "role":"charging_state","entity":"sensor.volvo_charging","state":"unavailable"}
 ```
 
@@ -68,10 +68,10 @@ after an `unavailable` or `unknown` one still carries it, but the time since
 an outage began is no sampling interval, and `vledger l0 stats` does not
 count it (ADR-0011).
 
-Role-relevant attributes in versions 1 and 2: `position` → `latitude`,
-`longitude`, `gps_accuracy`, `source_type`; every other role → none. What
-is not on this list is not captured and cannot be captured retroactively;
-adding to the list is a new schema version.
+Role-relevant attributes, unchanged since version 1: `position` →
+`latitude`, `longitude`, `gps_accuracy`, `source_type`; every other role
+→ none. What is not on this list is not captured and cannot be captured
+retroactively; adding to the list is a new schema version.
 
 ### `start`
 
@@ -79,8 +79,8 @@ Written when capture for a subject begins, with a snapshot of every
 assigned role as it stands:
 
 ```json
-{"v":3,"t":"2026-10-09T06:00:00.000Z","kind":"start","subject":"a7c1…",
- "vledger":"0.1.0","homeassistant":"2026.10.1",
+{"v":4,"t":"2026-10-09T06:00:00.000Z","kind":"start","subject":"a7c1…",
+ "vledger":"0.6.0","homeassistant":"2026.10.1",
  "snapshot":[{"role":"odometer","entity":"sensor.volvo_odometer","state":"123456",
               "unit":"km","since":"2026-10-08T22:41:10.000Z"}]}
 ```
@@ -107,20 +107,22 @@ The complete configuration of the subject, written at start (after the
 start line) and on every change:
 
 ```json
-{"v":3,"t":"2026-10-09T06:00:00.050Z","kind":"config","subject":"a7c1…",
+{"v":4,"t":"2026-10-09T06:00:00.050Z","kind":"config","subject":"a7c1…",
  "config":{"name":"Volvo",
    "roles":{"odometer":{"entity":"sensor.volvo_odometer"},
-            "charging_state":{"entity":"sensor.volvo_charging",
-                              "map":{"charging":["Charging"],"idle":["Idle","Done","unavailable"]}}},
+            "charging_state":{"entity":"sensor.volvo_charging","map":{"charging":["Charging"]}}},
    "parameters":{"tank_capacity_l":71,"battery_net_kwh":14.7,"fuel":"petrol"},
    "thresholds":{"t_still_s":1800,"refuel_threshold_l":3,"heartbeat_s":3600},
    "time_zone":"Europe/Berlin"}}
 ```
 
-A vehicle's `time_zone` is the IANA zone its calendar months and years
-begin in; the integration writes Home Assistant's own at every start. A
-config line without one — every line written before it existed — reads
-as UTC.
+An enumerated role's `map` lists the source values that mean its one
+positive domain state and nothing else: every other value the source
+reports means the negative state, and `unavailable` and `unknown` hold
+the last known one (ADR-0008). A vehicle's `time_zone` is the IANA zone
+its calendar months and years begin in; the integration writes Home
+Assistant's own at every start. A config line without one — every line
+written before it existed — reads as UTC.
 
 A charge point is its own subject with its own stream; its `config` line
 carries name, position, radius, meter entity and the tariff history, and
