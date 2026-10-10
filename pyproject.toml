@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vledger"
-version = "0.6.0"
+version = "0.6.1"
 description = "Vehicle ledger: trips, charging, refuelling and cost, derived from a raw log of Home Assistant states"
 readme = "README.md"
 license = "BSD-3-Clause"
