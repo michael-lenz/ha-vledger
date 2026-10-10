@@ -3,20 +3,7 @@
 *What a participant types. The design is in the other documents under
 `docs/`; this page is the tour of the `vledger` command, verb by verb.*
 
-**Status:** the integration captures; the `l0` verbs exist, `anonymise`
-among them; `derive trips`,
-`derive refuellings`, `derive charging`, `derive periods` and the `calc`
-atoms exist; L1 is written and read with `derive … --write` and the `l1`
-verbs, and the integration keeps it live; receipts are entered,
-corrected, cancelled and matched with the `receipt` verbs and `derive
-match`, and in Home Assistant with actions and a dashboard form; the
-last trip, refuelling and charging session, the last trip's fuel and
-electricity consumption and what waits for a receipt are entities, and
-so are the metrics of the current month, year and rolling period, whose
-corrected months are kept as statistics; new events fire Home Assistant
-events and, for a receipt to enter, notifications; L1 is exported as
-CSV, JSON and GPX with the `export` verbs and the `vledger.export`
-action, and `report metrics` gives the metrics of any span.
+**Status:** every verb, entity and action on this page exists.
 
 ## In Home Assistant
 
@@ -363,9 +350,8 @@ export VLEDGER_BASE=~/vledger
 
 ## The raw log: `vledger l0`
 
-The verbs the integration will use to write a stream, usable by hand to
-build one — and the verbs to read a stream back, check it and find its
-gaps. The format is [l0-format.md](l0-format.md).
+The verbs the integration writes a stream with, usable by hand to build
+one — and the verbs to read a stream back, check it and find its gaps. The format is [l0-format.md](l0-format.md).
 
 ### Writing
 
