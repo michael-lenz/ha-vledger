@@ -1,12 +1,15 @@
 # ha-vledger
 
-> **Pre-alpha. Do not install this.** The integration has run on exactly
-> one vehicle, no derivation has been checked against a real stream yet,
-> the options may change between releases, and there is no support. The
-> log format is decided and will be read by every later version. It is
-> public so that the author can test it through HACS and so that the
-> design can be read. When it is ready for other people, this notice goes
-> away.
+> **Beta.** Everything the design describes is built — capture, trips,
+> refuellings, charging sessions, receipts, metrics, entities, statistics,
+> exports — and runs on the author's vehicle, against whose drives every
+> derivation has been checked; against nobody else's yet. The options may
+> still change between releases, a release may rebuild the derivation from
+> the raw log, and there is no support. The log format is decided and will
+> be read by every later version, so what is captured now is kept. Install
+> it through HACS as a custom repository if you want to try it; this
+> notice goes when the register's checklist for leaving it is met
+> (TASK-0032).
 
 A vehicle ledger for Home Assistant. It keeps a raw log of the handful of
 vehicle states that matter to a ledger — odometer, position, fuel level,
