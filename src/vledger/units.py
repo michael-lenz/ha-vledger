@@ -19,6 +19,10 @@ _TABLES: dict[str, tuple[str, dict[str, float]]] = {
     "consumption": ("L/100 km", {"L/100 km": 1.0, "L/100km": 1.0, "l/100km": 1.0}),
 }
 
+#: Every quantity :func:`convert` converts — what ``vledger calc convert``
+#: offers (ADR-0005). A price and a power are taken as they are.
+QUANTITIES = (*_TABLES, "temperature")
+
 
 def quantity_of(role: str) -> str | None:
     """What a role measures, or ``None`` when it is not a number."""

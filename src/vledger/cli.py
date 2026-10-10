@@ -765,8 +765,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp = cverbs.add_parser("convert", help="a value in a source unit as the L1 unit")
     sp.add_argument("value", type=float)
     sp.add_argument("unit", help="the source unit, as Home Assistant spells it")
-    sp.add_argument("--quantity", required=True,
-                    choices=["distance", "volume", "energy", "percent", "temperature"])
+    sp.add_argument("--quantity", required=True, choices=units.QUANTITIES)
     sp.set_defaults(func=cmd_calc_convert)
 
     return parser

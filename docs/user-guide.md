@@ -727,4 +727,5 @@ so any step can be checked by hand:
 vledger calc distance 51.4437 7.1413 51.4812 7.2166     # great-circle, km
 vledger calc convert 630 mi --quantity distance         # 1013.89 km
 vledger calc convert 72 "°F" --quantity temperature     # 22.2222 °C
+vledger calc convert 7.5 "l/100km" --quantity consumption   # 7.5 L/100 km
 ```
