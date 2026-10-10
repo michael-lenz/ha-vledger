@@ -35,8 +35,20 @@ FUELS = ("petrol", "diesel")
 #: uploaded once per driving cycle, at the stop.
 MOVEMENT_REPORTING = ("sampled", "per_cycle")
 
+#: Per fuel, the thresholds whose default depends on it: the lower heating
+#: value (VER-05) and the thermal expansion coefficient (VER-08).
+FUEL_THRESHOLDS = {
+    "petrol": {"heating_value_kwh_per_l": 8.9, "beta_per_k": 9.5e-4},
+    "diesel": {"heating_value_kwh_per_l": 9.8, "beta_per_k": 8.0e-4},
+}
+
+#: Per fuel, the parameters whose default depends on it: the efficiency
+#: fuel to wheel (VER-05).
+FUEL_PARAMETERS = {"petrol": {"eta_ice": 0.28}, "diesel": {"eta_ice": 0.33}}
+
 #: The thresholds and time constants of FZG-06 with the requirements'
-#: defaults, units in the key. Always written out in full (ADR-0008).
+#: defaults, units in the key; a vehicle without a fuel takes petrol's
+#: fuel-dependent ones. Always written out in full (ADR-0008).
 DEFAULT_THRESHOLDS = {
     "t_still_s": 1800,              # FAH-01
     "refuel_threshold_l": 3,        # TNK-01
@@ -48,35 +60,27 @@ DEFAULT_THRESHOLDS = {
     "outage_s": 86400,              # HAI-08
     "rolling_period_d": 30,         # VER-06
     "consumption_error_pct": 5,     # VER-10
-    "heating_value_kwh_per_l": 8.9, # VER-05, petrol; diesel 9.8
-    "beta_per_k": 9.5e-4,           # VER-08, petrol; diesel 8.0e-4
+    **FUEL_THRESHOLDS["petrol"],    # VER-05, VER-08
     "temperature_tau_s": 10800,     # VER-08
     "exit_window_s": 300,           # ADR-0024: an unlock this near an arrival is getting out
     "trip_consumption_step_l_per_100km": 0.1,   # ADR-0025: the trip computer's display step
 }
 
-#: Per fuel, the thresholds whose default depends on it.
-FUEL_THRESHOLDS = {
-    "petrol": {"heating_value_kwh_per_l": 8.9, "beta_per_k": 9.5e-4},
-    "diesel": {"heating_value_kwh_per_l": 9.8, "beta_per_k": 8.0e-4},
-}
-
-#: The vehicle parameters (FZG-04 and later), ``None`` when not set.
+#: The vehicle parameters (FZG-04 and later), ``None`` when not set; a
+#: vehicle without a fuel takes petrol's fuel-dependent ones.
 DEFAULT_PARAMETERS = {
     "fuel": None,
     "tank_capacity_l": None,
     "battery_net_kwh": None,
-    "fuel_level_resolution_l": None,   # measured on the reference vehicle, TASK-0002
+    "fuel_level_resolution_l": None,   # the sensor's error, not its step (ISSUE-0033); unknown until measured
     "soc_resolution_pct": 1,           # ADR-0025: a state of charge in whole percent
     "charging_loss_factor": 1.12,      # LAD-06
     "eta_el": 0.85,                    # VER-05
-    "eta_ice": 0.28,                   # VER-05, petrol; diesel 0.33
+    **FUEL_PARAMETERS["petrol"],       # VER-05
     "charge_cycles_start": 0,          # VER-11
     "tank_fills_start": 0,             # VER-11
     "movement_reporting": "sampled",   # ADR-0024
 }
-
-FUEL_PARAMETERS = {"petrol": {"eta_ice": 0.28}, "diesel": {"eta_ice": 0.33}}
 
 
 def vehicle(name: str, roles: dict, parameters: dict | None = None,

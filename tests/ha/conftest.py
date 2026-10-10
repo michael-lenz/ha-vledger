@@ -12,7 +12,7 @@ from custom_components.vledger.const import (
 )
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-import vledger.cli  # noqa: F401 — the real derivations register first, so a stand-in replaces one
+import vledger.derivations  # noqa: F401 — the real derivations register first, so a stand-in replaces one
 from vledger import config as vconfig
 from vledger import l1
 

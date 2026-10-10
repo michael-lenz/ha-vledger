@@ -147,7 +147,10 @@ def columns(kind: str, events: list[dict]) -> list[str]:
     out = []
     for key in (*declared, *extra):
         sub = _subkeys(key)
-        out.extend(f"{key}.{s}" for s in sub) if sub else out.append(key)
+        if sub:
+            out.extend(f"{key}.{s}" for s in sub)
+        else:
+            out.append(key)
     return out
 
 

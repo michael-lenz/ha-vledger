@@ -129,7 +129,6 @@ class Capture:
         self.config = config
         self.roles = roles_of(config)
         self.entities = {spec["entity"]: role for role, spec in self.roles.items()}
-        self.specs = {role: spec for role, spec in self.roles.items()}
         thresholds = config.get("thresholds") or {}
         self.heartbeat_s = int(thresholds.get("heartbeat_s", l0.DEFAULT_HEARTBEAT_S))
         # A charge point has no thresholds (ADR-0008, point 2): the default holds.
@@ -262,7 +261,7 @@ class Capture:
         self._put(l0.state(
             t, self.subject, role, entity_id, new.state,
             unit=new.attributes.get("unit_of_measurement"),
-            attrs=new.attributes, measured_at=_measured_at(self.specs[role], new),
+            attrs=new.attributes, measured_at=_measured_at(self.roles[role], new),
             reported_before=_reported_before(old, t)))
         if new.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
             self._outage_begins(entity_id, role, t)

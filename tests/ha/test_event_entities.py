@@ -12,7 +12,7 @@ from homeassistant.util.unit_system import US_CUSTOMARY_SYSTEM
 from test_l1writer import KM, T0, _drive, _standstill
 from test_receipt_entry import _act, _settle, _setup, at
 
-import vledger.cli  # noqa: F401 — the real derivations register first, so a stand-in replaces one
+import vledger.derivations  # noqa: F401 — the real derivations register first, so a stand-in replaces one
 from vledger import charging, l1, receipts, refuellings, trips
 from vledger.layout import Subject
 

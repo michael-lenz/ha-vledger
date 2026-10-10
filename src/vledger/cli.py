@@ -204,6 +204,7 @@ def cmd_l0_stats(args) -> int:
     print(f"state lines since the last start: {s.lines_since_start}"
           + (f", since {args.since}: {s.lines_since}" if args.since else ""))
     print(f"last line at {s.last_line_at or '-'}, last heartbeat at {s.last_heartbeat_at or '-'}")
+
     def summary(name: str, i: stats.Intervals | None) -> str:
         if i is None:
             return f"no {name} interval measured"

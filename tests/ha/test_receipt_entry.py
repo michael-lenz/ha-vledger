@@ -8,7 +8,7 @@ import pytest
 from custom_components.vledger.const import DOMAIN
 from homeassistant.exceptions import ServiceValidationError
 
-import vledger.cli  # noqa: F401 — the real derivations register first, so a stand-in replaces one
+import vledger.derivations  # noqa: F401 — the real derivations register first, so a stand-in replaces one
 from vledger import clock, l1, receipts
 from vledger.layout import Subject
 

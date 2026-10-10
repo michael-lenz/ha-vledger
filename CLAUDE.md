@@ -92,7 +92,9 @@ Debian system Python — use the venv.
 - **Every operation on the data is a verb of `vledger`** (ADR-0005). The
   integration calls only functions a verb exposes; a derivation is not
   finished until its verb exists and its scenario runs from the shell. New
-  derivations register themselves in `l1.DERIVATIONS`, as `trips` does.
+  derivations register themselves in `l1.DERIVATIONS`, as `trips` does,
+  and join the import in `vledger/derivations.py`, which is how the live
+  writer and `derive all` come to run the same set.
 - **L0 is never rewritten.** The format is `docs/l0-format.md`; adding a
   key or an attribute to the whitelist is a schema version, and every
   earlier version stays readable. Values stay the strings Home Assistant
