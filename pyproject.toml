@@ -34,7 +34,9 @@ vledger = "vledger.cli:main"
 # Assistant (ARC-03), and the HA test stack is heavy. Integration tests
 # (QUA-02) install dev and ha. test is dev without ruff, for a platform
 # with no ruff wheel that brings its own binary (Termux; ISSUE-0053).
-test = ["pytest", "pytest-asyncio"]
+# tzdata is what zoneinfo falls back to where the system has no zone
+# database (Android); the library itself stays dependency-free (ADR-0002).
+test = ["pytest", "pytest-asyncio", "tzdata"]
 dev = ["vledger[test]", "ruff"]
 ha = ["pytest-homeassistant-custom-component"]
 

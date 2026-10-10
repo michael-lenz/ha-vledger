@@ -57,7 +57,9 @@ imported by anything here.
 
 On Android, PyPI has no ruff wheel, and pip then builds ruff from source,
 which needs a Rust toolchain. Termux packages ruff as a binary instead,
-and the `test` extra is `dev` without ruff:
+and the `test` extra is `dev` without ruff. Android has no zone database
+where `zoneinfo` looks either; the extra brings `tzdata`, which it falls
+back to, so a vehicle's months in `Europe/Berlin` are found:
 
 ```bash
 pkg install ruff
