@@ -47,6 +47,8 @@ _ROLE_DOMAINS: dict[str, list[str]] = {
     "fuel_flap": ["sensor", "binary_sensor"], "trip_consumption": ["sensor"],
 }
 
+#: Every threshold of ``vconfig.DEFAULT_THRESHOLDS`` with the unit its form
+#: field shows; a test holds this list to the library's (ISSUE-0041).
 _THRESHOLD_UNITS = {
     "t_still_s": "s", "refuel_threshold_l": "L", "t_settle_s": "s",
     "charging_threshold_pct": "%", "matching_tolerance_s": "s", "plausibility_pct": "%",
@@ -73,6 +75,8 @@ def _roles_schema() -> vol.Schema:
 
 
 def _parameters_schema() -> vol.Schema:
+    """The config flow's parameters: what a derivation needs, nothing else
+    (ADR-0008, point 4)."""
     return vol.Schema({
         vol.Optional("fuel"): selector.SelectSelector(selector.SelectSelectorConfig(
             options=list(vconfig.FUELS), translation_key="fuel")),
@@ -82,11 +86,10 @@ def _parameters_schema() -> vol.Schema:
 
 
 def _all_parameters_schema() -> vol.Schema:
-    return vol.Schema({
-        vol.Optional("fuel"): selector.SelectSelector(selector.SelectSelectorConfig(
-            options=list(vconfig.FUELS), translation_key="fuel")),
-        vol.Optional("tank_capacity_l"): _number("L"),
-        vol.Optional("battery_net_kwh"): _number("kWh"),
+    """The options flow's parameters: the config flow's, then the rest of
+    ``vconfig.DEFAULT_PARAMETERS`` — a test holds the two lists together
+    (ISSUE-0041)."""
+    return _parameters_schema().extend({
         vol.Optional("fuel_level_resolution_l"): _number("L"),
         vol.Optional("soc_resolution_pct"): _number("%"),
         vol.Optional("charging_loss_factor"): _number(minimum=1),

@@ -1,6 +1,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """The flows, step by step, refusals included."""
 
+import json
+from pathlib import Path
+
+from custom_components.vledger import config_flow
 from custom_components.vledger.const import (
     DATA_KIND,
     DATA_SUBJECT,
@@ -9,6 +13,11 @@ from custom_components.vledger.const import (
 )
 from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResultType
+
+from vledger import config as vconfig
+from vledger import l0
+
+ROOT = Path(__file__).resolve().parents[2] / "custom_components/vledger"
 
 
 async def _start(hass, kind):
@@ -120,3 +129,19 @@ async def test_options_thresholds_are_prefilled_and_kept_complete(hass, vehicle_
     assert vehicle_entry.options["thresholds"]["t_still_s"] == 2400
     assert vehicle_entry.options["thresholds"]["heartbeat_s"] == 600
     await hass.config_entries.async_unload(vehicle_entry.entry_id)
+
+
+def test_the_forms_offer_every_role_parameter_and_threshold_the_library_has():
+    """ISSUE-0041: the flows restate the library's key lists by hand, and
+    so do the translations; a key the library adds or renames shows up
+    here, not as a field quietly missing from the form."""
+    keys = {k.schema for k in config_flow._all_parameters_schema().schema}
+    assert keys == set(vconfig.DEFAULT_PARAMETERS)
+    assert set(config_flow._THRESHOLD_UNITS) == set(vconfig.DEFAULT_THRESHOLDS)
+    assert set(config_flow._ROLE_DOMAINS) == set(l0.VEHICLE_ROLES)
+    for lang in ("strings.json", "translations/en.json", "translations/de.json"):
+        steps = json.loads((ROOT / lang).read_text())["options"]["step"]
+        assert set(steps["parameters"]["data"]) == set(vconfig.DEFAULT_PARAMETERS), lang
+        assert set(steps["thresholds"]["data"]) == set(vconfig.DEFAULT_THRESHOLDS), lang
+        assert set(steps["roles"]["data"]) == set(l0.VEHICLE_ROLES), lang
+        assert set(steps["mapping"]["data"]) == set(vconfig.DOMAIN_STATES), lang
