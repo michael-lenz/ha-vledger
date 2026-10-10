@@ -106,12 +106,18 @@ def _thresholds_schema() -> vol.Schema:
     return vol.Schema({vol.Required(k): _number(u) for k, u in _THRESHOLD_UNITS.items()})
 
 
-def _chargepoint_schema() -> vol.Schema:
+def _tariff(currency: str) -> selector.NumberSelector:
+    """The tariff field: an amount per kWh in the instance's currency, under
+    the key as decided (ADR-0029) — no form spells a currency of its own."""
+    return _number(f"{currency}/kWh")
+
+
+def _chargepoint_schema(currency: str) -> vol.Schema:
     return vol.Schema({
         vol.Required("name"): selector.TextSelector(),
         vol.Required("location"): selector.LocationSelector(selector.LocationSelectorConfig(radius=True)),
         vol.Optional("meter"): _entity(["sensor"]),
-        vol.Required("eur_per_kwh"): _number("€/kWh"),
+        vol.Required("eur_per_kwh"): _tariff(currency),
         vol.Required("from"): selector.DateSelector(),
     })
 
@@ -235,7 +241,7 @@ class VledgerConfigFlow(ConfigFlow, domain=DOMAIN):
             return self.async_create_entry(
                 title=user_input["name"], data={DATA_KIND: KIND_CHARGEPOINT, DATA_SUBJECT: subject},
                 options=options)
-        schema = self.add_suggested_values_to_schema(_chargepoint_schema(), {
+        schema = self.add_suggested_values_to_schema(_chargepoint_schema(self.hass.config.currency), {
             "location": {"latitude": self.hass.config.latitude,
                          "longitude": self.hass.config.longitude, "radius": 50}})
         return self.async_show_form(step_id="chargepoint", data_schema=schema)
@@ -350,7 +356,7 @@ class VledgerOptionsFlow(OptionsFlow):
                                             opts["radius_m"], tariffs, opts.get("meter")))
             return self._finish(opts)
         return self.async_show_form(step_id="add_tariff", data_schema=vol.Schema({
-            vol.Required("eur_per_kwh"): _number("€/kWh"),
+            vol.Required("eur_per_kwh"): _tariff(self.hass.config.currency),
             vol.Required("from"): selector.DateSelector(),
         }), description_placeholders={"count": str(len(opts["tariffs"]))})
 

@@ -49,7 +49,7 @@ behaviour is the design, held as requirements in the project's register
   tariff of 0 is cost 0. Anything else is a foreign charge and asks for a
   receipt.
 - **Reports.** Per month, year and rolling period: distance, litres and kWh,
-  fuel and electricity cost, €/100 km per energy carrier, the electric
+  fuel and electricity cost, the cost per 100 km per energy carrier, the electric
   share two ways (energy by heating value, and an estimated distance
   share), charge cycles and tank-fill equivalents. Fuel consumption is
   tank-to-tank between any two receipts, corrected by the fuel level sensor,

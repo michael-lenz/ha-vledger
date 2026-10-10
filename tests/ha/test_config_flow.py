@@ -80,6 +80,9 @@ async def test_a_vehicle_without_enumerated_roles_skips_the_mapping(hass):
 async def test_a_chargepoint_in_one_step(hass):
     result = await _start(hass, "chargepoint")
     assert result["step_id"] == "chargepoint"
+    # The tariff is an amount in the instance's currency (ADR-0029).
+    tariff = next(v for k, v in result["data_schema"].schema.items() if k.schema == "eur_per_kwh")
+    assert tariff.config["unit_of_measurement"] == f"{hass.config.currency}/kWh"
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {
         "name": "Home", "location": {"latitude": 48.1, "longitude": 11.5, "radius": 40},
         "meter": "sensor.wallbox_energy", "eur_per_kwh": 0.30, "from": "2026-01-01"})

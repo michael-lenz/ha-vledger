@@ -30,6 +30,15 @@ keys of its kind, exactly as `vledger derive …` prints them. A derived
 event has no id: it is named by `(kind, subject, start)`, and a receipt
 that matched it is referenced by the receipt's UUID in the event.
 
+A key spelled `eur` — `cost_eur`, `tariff_eur_per_kwh`, `fuel_cost_eur`,
+`electricity_cost_eur`, `eur_per_100km` and the other cost rates, and
+`eur_per_kwh` in a charge point's `config` line — holds an amount in the
+instance's currency, Home Assistant's `currency` setting, not the euro:
+the keys were named when the reference instance was the only one and stay
+as decided, since a rename would be a format version for a word
+(ADR-0029). Nothing the integration shows spells a currency but the
+instance's.
+
 A charge point's `l1/` holds a manifest and nothing else: meter
 attribution and cost are derived on the vehicle's side, which reads the
 charge points' streams and config lines, and the other vehicles' streams

@@ -197,9 +197,10 @@ extended over consecutive receipts until one qualifies.
 time zone — or the **rolling period** (default 30 days, ending at the
 stream's last line) the metrics are reported for; the **lifetime** is the
 whole of capture. Purchase figures (litres
-refuelled, fuel cost) count what was bought in the period; rates (€/100 km,
-kWh/100 km) use what was consumed, corrected for the change in fuel level
-and SoC stock between the period's start and end.
+refuelled, fuel cost) count what was bought in the period; rates (cost per
+100 km, kWh/100 km) use what was consumed, corrected for the change in
+fuel level and SoC stock between the period's start and end. A cost is an
+amount in the instance's currency, whatever its key says ([l1-format.md](l1-format.md#files)).
 
 **Electric energy share.** Electricity's share of the energy put in, by the
 fuel's lower heating value; no assumptions, and explicitly not a distance
