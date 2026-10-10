@@ -374,7 +374,7 @@ def derive(s: Stream, *, completed_only: bool = False) -> list[Trip]:
     T_still after the last movement, judged by the stream's last line, not
     by the clock, so the answer is the same whenever it is asked (ABL-01)
     — which is what L1 holds (ADR-0009). A vehicle that reports once per
-    driving cycle is read as legs instead (ADR-0023).
+    driving cycle is read as legs instead (ADR-0024).
     """
     if s.parameters().get("movement_reporting") == "per_cycle":
         return _derive_per_cycle(s, completed_only=completed_only)
@@ -406,7 +406,7 @@ def derive(s: Stream, *, completed_only: bool = False) -> list[Trip]:
     return out
 
 
-# --- vehicles that report once per driving cycle (ADR-0023) -----------------
+# --- vehicles that report once per driving cycle (ADR-0024) -----------------
 
 #: What says a leg has begun: the start markers of ADR-0012 and ADR-0021 —
 #: the trip counter's reset joins them below.
@@ -441,91 +441,159 @@ def _after_before(t: str, lo: str | None, hi: str) -> bool:
     return (lo is None or tt > clock.parse(lo)) and tt < clock.parse(hi)
 
 
-def _legs(s: Stream, exit_window_s: float) -> tuple[list[Leg], list[Marker], list[str]]:
-    """The legs of a per-cycle stream, the departure markers that are not
-    exits, and the first report of every span in use.
+def _measured(s: Stream) -> list[tuple[str, str, float]]:
+    """(time, role, interval) of every movement-role sample whose interval
+    the stream measures (ADR-0011), in time order."""
+    out = []
+    for role in ("odometer", "trip_distance"):
+        out += [(x.t, role, _interval(x.t, x.reported_before))
+                for x in s.series.get(role, []) if x.reported_before]
+    out += [(f.t, "position", _interval(f.t, f.reported_before))
+            for f in s.fixes if f.reported_before]
+    out.sort(key=lambda x: clock.parse(x[0]))
+    return out
 
-    An arrival is a movement sample of odometer, trip counter or position;
-    every further one before the next departure marker belongs to it. An
-    unlock within ``exit_window_s`` of an arrival, either side, is the
-    driver getting out and separates nothing (ADR-0023, points 2 and 3)."""
-    moves = [m for m in movements(s) if m.role != "in_use"]
-    marks = _departure_markers(s)
+
+def _fastest(measured: list[tuple[str, str, float]], lo: str | None, hi: str) -> str | None:
+    """The movement role with the shortest median interval measured after
+    ``lo`` and up to ``hi`` — the previous trip's end and the sample
+    (ADR-0024, point 2) — or ``None`` where none is measured."""
+    found: dict[str, list[float]] = {}
+    tlo, thi = (clock.parse(lo) if lo else None), clock.parse(hi)
+    for t, role, interval in measured:
+        tt = clock.parse(t)
+        if (tlo is None or tt > tlo) and tt <= thi:
+            found.setdefault(role, []).append(interval)
+    if not found:
+        return None
+    return min(found, key=lambda r: (statistics.median(found[r]), r))
+
+
+def _legs(s: Stream, anchor: str | None, exit_window_s: float
+          ) -> tuple[list[Leg], list[Marker], list[str]]:
+    """The legs of a per-cycle stream after ``anchor`` — the previous trip's
+    end, an arrival — the departure markers that are not exits, and the
+    first report of every span in use after it (ADR-0024).
+
+    Only a sample of the fastest movement role opens an arrival, joining
+    the current one while no departure marker lies between. A slower
+    role's sample belongs to the latest arrival before it when no
+    departure lies between, else to the next one after it when none lies
+    between those, else it opens its own. A sample with no departure
+    between it and the anchor belongs to the arrival the anchor is, which
+    is already read. An unlock within ``exit_window_s`` of an arrival is
+    getting out."""
+    after = (lambda t: True) if anchor is None else (lambda t: clock.parse(t) > clock.parse(anchor))
+    moves = [m for m in movements(s) if m.role != "in_use" and after(m.t)]
+    marks = [k for k in _departure_markers(s) if after(k.t)]
+    measured = _measured(s)
     window = timedelta(seconds=exit_window_s)
-
-    def near(t, a) -> bool:
-        return abs(clock.parse(t) - clock.parse(a)) <= window
-
-    # Arrivals: a movement sample opens one when a departure marker lies
-    # between it and the previous sample — an unlock only when it is not
-    # within the window of either.
-    clusters: list[list[Movement]] = []
+    fast = {}
     for m in moves:
-        if clusters:
-            prev = clusters[-1]
-            separating = [k for k in marks
-                          if clock.parse(prev[-1].t) < clock.parse(k.t) <= clock.parse(m.t)
-                          and not (k.role == "lock" and (near(k.t, prev[0].t) or near(k.t, m.t)))]
-            if not separating:
-                prev.append(m)
-                continue
-        clusters.append([m])
-    arrivals = [c[0].t for c in clusters]
+        role = _fastest(measured, anchor, m.t)
+        fast[m] = role is None or m.role == role
+
+    def near(a: str, b: str) -> bool:
+        return abs(clock.parse(a) - clock.parse(b)) <= window
+
+    anchors = [m.t for m in moves if fast[m]] + ([anchor] if anchor else [])
     departures = [k for k in marks
-                  if not (k.role == "lock" and any(near(k.t, a) for a in arrivals))]
-    in_use_first = [first for first, _, _ in in_use_spans(s)]
+                  if not (k.role == "lock" and any(near(k.t, a) for a in anchors))]
+
+    def departs_between(a: str | None, b: str) -> bool:
+        return any(_after_before(k.t, a, b) or k.t == b for k in departures)
+
+    # Arrivals opened and joined by the fastest role.
+    arrivals: list[list[Movement]] = []
+    for m in (m for m in moves if fast[m]):
+        if not arrivals:
+            if anchor is not None and not departs_between(anchor, m.t):
+                continue                     # the anchor's own, already read
+            arrivals.append([m])
+        elif departs_between(arrivals[-1][-1].t, m.t):
+            arrivals.append([m])
+        else:
+            arrivals[-1].append(m)
+    # Each slower sample by the departures around it.
+    for m in (m for m in moves if not fast[m]):
+        before = [a for a in arrivals if clock.parse(a[0].t) <= clock.parse(m.t)]
+        prev_t = before[-1][0].t if before else anchor
+        if prev_t is not None and not departs_between(prev_t, m.t):
+            if before:
+                before[-1].append(m)
+            continue                         # the anchor's: already read
+        later = [a for a in arrivals if clock.parse(a[0].t) > clock.parse(m.t)]
+        if later and not departs_between(m.t, later[0][0].t):
+            later[0].append(m)
+            continue
+        arrivals.append([m])
+        arrivals.sort(key=lambda a: clock.parse(a[0].t))
+    for a in arrivals:
+        a.sort(key=lambda m: clock.parse(m.t))
+    in_use_first = [first for first, _, _ in in_use_spans(s) if after(first)]
     legs: list[Leg] = []
-    previous = None
-    for c in clusters:
-        unlocks = [k for k in departures if k.role == "lock" and _after_before(k.t, previous, c[0].t)]
+    previous = anchor
+    for a in arrivals:
+        arrival = next((m.t for m in a if fast[m]), a[0].t)
+        unlocks = [k for k in departures if k.role == "lock" and _after_before(k.t, previous, arrival)]
         if unlocks:
             dep, by = unlocks[-1].t, "lock"
         else:
             others = [(k.t, k.role) for k in departures
-                      if k.role != "lock" and _after_before(k.t, previous, c[0].t)]
-            others += [(t, "in_use") for t in in_use_first if _after_before(t, previous, c[0].t)]
+                      if k.role != "lock" and _after_before(k.t, previous, arrival)]
+            others += [(t, "in_use") for t in in_use_first if _after_before(t, previous, arrival)]
             dep, by = min(others, key=lambda x: clock.parse(x[0])) if others else (None, None)
-        legs.append(Leg(dep, by, c[0].t, c[-1].t, tuple(c)))
-        previous = c[0].t
+        legs.append(Leg(dep, by, arrival, a[-1].t, tuple(a)))
+        previous = arrival
     return legs, departures, in_use_first
 
 
 def _derive_per_cycle(s: Stream, *, completed_only: bool) -> list[Trip]:
-    """Trips of a vehicle that reports once per driving cycle (ADR-0023):
+    """Trips of a vehicle that reports once per driving cycle (ADR-0024):
     legs from a departure to an arrival, one trip while the stops between
     them — from an arrival to the next departure — are shorter than
-    T_still. Nothing is read across a capture gap: a gap between two legs
-    ends the trip, one inside a trip makes it incomplete."""
+    T_still. Read trip by trip, each from the previous trip's end, as the
+    live path reads them from its cursor. Nothing is read across a capture
+    gap: a gap in a stop ends the trip, one inside it makes it incomplete."""
     thr = s.thresholds()
     still = timedelta(seconds=float(thr["t_still_s"]))
     settle = float(thr["t_settle_s"])
-    legs, departures, in_use_first = _legs(s, float(thr["exit_window_s"]))
-    groups: list[list[Leg]] = []
-    for leg in legs:
-        if groups:
-            prev = groups[-1][-1]
+    window = float(thr["exit_window_s"])
+    out: list[Trip] = []
+    anchor = s.since
+    while True:
+        legs, departures, in_use_first = _legs(s, anchor, window)
+        if not legs:
+            break
+        group = [legs[0]]
+        complete = False
+        for leg in legs[1:]:
             begin = leg.departure or leg.arrival
-            if (clock.parse(begin) - clock.parse(prev.arrival) < still
-                    and not series.gap_between(s, prev.arrival, begin)):
-                groups[-1].append(leg)
-                continue
-        groups.append([leg])
-    if completed_only and groups and s.last_t:
-        last = groups[-1][-1].arrival
-        after = [k.t for k in departures if clock.parse(k.t) > clock.parse(last)]
-        after += [t for t in in_use_first if clock.parse(t) > clock.parse(last)]
-        nxt = min(after, key=clock.parse) if after else None
-        if (clock.parse(s.last_t) - clock.parse(last) < still or in_use_now(s)
-                or (nxt and clock.parse(nxt) - clock.parse(last) < still)):
-            groups = groups[:-1]
-    out = []
-    for g in groups:
-        first, final = g[0], g[-1]
+            if (clock.parse(begin) - clock.parse(group[-1].arrival) < still
+                    and not series.gap_between(s, group[-1].arrival, begin)):
+                group.append(leg)
+            else:
+                complete = True
+                break
+        last = group[-1].arrival
+        if not complete:
+            nxt = [k.t for k in departures if clock.parse(k.t) > clock.parse(last)]
+            nxt += [t for t in in_use_first if clock.parse(t) > clock.parse(last)]
+            pending = min(nxt, key=clock.parse) if nxt else None
+            complete = bool(s.last_t) and not (
+                clock.parse(s.last_t) - clock.parse(last) < still or in_use_now(s)
+                or (pending and clock.parse(pending) - clock.parse(last) < still))
+        if completed_only and not complete:
+            break
+        first = group[0]
         start = first.departure or first.arrival
-        crossed = series.gap_between(s, start, final.last)
-        moves = [m for leg in g for m in leg.moves]
-        out.append(_trip(s, start, final.arrival, final.last, crossed,
+        crossed = series.gap_between(s, start, group[-1].last)
+        moves = [m for leg in group for m in leg.moves]
+        out.append(_trip(s, start, last, group[-1].last, crossed,
                          {"start": first.departed_by, "end": None}, moves, settle))
+        if not complete:
+            break
+        anchor = last
     return out
 
 

@@ -71,7 +71,7 @@ zones, distance, waypoints and mean outside temperature.
 **Standstill.** A span of at least **T_still** in which no movement role
 changes and the vehicle is not reported in use.
 
-**Leg.** On a vehicle that reports once per driving cycle (ADR-0023): one
+**Leg.** On a vehicle that reports once per driving cycle (ADR-0024): one
 drive from its **departure** — an unlock, an engine start, the trip
 counter's reset — to its **arrival**, the upload of odometer, trip counter
 and position at the stop. An unlock just before or after an arrival is the
@@ -217,7 +217,7 @@ reported together with the number of gaps.
 **Vehicle parameters.** Tank capacity, net battery capacity, fuel type, the
 two counters' starting values, the fuel level sensor's resolution, the
 charging loss factor, the efficiencies, and how the vehicle reports
-movement — sampled while driving, or once per driving cycle (ADR-0023). Each is mandatory only when an
+movement — sampled while driving, or once per driving cycle (ADR-0024). Each is mandatory only when an
 enabled derivation needs it.
 
 **Thresholds and time constants.** T_still, the refuelling threshold,

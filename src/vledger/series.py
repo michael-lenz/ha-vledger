@@ -63,6 +63,9 @@ class Stream:
     gaps: list[l0.Gap] = field(default_factory=list)
     first_t: str | None = None
     last_t: str | None = None
+    #: The cursor the stream was read from, when it was: what came before is
+    #: only seeded.
+    since: str | None = None
 
     def thresholds(self) -> dict:
         thr = dict(vconfig.DEFAULT_THRESHOLDS)
@@ -132,7 +135,7 @@ def load(base: Path, subject: Subject, *, since: str | None = None,
     snapshot of a start line seeds every series with the value before the
     first change, at the snapshot's ``since`` time; a ``since`` is seeded
     with the last value of every role before it."""
-    s = Stream(subject)
+    s = Stream(subject, since=since)
     pending_lat: dict[str, float] = {}
     fuel_pct: list[Sample] = []
     seeding = False

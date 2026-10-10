@@ -560,3 +560,65 @@ def test_legs_line_by_line_equal_one_rebuild(tmp_path, capsys):
     b.heartbeat(230)
     assert len(trips.derive_from(tmp_path / "stream", V)) == 2
     replay(tmp_path / "stream", tmp_path / "replay")
+
+
+def test_a_slower_report_after_a_quick_departure_joins_the_next_arrival(tmp_path, capsys):
+    """The pump (ISSUE-0036): the counter's upload at 40, the engine off
+    again at 42, the odometer's slow poll bringing the pump's value at 50,
+    home at 64. The odometer at 50 is no arrival of its own (ADR-0024)."""
+    b = cycle_builder(tmp_path, capsys)
+    b.heartbeat(0)
+    b.state(5, "trip_distance", 0.0, "km", before=3)
+    b.state(10, "lock", "unlocked", before=9).state(12, "lock", "locked", before=11)
+    b.state(39, "odometer", 1010, "km", before=24)                 # a slow poll before the stop
+    b.state(40, "trip_distance", 25.0, "km", before=38)            # the pump
+    b.state(42, "engine", "on", before=40)
+    b.state(50, "odometer", 1025, "km", before=35)                 # the pump's value, late
+    b.heartbeat(55)
+    b.state(64, "trip_distance", 40.0, "km", before=62)            # home
+    b.state(65, "odometer", 1040, "km", before=50)
+    b.heartbeat(120)
+    [t] = trips.derive_from(tmp_path, V, completed_only=True)
+    assert (t.start, t.end) == (at(10), at(64))
+    assert t.distance_km == 40
+
+
+def test_a_slower_report_just_before_the_faster_one_joins_its_arrival(tmp_path, capsys):
+    """One upload, the odometer polled 30 s before the counter: it belongs
+    to the coming arrival, not to the one before the departure."""
+    b = cycle_builder(tmp_path, capsys)
+    b.heartbeat(0)
+    b.state(5, "trip_distance", 0.0, "km", before=3)
+    b.state(10, "lock", "unlocked", before=9).state(12, "lock", "locked", before=11)
+    b.state(20, "trip_distance", 10.0, "km", before=18).state(20, "odometer", 1010, "km", before=5)
+    b.heartbeat(50)
+    b.state(70, "lock", "unlocked", before=69).state(72, "lock", "locked", before=71)
+    # The counter's reset at the departure is measured in this trip's window,
+    # so it ranks fastest before the stop's upload comes (ADR-0024, point 2).
+    b.state(73, "trip_distance", 0.0, "km", before=71)
+    b.state(89.5, "odometer", 1030, "km", before=74.5)
+    b.state(90, "trip_distance", 20.0, "km", before=88)
+    b.heartbeat(150)
+    first, second = trips.derive_from(tmp_path, V, completed_only=True)
+    assert (first.start, first.end, first.distance_km) == (at(10), at(20), 10)
+    assert (second.start, second.end, second.distance_km) == (at(70), at(90), 20)
+
+
+def test_a_late_report_after_a_written_trip_line_by_line_equals_one_rebuild(tmp_path, capsys):
+    """The odometer's late report of a trip's last upload comes after the
+    trip's end, which is the live path's cursor: it belongs to that trip,
+    and opens nothing after it (ADR-0024)."""
+    from test_fixtures import replay
+    b = cycle_builder(tmp_path / "stream", capsys)
+    b.heartbeat(0)
+    for start in (10, 200):
+        b.state(start, "lock", "unlocked", before=start - 1)
+        b.state(start + 1, "trip_distance", 0.0, "km", before=start - 1)
+        b.state(start + 2, "lock", "locked", before=start + 1)
+        b.heartbeat(start + 20)
+        b.state(start + 30, "trip_distance", 20.0, "km", before=start + 28)
+        b.state(start + 42, "odometer", 1020 if start == 10 else 1040, "km", before=start + 27)
+        b.heartbeat(start + 80).heartbeat(start + 140)
+    found = trips.derive_from(tmp_path / "stream", V)
+    assert [(t.start, t.end, t.distance_km) for t in found] == [(at(10), at(40), 20), (at(200), at(230), 20)]
+    replay(tmp_path / "stream", tmp_path / "replay")

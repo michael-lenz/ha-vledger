@@ -126,16 +126,23 @@ sensor pair), and `in_use`; markers `ignition`, `plug_state`,
 6. **Complete** once T_still has elapsed after the last movement, by the
    stream.
 
-**Per-cycle vehicles** (ADR-0023). A vehicle whose `movement_reporting`
+**Per-cycle vehicles** (ADR-0024). A vehicle whose `movement_reporting`
 is `per_cycle` uploads odometer, trip counter and position once per
 driving cycle, at the stop, and is read as legs instead of steps 2 and 3:
 
-1. **Arrivals.** A movement event (step 1, in use aside) is an arrival;
-   every further one before the next departure marker belongs to it — a
-   role polled more slowly reporting the same upload — and the arrival's
-   time is its first, its values are read up to its last. (A slower
-   role's report after the next departure opens an arrival of its own:
-   ISSUE-0036.)
+1. **Arrivals.** Only a movement event (step 1, in use aside) of the
+   fastest movement role opens an arrival — the role with the shortest
+   median interval the stream measures between the previous trip's end
+   and the event — and joins the current one while no departure marker
+   lies between. A slower role's event belongs to the latest arrival
+   before it when no departure lies between them, else to the next one
+   when none lies between those, else it opens its own: a slow poll
+   reports the upload before or after the fast one, whichever way the
+   next departure falls. Without measured intervals every event after a
+   departure opens an arrival. The arrival's time is its fastest event,
+   its values are read up to its last. Trips are read one after another,
+   each from the previous one's end — the live path's cursor — so a late
+   report after a trip's end belongs to it and opens nothing.
 2. **Departure markers.** The lock turning `unlocked`, the engine
    `running`, the ignition `on`, the plug `unplugged`, and the trip
    counter going down. An unlock within `exit_window_s` (300 s) of an

@@ -31,7 +31,7 @@ DOMAIN_STATES = {"charging_state": "charging", "plug_state": "plugged", "ignitio
 
 FUELS = ("petrol", "diesel")
 
-#: How a vehicle reports movement (ADR-0023): sampled while driving, or
+#: How a vehicle reports movement (ADR-0024): sampled while driving, or
 #: uploaded once per driving cycle, at the stop.
 MOVEMENT_REPORTING = ("sampled", "per_cycle")
 
@@ -51,7 +51,7 @@ DEFAULT_THRESHOLDS = {
     "heating_value_kwh_per_l": 8.9, # VER-05, petrol; diesel 9.8
     "beta_per_k": 9.5e-4,           # VER-08, petrol; diesel 8.0e-4
     "temperature_tau_s": 10800,     # VER-08
-    "exit_window_s": 300,           # ADR-0023: an unlock this near an arrival is getting out
+    "exit_window_s": 300,           # ADR-0024: an unlock this near an arrival is getting out
 }
 
 #: Per fuel, the thresholds whose default depends on it.
@@ -71,7 +71,7 @@ DEFAULT_PARAMETERS = {
     "eta_ice": 0.28,                   # VER-05, petrol; diesel 0.33
     "charge_cycles_start": 0,          # VER-11
     "tank_fills_start": 0,             # VER-11
-    "movement_reporting": "sampled",   # ADR-0023
+    "movement_reporting": "sampled",   # ADR-0024
 }
 
 FUEL_PARAMETERS = {"petrol": {"eta_ice": 0.28}, "diesel": {"eta_ice": 0.33}}
