@@ -39,9 +39,10 @@ from .metrics import METRICS, SUM, Metric, energies, unit_of, value_of
 
 _LOGGER = logging.getLogger(__name__)
 
-#: The unit class under which Home Assistant converts a statistic (point 1).
+#: The unit class under which Home Assistant converts a statistic (point 1;
+#: ADR-0032 for the energy per distance).
 UNIT_CLASS = {SensorDeviceClass.DISTANCE: "distance", SensorDeviceClass.VOLUME: "volume",
-              SensorDeviceClass.ENERGY: "energy"}
+              SensorDeviceClass.ENERGY: "energy", SensorDeviceClass.ENERGY_DISTANCE: "energy_distance"}
 
 
 def statistic_id(subject_id: str, metric: Metric) -> str:

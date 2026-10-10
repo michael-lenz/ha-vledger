@@ -220,10 +220,12 @@ What they keep as statistics:
   totals are running totals; **Fuel consumption** and the two overall
   rates are levels.
 
-Distances and litres follow the instance's units, as above. Rates are
-shown as they are — `kWh/100km`, `L/100km`, and costs per 100 km in the
-instance's currency — without conversion; shares in per cent. Costs are
-shown in the instance's currency, the one the receipt form asks for.
+Distances and litres follow the instance's units, as above. The
+electricity rates, `kWh/100km`, carry a device class, so an entity's
+settings can show them as mi/kWh, Wh/km or km/kWh and the statistics
+convert with them; `L/100km` and the costs per 100 km are shown as they
+are, without conversion; shares in per cent. Costs are shown in the
+instance's currency, the one the receipt form asks for.
 
 The month's and year's energy sums can be added to Home Assistant's
 energy dashboard. Do not add **Grid energy** next to a wallbox meter

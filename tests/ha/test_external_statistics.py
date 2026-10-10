@@ -65,9 +65,11 @@ async def test_a_row_per_month_and_a_correction_rewrites_the_series(
     assert [(r["mean"], r["min"], r["max"]) for r in got[share]] == [(40.0, 40.0, 40.0)]
     assert "vledger:b8d2_grid_kwh_per_100km" not in got        # null in every month: no row
 
+    rate = "vledger:b8d2_grid_kwh_per_100km"
     meta = await get_instance(hass).async_add_executor_job(
-        partial(get_metadata, hass, statistic_ids={km, share, "vledger:b8d2_fuel_cost_eur"}))
+        partial(get_metadata, hass, statistic_ids={km, share, rate, "vledger:b8d2_fuel_cost_eur"}))
     assert meta[km][1]["unit_of_measurement"] == "km" and meta[km][1]["unit_class"] == "distance"
+    assert meta[rate][1]["unit_of_measurement"] == "kWh/100km" and meta[rate][1]["unit_class"] == "energy_distance"
     assert meta[km][1]["source"] == "vledger" and meta[km][1]["name"] == "Golf Distance"
     assert meta[km][1]["has_sum"] and not meta[share][1]["has_sum"]
     assert meta[share][1]["unit_of_measurement"] == "%"

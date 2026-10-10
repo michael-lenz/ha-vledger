@@ -116,7 +116,8 @@ async def test_sums_restart_with_their_period(hass, phev_entry, period_lines):
     assert s.attributes["device_class"] == "energy" and s.attributes["soc_corrected"] is False
     s = _state(hass, "sensor.golf_grid_energy_per_100_km_this_month")
     assert float(s.state) == 18.25 and s.attributes["unit_of_measurement"] == "kWh/100km"
-    assert s.attributes["state_class"] == "measurement" and "device_class" not in s.attributes
+    assert s.attributes["state_class"] == "measurement"
+    assert s.attributes["device_class"] == "energy_distance"             # ADR-0032
     assert "last_reset" not in s.attributes
     s = _state(hass, "sensor.golf_cost_per_100_km_this_month")
     assert s.state == "unknown" and s.attributes["unit_of_measurement"] == "CHF/100km"
@@ -165,7 +166,8 @@ async def test_the_overall_consumption_and_totals_are_the_lifetime_lines(hass, p
     await _setup(hass, phev_entry)
     s = _state(hass, "sensor.golf_grid_energy_per_100_km_in_total")
     assert float(s.state) == 13.27 and s.attributes["unit_of_measurement"] == "kWh/100km"
-    assert s.attributes["state_class"] == "measurement" and "device_class" not in s.attributes
+    assert s.attributes["state_class"] == "measurement"
+    assert s.attributes["device_class"] == "energy_distance"             # ADR-0032
     assert s.attributes["soc_corrected"] is True and s.attributes["state_quality"] == "measured"
     assert "last_reset" not in s.attributes
     s = _state(hass, "sensor.golf_battery_energy_per_100_km_in_total")

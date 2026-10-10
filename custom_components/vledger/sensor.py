@@ -173,8 +173,8 @@ CONSUMPTION_SENSORS: tuple[ConsumptionSensorDescription, ...] = (
                     "fuel_consumed_error_l", "fuel_l_per_100km_error_pct")),
     ConsumptionSensorDescription(
         key="last_trip_electricity_consumption", translation_key="last_trip_electricity_consumption",
-        kind=TRIP, gate=CHARGING, native_unit_of_measurement=KWH_PER_100KM,
-        suggested_display_precision=1,
+        kind=TRIP, gate=CHARGING, device_class=SensorDeviceClass.ENERGY_DISTANCE,
+        native_unit_of_measurement=KWH_PER_100KM, suggested_display_precision=1,
         values=(("battery_kwh_per_100km", "battery_kwh_per_100km_quality"),),
         attributes=("start", "end", "quality", "distance_km", "distance_quality",
                     "battery_consumed_kwh", "battery_consumed_quality",
@@ -457,16 +457,17 @@ LIFETIME_SENSORS: tuple[LifetimeSensorDescription, ...] = (
         attributes=("consumption_from", "consumption_to", "consumption_receipts",
                     "consumption_error_pct")),
     # The overall consumption and totals (ADR-0025, point 6): the rates a
-    # level, the sums total without last_reset, as the counters above.
+    # level, the sums total without last_reset, as the counters above. The
+    # electricity rates carry the energy_distance class (ADR-0032).
     LifetimeSensorDescription(
         key="grid_kwh_per_100km_total", translation_key="grid_kwh_per_100km_total", needs=ELECTRICITY,
-        state_class=SensorStateClass.MEASUREMENT, native_unit_of_measurement=KWH_PER_100KM,
-        suggested_display_precision=1,
+        state_class=SensorStateClass.MEASUREMENT, device_class=SensorDeviceClass.ENERGY_DISTANCE,
+        native_unit_of_measurement=KWH_PER_100KM, suggested_display_precision=1,
         value="grid_kwh_per_100km", quality="grid_kwh_per_100km_quality", attributes=("soc_corrected",)),
     LifetimeSensorDescription(
         key="battery_kwh_per_100km_total", translation_key="battery_kwh_per_100km_total", needs=ELECTRICITY,
-        state_class=SensorStateClass.MEASUREMENT, native_unit_of_measurement=KWH_PER_100KM,
-        suggested_display_precision=1,
+        state_class=SensorStateClass.MEASUREMENT, device_class=SensorDeviceClass.ENERGY_DISTANCE,
+        native_unit_of_measurement=KWH_PER_100KM, suggested_display_precision=1,
         value="battery_kwh_per_100km", quality="battery_kwh_per_100km_quality", attributes=("soc_corrected",)),
     LifetimeSensorDescription(
         key="distance_km_total", translation_key="distance_km_total", needs=EVERY,

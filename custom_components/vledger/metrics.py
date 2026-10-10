@@ -20,11 +20,11 @@ SUM, RATE, SHARE = "sum", "rate", "share"
 PERIODS = ("month", "year", "rolling")
 #: Stands for the instance's currency in a unit (point 4).
 CURRENCY = "{currency}"
-#: The rates per distance, in Home Assistant's own spelling of the units
-#: (ADR-0018, point 4; ISSUE-0028): shown as they are, unconverted, and
-#: spelled the one way on every entity that carries one (ISSUE-0038), so
-#: that the device class of ISSUE-0028, should it come, does not change
-#: the unit the statistics are kept in.
+#: The rates per distance, in Home Assistant's own spelling of the units,
+#: spelled the one way on every entity that carries one (ISSUE-0038).
+#: kWh/100km is the native unit of the ``energy_distance`` device class
+#: (ADR-0032), which converts it for display and in the statistics;
+#: L/100km has no device class and is shown as it is (ADR-0018, point 4).
 L_PER_100KM, KWH_PER_100KM = "L/100km", "kWh/100km"
 
 
@@ -52,8 +52,10 @@ METRICS: tuple[Metric, ...] = (
     Metric("grid_kwh", "Grid energy", ELECTRICITY, SUM, SensorDeviceClass.ENERGY, UnitOfEnergy.KILO_WATT_HOUR, 2),
     Metric("battery_kwh", "Battery energy", ELECTRICITY, SUM, SensorDeviceClass.ENERGY, UnitOfEnergy.KILO_WATT_HOUR, 2),
     Metric("electricity_cost_eur", "Electricity cost", ELECTRICITY, SUM, SensorDeviceClass.MONETARY, CURRENCY, 2),
-    Metric("grid_kwh_per_100km", "Grid energy per 100 km", ELECTRICITY, RATE, None, KWH_PER_100KM, 1),
-    Metric("battery_kwh_per_100km", "Battery energy per 100 km", ELECTRICITY, RATE, None, KWH_PER_100KM, 1),
+    Metric("grid_kwh_per_100km", "Grid energy per 100 km", ELECTRICITY, RATE,
+           SensorDeviceClass.ENERGY_DISTANCE, KWH_PER_100KM, 1),
+    Metric("battery_kwh_per_100km", "Battery energy per 100 km", ELECTRICITY, RATE,
+           SensorDeviceClass.ENERGY_DISTANCE, KWH_PER_100KM, 1),
     Metric("charge_cycles", "Charge cycles", ELECTRICITY, SUM, None, None, 2),
     Metric("fuel_eur_per_100km", "Fuel cost per 100 km", BOTH, RATE, None, f"{CURRENCY}/100km", 2),
     Metric("electricity_eur_per_100km", "Electricity cost per 100 km", BOTH, RATE, None, f"{CURRENCY}/100km", 2),

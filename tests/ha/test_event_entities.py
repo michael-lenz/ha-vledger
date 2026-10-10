@@ -170,6 +170,7 @@ async def test_the_last_trips_consumption_is_a_slice_of_its_line(hass, phev_entr
     assert "battery_consumed_kwh" not in s.attributes and "waypoints" not in s.attributes
     e = _state(hass, "sensor.golf_last_trip_electricity_consumption")
     assert e.state == "unknown" and e.attributes["unit_of_measurement"] == "kWh/100km"
+    assert e.attributes["device_class"] == "energy_distance"             # ADR-0032; the fuel rate has none
     assert e.attributes["battery_consumed_kwh"] == 0.05 and e.attributes["state_quality"] is None
     assert "fuel_consumed_l" not in e.attributes
     # One quantity, one spelling of its unit on every entity (ISSUE-0038).
