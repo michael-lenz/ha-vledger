@@ -10,4 +10,4 @@ on nothing outside the standard library (CLI-06).
 #: logic recorded in L1 (ADR-0002, ABL-07). pyproject.toml and
 #: custom_components/vledger/manifest.json carry the same string; a test
 #: keeps the three in step.
-__version__ = "0.3.0"
+__version__ = "0.4.0"
