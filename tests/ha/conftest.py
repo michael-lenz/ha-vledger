@@ -35,3 +35,21 @@ def vehicle_entry(tmp_path):
         domain=DOMAIN, title="Volvo", unique_id="a7c1",
         data={DATA_KIND: "vehicle", DATA_SUBJECT: "a7c1"}, options=options,
     )
+
+
+@pytest.fixture
+def phev_entry(tmp_path):
+    options = vconfig.vehicle(
+        "Golf", {"odometer": {"entity": "sensor.golf_odometer"}},
+        {"fuel": "petrol", "tank_capacity_l": 40, "battery_net_kwh": 10.4})
+    options[OPT_BASE_PATH] = str(tmp_path)
+    return MockConfigEntry(domain=DOMAIN, title="Golf", unique_id="b8d2",
+                           data={DATA_KIND: "vehicle", DATA_SUBJECT: "b8d2"}, options=options)
+
+
+@pytest.fixture
+def chargepoint_entry(tmp_path):
+    options = vconfig.chargepoint("Home", 48.1, 11.5, 50, [{"from": "2026-01-01", "eur_per_kwh": 0.3}])
+    options[OPT_BASE_PATH] = str(tmp_path)
+    return MockConfigEntry(domain=DOMAIN, title="Home", unique_id="c9e3",
+                           data={DATA_KIND: "chargepoint", DATA_SUBJECT: "c9e3"}, options=options)

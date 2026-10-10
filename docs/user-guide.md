@@ -9,9 +9,11 @@ among them; `derive trips`,
 atoms exist; L1 is written and read with `derive … --write` and the `l1`
 verbs, and the integration keeps it live; receipts are entered,
 corrected, cancelled and matched with the `receipt` verbs and `derive
-match`, and in Home Assistant with actions and a dashboard form; L1 is
-exported as CSV, JSON and GPX with the `export` verbs. Metric entities,
-reports and an export action in Home Assistant are planned.
+match`, and in Home Assistant with actions and a dashboard form; the
+last trip, refuelling and charging session and what waits for a receipt
+are entities; L1 is exported as CSV, JSON and GPX with the `export`
+verbs. Metric entities, reports and an export action in Home Assistant
+are planned.
 
 ## In Home Assistant
 
@@ -99,6 +101,40 @@ action: vledger.recompute
 data:
   config_entry_id: 01J…      # optional
 ```
+
+### What the vehicle shows
+
+Every vehicle's device shows what the ledger derived, as L1 holds it —
+updated whenever a trip, refuelling or charging session completes or a
+receipt is entered, and *unavailable* while L1 is rebuilt:
+
+| entity | shown for | state | attributes |
+|---|---|---|---|
+| **Last trip** | every vehicle | its distance | start, end, zones, positions, how the distance was measured, the fuel and charge it used, … |
+| **Last refuelling** | a vehicle with a fuel | the receipt's litres, or the sensor's before a receipt | start, end, level before and after, price, full tank, place, the receipt and how well it matched, … |
+| **Last charging session** | a vehicle with a net battery capacity | the energy from the grid | start, end, state of charge, charge point, cost, charging loss, the receipt, … |
+| **Waiting for a receipt** | a vehicle with either | how many refuellings and charging sessions are *unconfirmed* or *ambiguous* | the count per kind and confirmation |
+
+Only completed events are shown: a trip under way appears once its
+standstill has elapsed. The attributes are the event's line in L1, key
+for key ([l1-format.md](l1-format.md)), with **Quality of the state**
+added — whether the number shown was measured, taken from a receipt,
+estimated or is incomplete. The route of a trip is not an attribute; it
+is in the GPX export ([below](#exports-vledger-export)). Positions are
+attributes but are not kept in Home Assistant's history.
+
+Units follow the instance: a US-customary instance shows miles and
+gallons, and an entity's settings choose another unit. Attributes stay in
+the units L1 uses, which each name says — `distance_km`, `quantity_l`,
+`cost_eur`; for miles from an attribute, use a template:
+
+```yaml
+{{ (state_attr('sensor.volvo_last_trip', 'distance_km') / 1.609344) | round(1) }}
+```
+
+These four keep no long-term statistics except **Waiting for a
+receipt**: the last trip's distance is one trip, not a level worth
+averaging. Totals per month and year are the metric entities (planned).
 
 ### Receipts in Home Assistant
 
@@ -416,8 +452,9 @@ vledger derive refuellings --vehicle a7c1 --write   # likewise l1/refuellings.js
 vledger derive charging --vehicle a7c1 --write      # likewise l1/charging-sessions.jsonl
 vledger derive periods --vehicle a7c1 --write    # rewrite l1/periods.jsonl from the events on disk
 vledger derive all --vehicle a7c1 --write        # rebuild all of l1/ from scratch, swapped in whole
-vledger l1 status --vehicle a7c1                 # the manifest, and whether a rebuild is due and why
+vledger l1 status --vehicle a7c1                 # the manifest, what waits for a receipt, and whether a rebuild is due and why
 vledger l1 read --vehicle a7c1 --kind trip       # the events, as l0 read prints lines
+vledger l1 read --vehicle a7c1 --kind trip --last 1   # only the last one, read from the end of the file
 vledger l1 clean --vehicle a7c1                  # delete l1/ — it is regenerable
 ```
 

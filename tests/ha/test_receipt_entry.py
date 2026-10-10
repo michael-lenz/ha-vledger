@@ -5,18 +5,11 @@ dashboard form, read back with the library."""
 from datetime import timedelta
 
 import pytest
-from custom_components.vledger.const import (
-    DATA_KIND,
-    DATA_SUBJECT,
-    DOMAIN,
-    OPT_BASE_PATH,
-)
+from custom_components.vledger.const import DOMAIN
 from homeassistant.exceptions import ServiceValidationError
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 import vledger.cli  # noqa: F401 — the real derivations register first, so a stand-in replaces one
 from vledger import clock, l1, receipts
-from vledger import config as vconfig
 from vledger.layout import Subject
 
 V = Subject("vehicle", "a7c1")
@@ -39,24 +32,6 @@ def detected(monkeypatch):
     events: list[dict] = []
     monkeypatch.setitem(l1.DERIVATIONS, "refuelling", lambda base, subject, since: list(events))
     return events
-
-
-@pytest.fixture
-def phev_entry(tmp_path):
-    options = vconfig.vehicle(
-        "Golf", {"odometer": {"entity": "sensor.golf_odometer"}},
-        {"fuel": "petrol", "tank_capacity_l": 40, "battery_net_kwh": 10.4})
-    options[OPT_BASE_PATH] = str(tmp_path)
-    return MockConfigEntry(domain=DOMAIN, title="Golf", unique_id=P.id,
-                           data={DATA_KIND: "vehicle", DATA_SUBJECT: P.id}, options=options)
-
-
-@pytest.fixture
-def chargepoint_entry(tmp_path):
-    options = vconfig.chargepoint("Home", 48.1, 11.5, 50, [{"from": "2026-01-01", "eur_per_kwh": 0.3}])
-    options[OPT_BASE_PATH] = str(tmp_path)
-    return MockConfigEntry(domain=DOMAIN, title="Home", unique_id="c9e3",
-                           data={DATA_KIND: "chargepoint", DATA_SUBJECT: "c9e3"}, options=options)
 
 
 async def _settle(hass, *entries):
@@ -169,7 +144,8 @@ async def test_the_forms_follow_the_parameters(hass, vehicle_entry, phev_entry, 
     ids = hass.states.async_entity_ids()
     volvo = [i for i in ids if "volvo_refuelling" in i or "volvo_charging_receipt" in i
              or "volvo_enter" in i]
-    golf = [i for i in ids if "golf_" in i and "receipt" in i]
+    # The form's entities, not the sensor counting what waits for a receipt.
+    golf = [i for i in ids if "golf_" in i and "receipt" in i and not i.startswith("sensor.")]
     assert len(volvo) == 9                         # petrol only: the refuelling form
     assert len(golf) == 16                         # a plug-in hybrid: both forms
     assert not [i for i in ids if "home_" in i and "receipt" in i]

@@ -136,6 +136,61 @@ def read(base: Path, subject: Subject, kind: str) -> Iterator[dict]:
             raise ValueError(f"{p}:{number}: not JSON and not the last line") from None
 
 
+#: How far back :func:`last` reads at a time.
+_TAIL_CHUNK = 64 * 1024
+
+
+def last(base: Path, subject: Subject, kind: str, n: int = 1) -> list[dict]:
+    """The last ``n`` events of a kind, in order of start, read from the
+    end of the file rather than the whole of it (ADR-0016, point 8). A
+    torn last line is skipped, as :func:`read` skips it."""
+    p = path_of(base, subject, kind)
+    if n < 1 or not p.is_file():
+        return []
+    with open(p, "rb") as f:
+        size = f.seek(0, os.SEEK_END)
+        data, pos = b"", size
+        # One line more than asked for: the first one in the buffer may be
+        # cut off by the chunk's start, and a torn tail does not count.
+        while pos > 0 and data.count(b"\n") <= n:
+            step = min(_TAIL_CHUNK, pos)
+            pos -= step
+            f.seek(pos)
+            data = f.read(step) + data
+    parts = data.decode("utf-8", errors="replace").split("\n")
+    if pos > 0:
+        parts = parts[1:]
+    torn_tail = parts[-1] != ""
+    if not torn_tail:
+        parts.pop()
+    out: list[dict] = []
+    for i, text in enumerate(parts):
+        try:
+            out.append(json.loads(text))
+        except json.JSONDecodeError:
+            if torn_tail and i == len(parts) - 1:
+                break
+            raise ValueError(f"{p}: a line before the last is not JSON") from None
+    return out[-n:]
+
+
+#: The confirmations that wait for a person (ADR-0016, point 4).
+WAITING = ("unconfirmed", "ambiguous")
+
+
+def waiting(base: Path, subject: Subject) -> dict[str, dict[str, int]]:
+    """Per event kind that takes a receipt, how many events L1 holds that
+    wait for one: ``{"refuelling": {"unconfirmed": 2, "ambiguous": 0}, …}``."""
+    out = {}
+    for kind in receipts.EVENT_KINDS:
+        counts = dict.fromkeys(WAITING, 0)
+        for e in read(base, subject, kind):
+            if e.get("confirmation") in counts:
+                counts[e["confirmation"]] += 1
+        out[kind] = counts
+    return out
+
+
 def encode(event: dict) -> str:
     return json.dumps(event, ensure_ascii=False, separators=(",", ":"))
 

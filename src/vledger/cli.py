@@ -396,8 +396,15 @@ def cmd_derive_match(args) -> int:
 # --- l1 verbs --------------------------------------------------------------
 
 def cmd_l1_read(args) -> int:
+    base, subject = _base(args), _subject(args)
+    if args.last is not None:
+        if args.last < 1:
+            raise Usage("--last takes a number of events, at least 1")
+        events = l1.last(base, subject, args.kind, args.last)
+    else:
+        events = l1.read(base, subject, args.kind)
     n = 0
-    for event in l1.read(_base(args), _subject(args), args.kind):
+    for event in events:
         print(l1.encode(event))
         n += 1
     print(f"{n} event(s)", file=sys.stderr)
@@ -414,6 +421,10 @@ def cmd_l1_status(args) -> int:
         for kind, t in (manifest.get("through") or {}).items():
             print(f"  {kind}: through {t}")
         print(f"  L0 read through {manifest.get('l0_through')}")
+        if subject.kind == "vehicle":
+            for kind, counts in l1.waiting(base, subject).items():
+                print(f"  {kind}: waiting for a receipt: " + ", ".join(
+                    f"{n} {state}" for state, n in counts.items()))
     due = l1.rebuild_due(base, subject)
     print(f"rebuild due: {due}" if due else "current")
     return 1 if due else 0
@@ -663,6 +674,8 @@ def build_parser() -> argparse.ArgumentParser:
     sp = lverbs.add_parser("read", help="print one kind's events as JSON Lines")
     _add_stream_args(sp)
     sp.add_argument("--kind", required=True, choices=list(l1.FILES))
+    sp.add_argument("--last", type=int, metavar="N",
+                    help="only the last N events, read from the end of the file")
     sp.set_defaults(func=cmd_l1_read)
     sp = lverbs.add_parser("status", help="the manifest, and whether a rebuild is due")
     _add_stream_args(sp)

@@ -184,7 +184,312 @@
       "lines_since_start": { "name": "State lines since start" },
       "lines_today": { "name": "State lines today" },
       "capture_gaps": { "name": "Capture gaps" },
-      "latest_capture_gap": { "name": "Latest capture gap" }
+      "latest_capture_gap": { "name": "Latest capture gap" },
+      "last_trip": {
+        "name": "Last trip",
+        "state_attributes": {
+          "start": {
+            "name": "Start"
+          },
+          "end": {
+            "name": "End"
+          },
+          "quality": {
+            "name": "Quality",
+            "state": {
+              "measured": "Measured",
+              "receipt": "Receipt",
+              "estimated": "Estimated",
+              "incomplete": "Incomplete"
+            }
+          },
+          "state_quality": {
+            "name": "Quality of the state",
+            "state": {
+              "measured": "Measured",
+              "receipt": "Receipt",
+              "estimated": "Estimated",
+              "incomplete": "Incomplete"
+            }
+          },
+          "distance_km": {
+            "name": "Distance (km)"
+          },
+          "distance_quality": {
+            "name": "Distance quality"
+          },
+          "distance_source": {
+            "name": "Distance source"
+          },
+          "start_position": {
+            "name": "Start position"
+          },
+          "end_position": {
+            "name": "End position"
+          },
+          "start_zone": {
+            "name": "Start zone"
+          },
+          "end_zone": {
+            "name": "End zone"
+          },
+          "outside_temperature_c": {
+            "name": "Outside temperature (°C)"
+          },
+          "delta_soc_pct": {
+            "name": "Change in state of charge (%)"
+          },
+          "delta_fuel_l": {
+            "name": "Change in fuel (L)"
+          },
+          "refined_by": {
+            "name": "Boundaries refined by"
+          },
+          "movements_while_plugged": {
+            "name": "Movements while plugged in"
+          }
+        }
+      },
+      "last_refuelling": {
+        "name": "Last refuelling",
+        "state_attributes": {
+          "start": {
+            "name": "Start"
+          },
+          "end": {
+            "name": "End"
+          },
+          "quality": {
+            "name": "Quality",
+            "state": {
+              "measured": "Measured",
+              "receipt": "Receipt",
+              "estimated": "Estimated",
+              "incomplete": "Incomplete"
+            }
+          },
+          "state_quality": {
+            "name": "Quality of the state",
+            "state": {
+              "measured": "Measured",
+              "receipt": "Receipt",
+              "estimated": "Estimated",
+              "incomplete": "Incomplete"
+            }
+          },
+          "position": {
+            "name": "Position"
+          },
+          "zone": {
+            "name": "Zone"
+          },
+          "level_before_l": {
+            "name": "Level before (L)"
+          },
+          "level_after_l": {
+            "name": "Level after (L)"
+          },
+          "settled_at": {
+            "name": "Level settled at"
+          },
+          "sensor_delta_l": {
+            "name": "Sensor quantity (L)"
+          },
+          "sensor_delta_quality": {
+            "name": "Sensor quantity quality"
+          },
+          "price_suggestion": {
+            "name": "Suggested unit price"
+          },
+          "quantity_l": {
+            "name": "Quantity (L)"
+          },
+          "quantity_quality": {
+            "name": "Quantity quality"
+          },
+          "price": {
+            "name": "Price"
+          },
+          "unit_price": {
+            "name": "Unit price"
+          },
+          "price_quality": {
+            "name": "Price quality"
+          },
+          "full": {
+            "name": "Full tank"
+          },
+          "fuel": {
+            "name": "Fuel"
+          },
+          "receipt": {
+            "name": "Receipt"
+          },
+          "confirmation": {
+            "name": "Confirmation",
+            "state": {
+              "receipt": "Receipt",
+              "chargepoint": "Charge point",
+              "unconfirmed": "Unconfirmed",
+              "ambiguous": "Ambiguous"
+            }
+          },
+          "contenders": {
+            "name": "Competing receipts"
+          },
+          "place": {
+            "name": "Place"
+          },
+          "note": {
+            "name": "Note"
+          },
+          "deviation_pct": {
+            "name": "Deviation from the sensor (%)"
+          },
+          "implausible": {
+            "name": "Implausible"
+          }
+        }
+      },
+      "last_charging_session": {
+        "name": "Last charging session",
+        "state_attributes": {
+          "start": {
+            "name": "Start"
+          },
+          "end": {
+            "name": "End"
+          },
+          "quality": {
+            "name": "Quality",
+            "state": {
+              "measured": "Measured",
+              "receipt": "Receipt",
+              "estimated": "Estimated",
+              "incomplete": "Incomplete"
+            }
+          },
+          "state_quality": {
+            "name": "Quality of the state",
+            "state": {
+              "measured": "Measured",
+              "receipt": "Receipt",
+              "estimated": "Estimated",
+              "incomplete": "Incomplete"
+            }
+          },
+          "source": {
+            "name": "Detected by"
+          },
+          "soc_start_pct": {
+            "name": "State of charge at start (%)"
+          },
+          "soc_end_pct": {
+            "name": "State of charge at end (%)"
+          },
+          "delta_soc_pct": {
+            "name": "Change in state of charge (%)"
+          },
+          "position": {
+            "name": "Position"
+          },
+          "chargepoint": {
+            "name": "Charge point"
+          },
+          "chargepoint_name": {
+            "name": "Charge point name"
+          },
+          "battery_kwh": {
+            "name": "Energy into the battery (kWh)"
+          },
+          "grid_kwh": {
+            "name": "Energy from the grid (kWh)"
+          },
+          "grid_kwh_quality": {
+            "name": "Grid energy quality"
+          },
+          "grid_kwh_source": {
+            "name": "Grid energy source"
+          },
+          "meter_attributable": {
+            "name": "Meter attributable"
+          },
+          "tariff_eur_per_kwh": {
+            "name": "Tariff (EUR/kWh)"
+          },
+          "cost_eur": {
+            "name": "Cost (EUR)"
+          },
+          "cost_quality": {
+            "name": "Cost quality"
+          },
+          "kwh_per_pct": {
+            "name": "kWh per % state of charge"
+          },
+          "charging_loss_kwh": {
+            "name": "Charging loss (kWh)"
+          },
+          "movements_while_charging": {
+            "name": "Movements while charging"
+          },
+          "sensor_grid_kwh": {
+            "name": "Sensor grid energy (kWh)"
+          },
+          "sensor_grid_kwh_quality": {
+            "name": "Sensor grid energy quality"
+          },
+          "sensor_grid_kwh_source": {
+            "name": "Sensor grid energy source"
+          },
+          "provider": {
+            "name": "Provider"
+          },
+          "receipt": {
+            "name": "Receipt"
+          },
+          "confirmation": {
+            "name": "Confirmation",
+            "state": {
+              "receipt": "Receipt",
+              "chargepoint": "Charge point",
+              "unconfirmed": "Unconfirmed",
+              "ambiguous": "Ambiguous"
+            }
+          },
+          "contenders": {
+            "name": "Competing receipts"
+          },
+          "place": {
+            "name": "Place"
+          },
+          "note": {
+            "name": "Note"
+          },
+          "deviation_pct": {
+            "name": "Deviation from the sensor (%)"
+          },
+          "implausible": {
+            "name": "Implausible"
+          }
+        }
+      },
+      "unconfirmed_candidates": {
+        "name": "Waiting for a receipt",
+        "state_attributes": {
+          "refuelling_unconfirmed": {
+            "name": "Refuellings unconfirmed"
+          },
+          "refuelling_ambiguous": {
+            "name": "Refuellings ambiguous"
+          },
+          "charging_unconfirmed": {
+            "name": "Charging sessions unconfirmed"
+          },
+          "charging_ambiguous": {
+            "name": "Charging sessions ambiguous"
+          }
+        }
+      }
     },
     "button": {
       "refuelling_receipt_enter": { "name": "Enter refuelling receipt" },

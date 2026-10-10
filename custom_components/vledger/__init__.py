@@ -32,6 +32,7 @@ from .const import (
     OPT_BASE_PATH,
     SERVICE_RECOMPUTE,
 )
+from .l1view import L1View
 from .l1writer import L1Writer
 from .receipt_desk import ReceiptDesk
 from .services import async_register
@@ -47,11 +48,13 @@ RECOMPUTE_SCHEMA = vol.Schema({vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string})
 @dataclass
 class Vledger:
     """What one config entry runs: the raw log and the derivation on disk,
-    and for a vehicle the receipt desk (ADR-0015)."""
+    and for a vehicle the receipt desk (ADR-0015) and what its event
+    entities display (ADR-0016)."""
 
     capture: Capture
     l1: L1Writer
     desk: ReceiptDesk | None
+    view: L1View | None = None
 
 
 type VledgerConfigEntry = ConfigEntry[Vledger]
@@ -93,12 +96,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: VledgerConfigEntry) -> b
     base = Path(entry.options.get(OPT_BASE_PATH) or hass.config.path("vledger"))
     capture = Capture(hass, subject, base, config_of(hass, entry))
     writer = L1Writer(hass, capture)
-    desk = ReceiptDesk(hass, capture, writer) if subject.kind == KIND_VEHICLE else None
-    entry.runtime_data = Vledger(capture, writer, desk)
+    vehicle = subject.kind == KIND_VEHICLE
+    desk = ReceiptDesk(hass, capture, writer) if vehicle else None
+    view = L1View(hass, capture, writer) if vehicle else None
+    entry.runtime_data = Vledger(capture, writer, desk, view)
     await capture.async_start()
     await writer.async_start()
     if desk:
         desk.async_start()
+    if view:
+        view.async_start()
 
     async def on_hass_stop(_: Event) -> None:
         await writer.async_stop()
@@ -121,6 +128,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: VledgerConfigEntry) -> 
     ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if entry.runtime_data.desk:
         entry.runtime_data.desk.async_stop()
+    if entry.runtime_data.view:
+        entry.runtime_data.view.async_stop()
     await entry.runtime_data.l1.async_stop()
     capture = entry.runtime_data.capture
     await capture.async_stop(capture.stop_reason or "unload")

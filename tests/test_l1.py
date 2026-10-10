@@ -152,3 +152,35 @@ def test_a_charge_points_l1_is_a_manifest_and_nothing_else(tmp_path, capsys):
     assert [p.name for p in l1.l1_dir(tmp_path, cp).iterdir()] == ["manifest.json"]
     assert l1.incremental(tmp_path, cp) == {}
     assert [p.name for p in l1.l1_dir(tmp_path, cp).iterdir()] == ["manifest.json"]
+
+
+def test_the_last_events_are_read_from_the_end(tmp_path, capsys, monkeypatch):
+    """ADR-0016, point 8: what an entity shows, without reading the file whole."""
+    b = Builder(tmp_path, capsys)
+    end = b.drive(60)
+    b.heartbeat(end + 60)
+    end2 = b.drive(end + 95, odo_start=1022)
+    b.heartbeat(end2 + 45)
+    end3 = b.drive(end2 + 50, odo_start=1044)
+    b.heartbeat(end3 + 61)
+    assert l1.last(tmp_path, V, "trip") == []                      # no L1 yet
+    l1.rebuild(tmp_path, V)
+    every = read_lines(tmp_path, "trip")
+    assert len(every) == 3
+    # A chunk shorter than a line: the boundary falls inside lines.
+    for chunk in (64 * 1024, 7):
+        monkeypatch.setattr(l1, "_TAIL_CHUNK", chunk)
+        assert l1.last(tmp_path, V, "trip") == every[-1:]
+        assert l1.last(tmp_path, V, "trip", 2) == every[-2:]
+        assert l1.last(tmp_path, V, "trip", 9) == every
+    assert l1.last(tmp_path, V, "charging") == []                   # no file of that kind
+    # A torn last line is skipped, as read() skips it.
+    with open(l1.path_of(tmp_path, V, "trip"), "a") as f:
+        f.write('{"kind": "tr')
+    assert l1.last(tmp_path, V, "trip") == every[-1:]
+    assert read_lines(tmp_path, "trip") == every
+
+    assert main(["l1", "read", *b.b, "--kind", "trip", "--last", "2"]) == 0
+    out, err = capsys.readouterr()
+    assert [json.loads(x) for x in out.splitlines()] == every[-2:] and err.strip() == "2 event(s)"
+    assert main(["l1", "read", *b.b, "--kind", "trip", "--last", "0"]) == 2

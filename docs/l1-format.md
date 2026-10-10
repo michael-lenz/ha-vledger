@@ -79,6 +79,15 @@ The incremental derivation appends a new refuelling or session only when
 no current receipt is anchored later than the tolerance before it; when
 one is, the new event could change a match on disk, and it rebuilds.
 
+## What waits for a receipt
+
+A refuelling or charging session whose `confirmation` is `unconfirmed` or
+`ambiguous` waits for a person: a receipt to enter, or one to correct.
+`vledger l1 status` counts them per kind, from the event files as
+written, and Home Assistant's **Waiting for a receipt** shows the same
+count (ADR-0016). Between a receipt being entered and the next run of
+the writer, the count can still include the event it was entered for.
+
 ## Periods
 
 `periods.jsonl` is the current answer, not a log: one line per calendar
@@ -151,6 +160,16 @@ reported with its error rather than suppressed. An interval needs the
 odometer at both ends and, unless both are full, the settled level after
 both; one with an unreceipted refuelling inside it is not formed, since
 no receipt states its litres.
+
+## Reading
+
+Every reader goes through the library: `l1.read` yields a kind's events
+in order (`vledger l1 read`), `l1.last` its last N from the end of the
+file without reading the rest (`vledger l1 read --last N`), and
+`l1.waiting` the count above. A torn last line is skipped by all three.
+Home Assistant's event entities read the last event of each kind and the
+count once at start and again after every run of the writer, and show
+nothing else (ARC-05).
 
 ## Who writes what
 

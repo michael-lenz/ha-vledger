@@ -352,3 +352,20 @@ def test_anchor_of_takes_exactly_one_time_and_detects_only_for_a_candidate():
     assert receipts.anchor_of("refuelling", from_candidate=at(30), detected=starts) == (at(30), True)
     with pytest.raises(receipts.Refused, match="no refuelling event starts"):
         receipts.anchor_of("refuelling", from_candidate=at(31), detected=starts)
+
+
+def test_what_waits_for_a_receipt_is_counted_from_l1(entry, detected):
+    """ADR-0016, point 4: unconfirmed and ambiguous, per kind, as written."""
+    detected.events["refuelling"] = [refuelling(0), refuelling(120), refuelling(600)]
+    detected.events["charging"] = [charging(1000)]
+    entry.refuel(at(61))                                      # equally near the first two
+    assert l1.waiting(entry.base, V) == {k: {"unconfirmed": 0, "ambiguous": 0}
+                                         for k in receipts.EVENT_KINDS}   # nothing written yet
+    l1.rebuild(entry.base, V)
+    assert l1.waiting(entry.base, V) == {
+        "refuelling": {"unconfirmed": 1, "ambiguous": 2},
+        "charging": {"unconfirmed": 1, "ambiguous": 0}}
+    main(["l1", "status", *entry.b])                          # 0 or 1: whether a rebuild is due
+    out = entry.capsys.readouterr()
+    assert "refuelling: waiting for a receipt: 1 unconfirmed, 2 ambiguous" in out.out
+    assert "charging: waiting for a receipt: 1 unconfirmed, 0 ambiguous" in out.out

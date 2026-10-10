@@ -18,7 +18,11 @@
       "lines_since_start": { "default": "mdi:counter" },
       "lines_today": { "default": "mdi:calendar-today" },
       "capture_gaps": { "default": "mdi:timeline-alert-outline" },
-      "latest_capture_gap": { "default": "mdi:timer-alert-outline" }
+      "latest_capture_gap": { "default": "mdi:timer-alert-outline" },
+      "last_trip": { "default": "mdi:map-marker-distance" },
+      "last_refuelling": { "default": "mdi:gas-station" },
+      "last_charging_session": { "default": "mdi:ev-station" },
+      "unconfirmed_candidates": { "default": "mdi:receipt-text-clock" }
     },
     "button": {
       "refuelling_receipt_enter": { "default": "mdi:gas-station" },

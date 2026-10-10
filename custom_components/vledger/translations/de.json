@@ -184,7 +184,312 @@
       "lines_since_start": { "name": "Zustandszeilen seit Start" },
       "lines_today": { "name": "Zustandszeilen heute" },
       "capture_gaps": { "name": "Erfassungslücken" },
-      "latest_capture_gap": { "name": "Letzte Erfassungslücke" }
+      "latest_capture_gap": { "name": "Letzte Erfassungslücke" },
+      "last_trip": {
+        "name": "Letzte Fahrt",
+        "state_attributes": {
+          "start": {
+            "name": "Beginn"
+          },
+          "end": {
+            "name": "Ende"
+          },
+          "quality": {
+            "name": "Qualität",
+            "state": {
+              "measured": "Gemessen",
+              "receipt": "Beleg",
+              "estimated": "Geschätzt",
+              "incomplete": "Unvollständig"
+            }
+          },
+          "state_quality": {
+            "name": "Qualität des Zustands",
+            "state": {
+              "measured": "Gemessen",
+              "receipt": "Beleg",
+              "estimated": "Geschätzt",
+              "incomplete": "Unvollständig"
+            }
+          },
+          "distance_km": {
+            "name": "Strecke (km)"
+          },
+          "distance_quality": {
+            "name": "Qualität der Strecke"
+          },
+          "distance_source": {
+            "name": "Quelle der Strecke"
+          },
+          "start_position": {
+            "name": "Startposition"
+          },
+          "end_position": {
+            "name": "Endposition"
+          },
+          "start_zone": {
+            "name": "Startzone"
+          },
+          "end_zone": {
+            "name": "Zielzone"
+          },
+          "outside_temperature_c": {
+            "name": "Außentemperatur (°C)"
+          },
+          "delta_soc_pct": {
+            "name": "Änderung des Ladestands (%)"
+          },
+          "delta_fuel_l": {
+            "name": "Änderung des Kraftstoffs (L)"
+          },
+          "refined_by": {
+            "name": "Grenzen verfeinert durch"
+          },
+          "movements_while_plugged": {
+            "name": "Bewegungen bei eingestecktem Stecker"
+          }
+        }
+      },
+      "last_refuelling": {
+        "name": "Letzter Tankvorgang",
+        "state_attributes": {
+          "start": {
+            "name": "Beginn"
+          },
+          "end": {
+            "name": "Ende"
+          },
+          "quality": {
+            "name": "Qualität",
+            "state": {
+              "measured": "Gemessen",
+              "receipt": "Beleg",
+              "estimated": "Geschätzt",
+              "incomplete": "Unvollständig"
+            }
+          },
+          "state_quality": {
+            "name": "Qualität des Zustands",
+            "state": {
+              "measured": "Gemessen",
+              "receipt": "Beleg",
+              "estimated": "Geschätzt",
+              "incomplete": "Unvollständig"
+            }
+          },
+          "position": {
+            "name": "Position"
+          },
+          "zone": {
+            "name": "Zone"
+          },
+          "level_before_l": {
+            "name": "Füllstand vorher (L)"
+          },
+          "level_after_l": {
+            "name": "Füllstand nachher (L)"
+          },
+          "settled_at": {
+            "name": "Füllstand beruhigt um"
+          },
+          "sensor_delta_l": {
+            "name": "Sensormenge (L)"
+          },
+          "sensor_delta_quality": {
+            "name": "Qualität der Sensormenge"
+          },
+          "price_suggestion": {
+            "name": "Vorgeschlagener Literpreis"
+          },
+          "quantity_l": {
+            "name": "Menge (L)"
+          },
+          "quantity_quality": {
+            "name": "Qualität der Menge"
+          },
+          "price": {
+            "name": "Preis"
+          },
+          "unit_price": {
+            "name": "Literpreis"
+          },
+          "price_quality": {
+            "name": "Qualität des Preises"
+          },
+          "full": {
+            "name": "Vollgetankt"
+          },
+          "fuel": {
+            "name": "Kraftstoff"
+          },
+          "receipt": {
+            "name": "Beleg"
+          },
+          "confirmation": {
+            "name": "Bestätigung",
+            "state": {
+              "receipt": "Beleg",
+              "chargepoint": "Ladepunkt",
+              "unconfirmed": "Unbestätigt",
+              "ambiguous": "Mehrdeutig"
+            }
+          },
+          "contenders": {
+            "name": "Konkurrierende Belege"
+          },
+          "place": {
+            "name": "Ort"
+          },
+          "note": {
+            "name": "Notiz"
+          },
+          "deviation_pct": {
+            "name": "Abweichung vom Sensor (%)"
+          },
+          "implausible": {
+            "name": "Unplausibel"
+          }
+        }
+      },
+      "last_charging_session": {
+        "name": "Letzter Ladevorgang",
+        "state_attributes": {
+          "start": {
+            "name": "Beginn"
+          },
+          "end": {
+            "name": "Ende"
+          },
+          "quality": {
+            "name": "Qualität",
+            "state": {
+              "measured": "Gemessen",
+              "receipt": "Beleg",
+              "estimated": "Geschätzt",
+              "incomplete": "Unvollständig"
+            }
+          },
+          "state_quality": {
+            "name": "Qualität des Zustands",
+            "state": {
+              "measured": "Gemessen",
+              "receipt": "Beleg",
+              "estimated": "Geschätzt",
+              "incomplete": "Unvollständig"
+            }
+          },
+          "source": {
+            "name": "Erkannt über"
+          },
+          "soc_start_pct": {
+            "name": "Ladestand zu Beginn (%)"
+          },
+          "soc_end_pct": {
+            "name": "Ladestand am Ende (%)"
+          },
+          "delta_soc_pct": {
+            "name": "Änderung des Ladestands (%)"
+          },
+          "position": {
+            "name": "Position"
+          },
+          "chargepoint": {
+            "name": "Ladepunkt"
+          },
+          "chargepoint_name": {
+            "name": "Name des Ladepunkts"
+          },
+          "battery_kwh": {
+            "name": "Energie in die Batterie (kWh)"
+          },
+          "grid_kwh": {
+            "name": "Energie aus dem Netz (kWh)"
+          },
+          "grid_kwh_quality": {
+            "name": "Qualität der Netzenergie"
+          },
+          "grid_kwh_source": {
+            "name": "Quelle der Netzenergie"
+          },
+          "meter_attributable": {
+            "name": "Zähler zuordenbar"
+          },
+          "tariff_eur_per_kwh": {
+            "name": "Tarif (EUR/kWh)"
+          },
+          "cost_eur": {
+            "name": "Kosten (EUR)"
+          },
+          "cost_quality": {
+            "name": "Qualität der Kosten"
+          },
+          "kwh_per_pct": {
+            "name": "kWh pro % Ladestand"
+          },
+          "charging_loss_kwh": {
+            "name": "Ladeverlust (kWh)"
+          },
+          "movements_while_charging": {
+            "name": "Bewegungen während des Ladens"
+          },
+          "sensor_grid_kwh": {
+            "name": "Netzenergie laut Sensor (kWh)"
+          },
+          "sensor_grid_kwh_quality": {
+            "name": "Qualität der Netzenergie laut Sensor"
+          },
+          "sensor_grid_kwh_source": {
+            "name": "Quelle der Netzenergie laut Sensor"
+          },
+          "provider": {
+            "name": "Anbieter"
+          },
+          "receipt": {
+            "name": "Beleg"
+          },
+          "confirmation": {
+            "name": "Bestätigung",
+            "state": {
+              "receipt": "Beleg",
+              "chargepoint": "Ladepunkt",
+              "unconfirmed": "Unbestätigt",
+              "ambiguous": "Mehrdeutig"
+            }
+          },
+          "contenders": {
+            "name": "Konkurrierende Belege"
+          },
+          "place": {
+            "name": "Ort"
+          },
+          "note": {
+            "name": "Notiz"
+          },
+          "deviation_pct": {
+            "name": "Abweichung vom Sensor (%)"
+          },
+          "implausible": {
+            "name": "Unplausibel"
+          }
+        }
+      },
+      "unconfirmed_candidates": {
+        "name": "Wartet auf einen Beleg",
+        "state_attributes": {
+          "refuelling_unconfirmed": {
+            "name": "Tankvorgänge unbestätigt"
+          },
+          "refuelling_ambiguous": {
+            "name": "Tankvorgänge mehrdeutig"
+          },
+          "charging_unconfirmed": {
+            "name": "Ladevorgänge unbestätigt"
+          },
+          "charging_ambiguous": {
+            "name": "Ladevorgänge mehrdeutig"
+          }
+        }
+      }
     },
     "button": {
       "refuelling_receipt_enter": { "name": "Tankbeleg erfassen" },
