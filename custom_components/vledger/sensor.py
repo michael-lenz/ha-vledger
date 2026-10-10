@@ -43,6 +43,7 @@ from .l1view import NOT_ATTRIBUTES, POSITIONS, TRIP, L1View
 from .l1writer import L1Writer
 from .metrics import (
     ELECTRICITY,
+    EVERY,
     FUEL,
     METRICS,
     PERIODS,
@@ -457,12 +458,45 @@ LIFETIME_SENSORS: tuple[LifetimeSensorDescription, ...] = (
         value="consumption_l_per_100km", quality="consumption_quality",
         attributes=("consumption_from", "consumption_to", "consumption_receipts",
                     "consumption_error_pct")),
+    # The overall consumption and totals (ADR-0025, point 6): the rates a
+    # level, the sums total without last_reset, as the counters above.
+    LifetimeSensorDescription(
+        key="grid_kwh_per_100km_total", translation_key="grid_kwh_per_100km_total", needs=ELECTRICITY,
+        state_class=SensorStateClass.MEASUREMENT, native_unit_of_measurement="kWh/100km",
+        suggested_display_precision=1,
+        value="grid_kwh_per_100km", quality="grid_kwh_per_100km_quality", attributes=("soc_corrected",)),
+    LifetimeSensorDescription(
+        key="battery_kwh_per_100km_total", translation_key="battery_kwh_per_100km_total", needs=ELECTRICITY,
+        state_class=SensorStateClass.MEASUREMENT, native_unit_of_measurement="kWh/100km",
+        suggested_display_precision=1,
+        value="battery_kwh_per_100km", quality="battery_kwh_per_100km_quality", attributes=("soc_corrected",)),
+    LifetimeSensorDescription(
+        key="distance_km_total", translation_key="distance_km_total", needs=EVERY,
+        state_class=SensorStateClass.TOTAL, device_class=SensorDeviceClass.DISTANCE,
+        native_unit_of_measurement=UnitOfLength.KILOMETERS, suggested_display_precision=1,
+        value="distance_km", quality="distance_km_quality"),
+    LifetimeSensorDescription(
+        key="fuel_consumed_l_total", translation_key="fuel_consumed_l_total", needs=FUEL,
+        state_class=SensorStateClass.TOTAL, device_class=SensorDeviceClass.VOLUME,
+        native_unit_of_measurement=UnitOfVolume.LITERS, suggested_display_precision=2,
+        value="fuel_consumed_l", quality="fuel_consumed_l_quality", attributes=("fuel_level_corrected",)),
+    LifetimeSensorDescription(
+        key="grid_kwh_total", translation_key="grid_kwh_total", needs=ELECTRICITY,
+        state_class=SensorStateClass.TOTAL, device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR, suggested_display_precision=2,
+        value="grid_kwh", quality="grid_kwh_quality"),
+    LifetimeSensorDescription(
+        key="battery_kwh_total", translation_key="battery_kwh_total", needs=ELECTRICITY,
+        state_class=SensorStateClass.TOTAL, device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR, suggested_display_precision=2,
+        value="battery_kwh", quality="battery_kwh_quality", attributes=("soc_corrected",)),
 )
 
 
 class LifetimeSensor(_L1Sensor):
     """A value of the lifetime line: the cumulative counters, starting
-    values included (VER-11), and the tank-to-tank consumption (VER-01)."""
+    values included (VER-11), the tank-to-tank consumption (VER-01), and
+    the overall electricity rates and totals (ADR-0025, point 6)."""
 
     entity_description: LifetimeSensorDescription
 

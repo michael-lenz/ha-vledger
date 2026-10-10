@@ -60,11 +60,15 @@ async def test_which_metric_entities_a_vehicle_gets(hass, vehicle_entry, phev_en
               "fuel_cost_eur", "tank_fills"}
     volvo = _metric_ids(hass, "a7c1_")
     assert {k for k in volvo if k.endswith("_month")} == {f"{m}_month" for m in petrol}
-    assert {"tank_fills_total", "fuel_consumption"} <= set(volvo)
+    assert {"tank_fills_total", "fuel_consumption", "distance_km_total", "fuel_consumed_l_total"} <= set(volvo)
     assert "charge_cycles_total" not in volvo and "grid_kwh_month" not in volvo
+    assert "grid_kwh_total" not in volvo and "battery_kwh_per_100km_total" not in volvo
     golf = _metric_ids(hass, "b8d2_")
     assert {k for k in golf if k.endswith(PERIODS)} == {f"{m.key}_{p}" for m in METRICS for p in PERIODS}
-    assert {"charge_cycles_total", "tank_fills_total", "fuel_consumption"} <= set(golf)
+    assert {"charge_cycles_total", "tank_fills_total", "fuel_consumption", "distance_km_total",
+            "fuel_consumed_l_total", "grid_kwh_total", "battery_kwh_total",
+            "grid_kwh_per_100km_total", "battery_kwh_per_100km_total"} <= set(golf)
+    assert all(e.disabled_by is None for k, e in golf.items() if k.endswith("_total"))
     assert not _metric_ids(hass, "c9e3_distance")
     # The month enabled, the year and the rolling period registered disabled.
     assert all(e.disabled_by is None for k, e in golf.items() if k.endswith("_month"))
@@ -148,6 +152,35 @@ async def test_the_consumption_and_its_interval(hass, vehicle_entry, period_line
     assert s.attributes["state_class"] == "measurement" and s.attributes["state_quality"] == "receipt"
     assert s.attributes["consumption_receipts"] == 3 and s.attributes["consumption_error_pct"] == 1.2
     assert float(_state(hass, "sensor.volvo_tank_fills_in_total").state) == 12.4
+
+
+async def test_the_overall_consumption_and_totals_are_the_lifetime_lines(hass, phev_entry, period_lines):
+    """ADR-0025, point 6: the electricity rates on the whole distance as
+    levels, the sums as totals without a reset, like the counters."""
+    lifetime = line("lifetime", "2026-07-01T08:00:00.000Z", "2026-10-09T10:00:00.000Z",
+                    distance_km=9120.0, fuel_consumed_l=412.3, grid_kwh=1210.5, battery_kwh=1080.8,
+                    grid_kwh_per_100km=13.27, battery_kwh_per_100km=11.85)
+    lifetime["soc_corrected"] = True
+    period_lines.append(lifetime)
+    await _setup(hass, phev_entry)
+    s = _state(hass, "sensor.golf_grid_energy_per_100_km_in_total")
+    assert float(s.state) == 13.27 and s.attributes["unit_of_measurement"] == "kWh/100km"
+    assert s.attributes["state_class"] == "measurement" and "device_class" not in s.attributes
+    assert s.attributes["soc_corrected"] is True and s.attributes["state_quality"] == "measured"
+    assert "last_reset" not in s.attributes
+    s = _state(hass, "sensor.golf_battery_energy_per_100_km_in_total")
+    assert float(s.state) == 11.85
+    s = _state(hass, "sensor.golf_distance_in_total")
+    assert float(s.state) == 9120.0 and s.attributes["device_class"] == "distance"
+    assert s.attributes["state_class"] == "total" and "last_reset" not in s.attributes
+    assert "soc_corrected" not in s.attributes
+    s = _state(hass, "sensor.golf_fuel_consumed_in_total")
+    assert float(s.state) == 412.3 and s.attributes["unit_of_measurement"] == "L"
+    assert s.attributes["fuel_level_corrected"] is True
+    s = _state(hass, "sensor.golf_grid_energy_in_total")
+    assert float(s.state) == 1210.5 and s.attributes["device_class"] == "energy"
+    assert float(_state(hass, "sensor.golf_battery_energy_in_total").state) == 1080.8
+    assert {"start", "end", "gaps", "state_quality"} <= set(s.attributes)
 
 
 async def test_a_trip_reaches_the_month_through_l1(hass, vehicle_entry, tmp_path, freezer):

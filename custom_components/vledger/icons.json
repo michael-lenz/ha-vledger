@@ -209,6 +209,24 @@
       },
       "fuel_consumption": {
         "default": "mdi:fuel"
+      },
+      "grid_kwh_per_100km_total": {
+        "default": "mdi:transmission-tower-export"
+      },
+      "battery_kwh_per_100km_total": {
+        "default": "mdi:battery-arrow-down"
+      },
+      "distance_km_total": {
+        "default": "mdi:map-marker-distance"
+      },
+      "fuel_consumed_l_total": {
+        "default": "mdi:fuel"
+      },
+      "grid_kwh_total": {
+        "default": "mdi:transmission-tower"
+      },
+      "battery_kwh_total": {
+        "default": "mdi:car-battery"
       }
     },
     "button": {

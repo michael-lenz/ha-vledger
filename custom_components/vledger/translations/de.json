@@ -1275,6 +1275,156 @@
           "consumption_error_pct": { "name": "Relativer Fehler (%)" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
+      },
+      "grid_kwh_per_100km_total": {
+        "name": "Netzenergie pro 100 km insgesamt",
+        "state_attributes": {
+          "start": {
+            "name": "Beginn"
+          },
+          "end": {
+            "name": "Ende"
+          },
+          "gaps": {
+            "name": "Aufzeichnungslücken"
+          },
+          "soc_corrected": {
+            "name": "Um den Ladestand korrigiert"
+          },
+          "state_quality": {
+            "name": "Qualität des Zustands",
+            "state": {
+              "measured": "Gemessen",
+              "receipt": "Beleg",
+              "estimated": "Geschätzt",
+              "incomplete": "Unvollständig"
+            }
+          }
+        }
+      },
+      "battery_kwh_per_100km_total": {
+        "name": "Batterieenergie pro 100 km insgesamt",
+        "state_attributes": {
+          "start": {
+            "name": "Beginn"
+          },
+          "end": {
+            "name": "Ende"
+          },
+          "gaps": {
+            "name": "Aufzeichnungslücken"
+          },
+          "soc_corrected": {
+            "name": "Um den Ladestand korrigiert"
+          },
+          "state_quality": {
+            "name": "Qualität des Zustands",
+            "state": {
+              "measured": "Gemessen",
+              "receipt": "Beleg",
+              "estimated": "Geschätzt",
+              "incomplete": "Unvollständig"
+            }
+          }
+        }
+      },
+      "distance_km_total": {
+        "name": "Strecke insgesamt",
+        "state_attributes": {
+          "start": {
+            "name": "Beginn"
+          },
+          "end": {
+            "name": "Ende"
+          },
+          "gaps": {
+            "name": "Aufzeichnungslücken"
+          },
+          "state_quality": {
+            "name": "Qualität des Zustands",
+            "state": {
+              "measured": "Gemessen",
+              "receipt": "Beleg",
+              "estimated": "Geschätzt",
+              "incomplete": "Unvollständig"
+            }
+          }
+        }
+      },
+      "fuel_consumed_l_total": {
+        "name": "Verbrauchter Kraftstoff insgesamt",
+        "state_attributes": {
+          "start": {
+            "name": "Beginn"
+          },
+          "end": {
+            "name": "Ende"
+          },
+          "gaps": {
+            "name": "Aufzeichnungslücken"
+          },
+          "fuel_level_corrected": {
+            "name": "Um den Tankfüllstand korrigiert"
+          },
+          "state_quality": {
+            "name": "Qualität des Zustands",
+            "state": {
+              "measured": "Gemessen",
+              "receipt": "Beleg",
+              "estimated": "Geschätzt",
+              "incomplete": "Unvollständig"
+            }
+          }
+        }
+      },
+      "grid_kwh_total": {
+        "name": "Netzenergie insgesamt",
+        "state_attributes": {
+          "start": {
+            "name": "Beginn"
+          },
+          "end": {
+            "name": "Ende"
+          },
+          "gaps": {
+            "name": "Aufzeichnungslücken"
+          },
+          "state_quality": {
+            "name": "Qualität des Zustands",
+            "state": {
+              "measured": "Gemessen",
+              "receipt": "Beleg",
+              "estimated": "Geschätzt",
+              "incomplete": "Unvollständig"
+            }
+          }
+        }
+      },
+      "battery_kwh_total": {
+        "name": "Batterieenergie insgesamt",
+        "state_attributes": {
+          "start": {
+            "name": "Beginn"
+          },
+          "end": {
+            "name": "Ende"
+          },
+          "gaps": {
+            "name": "Aufzeichnungslücken"
+          },
+          "soc_corrected": {
+            "name": "Um den Ladestand korrigiert"
+          },
+          "state_quality": {
+            "name": "Qualität des Zustands",
+            "state": {
+              "measured": "Gemessen",
+              "receipt": "Beleg",
+              "estimated": "Geschätzt",
+              "incomplete": "Unvollständig"
+            }
+          }
+        }
       }
     },
     "button": {

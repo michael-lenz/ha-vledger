@@ -202,11 +202,16 @@ energies, as the receipt forms do:
 Each is named after its period — *Distance this month*, *Distance this
 year*, *Distance in the rolling period*. The month's entities are
 enabled; the year's and the rolling period's exist but are disabled, and
-*Settings → Entities* enables the ones you want. Three more show the
-lifetime line: **Charge cycles in total** and **Tank fills in total**,
-both including the starting values configured, and **Fuel consumption**,
-tank to tank, with the receipts it spans and its relative error as
-attributes.
+*Settings → Entities* enables the ones you want. Nine more show the
+lifetime line, the vehicle's overall figures: **Charge cycles in total**
+and **Tank fills in total**, both including the starting values
+configured; **Fuel consumption**, tank to tank, with the receipts it
+spans and its relative error as attributes; **Grid energy per 100 km in
+total** and **Battery energy per 100 km in total**, the electricity
+consumption on the whole distance since capture began; and the totals
+**Distance in total**, **Fuel consumed in total**, **Grid energy in
+total** and **Battery energy in total**. The fuel consumption on the
+whole distance is the tank-to-tank figure, never a sum of the trips'.
 
 Every metric entity's attributes are its line's **Start**, **End**,
 **Still running** and **Capture gaps**, and **Quality of the state**;
@@ -220,8 +225,9 @@ What they keep as statistics:
   a rebuild counts as the change it is. The rolling period's sums keep
   no statistics: a sliding window is neither a level nor a running sum.
 - A **rate** or **share** is a level, kept as one.
-- **Charge cycles in total** and **Tank fills in total** are running
-  totals, **Fuel consumption** a level.
+- **Charge cycles in total**, **Tank fills in total** and the four
+  totals are running totals; **Fuel consumption** and the two overall
+  rates are levels.
 
 Distances and litres follow the instance's units, as above. Rates are
 shown as they are — `kWh/100km`, `L/100km`, and costs per 100 km in the

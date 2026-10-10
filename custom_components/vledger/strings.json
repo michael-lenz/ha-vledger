@@ -1275,6 +1275,156 @@
           "consumption_error_pct": { "name": "Relative error (%)" },
           "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
         }
+      },
+      "grid_kwh_per_100km_total": {
+        "name": "Grid energy per 100 km in total",
+        "state_attributes": {
+          "start": {
+            "name": "Start"
+          },
+          "end": {
+            "name": "End"
+          },
+          "gaps": {
+            "name": "Capture gaps"
+          },
+          "soc_corrected": {
+            "name": "Corrected by the state of charge"
+          },
+          "state_quality": {
+            "name": "Quality of the state",
+            "state": {
+              "measured": "Measured",
+              "receipt": "Receipt",
+              "estimated": "Estimated",
+              "incomplete": "Incomplete"
+            }
+          }
+        }
+      },
+      "battery_kwh_per_100km_total": {
+        "name": "Battery energy per 100 km in total",
+        "state_attributes": {
+          "start": {
+            "name": "Start"
+          },
+          "end": {
+            "name": "End"
+          },
+          "gaps": {
+            "name": "Capture gaps"
+          },
+          "soc_corrected": {
+            "name": "Corrected by the state of charge"
+          },
+          "state_quality": {
+            "name": "Quality of the state",
+            "state": {
+              "measured": "Measured",
+              "receipt": "Receipt",
+              "estimated": "Estimated",
+              "incomplete": "Incomplete"
+            }
+          }
+        }
+      },
+      "distance_km_total": {
+        "name": "Distance in total",
+        "state_attributes": {
+          "start": {
+            "name": "Start"
+          },
+          "end": {
+            "name": "End"
+          },
+          "gaps": {
+            "name": "Capture gaps"
+          },
+          "state_quality": {
+            "name": "Quality of the state",
+            "state": {
+              "measured": "Measured",
+              "receipt": "Receipt",
+              "estimated": "Estimated",
+              "incomplete": "Incomplete"
+            }
+          }
+        }
+      },
+      "fuel_consumed_l_total": {
+        "name": "Fuel consumed in total",
+        "state_attributes": {
+          "start": {
+            "name": "Start"
+          },
+          "end": {
+            "name": "End"
+          },
+          "gaps": {
+            "name": "Capture gaps"
+          },
+          "fuel_level_corrected": {
+            "name": "Corrected by the fuel level"
+          },
+          "state_quality": {
+            "name": "Quality of the state",
+            "state": {
+              "measured": "Measured",
+              "receipt": "Receipt",
+              "estimated": "Estimated",
+              "incomplete": "Incomplete"
+            }
+          }
+        }
+      },
+      "grid_kwh_total": {
+        "name": "Grid energy in total",
+        "state_attributes": {
+          "start": {
+            "name": "Start"
+          },
+          "end": {
+            "name": "End"
+          },
+          "gaps": {
+            "name": "Capture gaps"
+          },
+          "state_quality": {
+            "name": "Quality of the state",
+            "state": {
+              "measured": "Measured",
+              "receipt": "Receipt",
+              "estimated": "Estimated",
+              "incomplete": "Incomplete"
+            }
+          }
+        }
+      },
+      "battery_kwh_total": {
+        "name": "Battery energy in total",
+        "state_attributes": {
+          "start": {
+            "name": "Start"
+          },
+          "end": {
+            "name": "End"
+          },
+          "gaps": {
+            "name": "Capture gaps"
+          },
+          "soc_corrected": {
+            "name": "Corrected by the state of charge"
+          },
+          "state_quality": {
+            "name": "Quality of the state",
+            "state": {
+              "measured": "Measured",
+              "receipt": "Receipt",
+              "estimated": "Estimated",
+              "incomplete": "Incomplete"
+            }
+          }
+        }
       }
     },
     "button": {
