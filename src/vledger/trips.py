@@ -122,14 +122,16 @@ def _moved(a: Fix, b: Fix, min_km: float) -> bool:
     return geo.distance_km(a.latitude, a.longitude, b.latitude, b.longitude) >= min_km
 
 
-def movements(s: Stream, *, min_move_km: float = 0.05) -> list[Movement]:
+def movements(s: Stream) -> list[Movement]:
     """Every sample that says the vehicle moved, in time order.
 
     An odometer only counts going up; a trip counter going up counts, going
-    down is a reset (FAH-04); a fix counts when it is at least
-    ``min_move_km`` from the previous fix, so GPS jitter at rest is not a
-    trip; a span in use counts at its first and its last report (ADR-0021).
+    down is a reset (FAH-04); a fix counts when it is at least the
+    vehicle's ``min_move_m`` from the previous fix, so GPS jitter at rest
+    is not a trip (ADR-0030); a span in use counts at its first and its
+    last report (ADR-0021).
     """
+    min_move_km = float(s.thresholds()["min_move_m"]) / 1000
     out: list[Movement] = []
     for role in ("odometer", "trip_distance"):
         prev: Sample | None = None

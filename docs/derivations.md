@@ -68,14 +68,16 @@ from several carries the weakest of them.
 sensor pair), and `in_use`; markers `ignition`, `plug_state`,
 `charging_state`, `engine`, `lock`;
 `soc`, `fuel_level`, `trip_consumption`, `outside_temperature`.
-**Thresholds:** `t_still_s` (T_still, 1800 s), `t_settle_s` (360 s),
-`trip_consumption_step_l_per_100km` (0.1). **Parameters:**
+**Thresholds:** `t_still_s` (T_still, 1800 s), `min_move_m` (50 m),
+`t_settle_s` (360 s), `trip_consumption_step_l_per_100km` (0.1).
+**Parameters:**
 `fuel_level_resolution_l`, `soc_resolution_pct` (1), `battery_net_kwh`.
 
 1. **Movement events.** An odometer sample higher than the previous one;
    a trip counter sample higher than the previous one (going down is a
-   reset, not a movement); a fix at least 50 m from the previous fix, so
-   GPS jitter at rest is not a trip; the first and the last report of a
+   reset, not a movement); a fix at least `min_move_m` from the previous
+   fix, so GPS jitter at rest is not a trip — a tracker that jitters more
+   is tuned there (ADR-0030); the first and the last report of a
    span the vehicle was reported in use (ADR-0021) — the last being the
    `reported_before` of the line that leaves it.
 2. **Spans.** A trip runs from the first movement event after a

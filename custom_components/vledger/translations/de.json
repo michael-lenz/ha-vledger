@@ -154,6 +154,7 @@
         "title": "Schwellwerte und Zeitkonstanten",
         "data": {
           "t_still_s": "Stillstand (T_still)",
+          "min_move_m": "Mindestbewegung eines Positionsfixes",
           "refuel_threshold_l": "Tankschwelle",
           "t_settle_s": "Beruhigungszeit nach dem Tanken (T_settle)",
           "charging_threshold_pct": "Ladeschwelle (SoC-Fallback)",
@@ -170,6 +171,7 @@
           "trip_consumption_step_l_per_100km": "Anzeigeschritt des Bordcomputer-Durchschnitts"
         },
         "data_description": {
+          "min_move_m": "Ein Fix, der näher als das am vorigen liegt, ist GPS-Zittern im Stand, keine Bewegung.",
           "refuel_threshold_l": "Der kleinste Anstieg des Füllstands, der als Betankung zählt. Über den größten Anstieg setzen, den der Sensor ohne Betankung zeigt — ein Stand, der um 3 L danebenliegt, braucht 5 L — sonst wird jedes Schwappen ein Kandidat."
         }
       },

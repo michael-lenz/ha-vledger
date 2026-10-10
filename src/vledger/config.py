@@ -51,6 +51,7 @@ FUEL_PARAMETERS = {"petrol": {"eta_ice": 0.28}, "diesel": {"eta_ice": 0.33}}
 #: fuel-dependent ones. Always written out in full (ADR-0008).
 DEFAULT_THRESHOLDS = {
     "t_still_s": 1800,              # FAH-01
+    "min_move_m": 50,               # ADR-0030: a fix closer than this to the last one is jitter, not movement
     "refuel_threshold_l": 3,        # TNK-01
     "t_settle_s": 360,              # TNK-02
     "charging_threshold_pct": 2,    # LAD-04

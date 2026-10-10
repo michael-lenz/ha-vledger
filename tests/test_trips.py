@@ -198,6 +198,22 @@ def test_a_marker_in_the_same_poll_as_a_boundary_movement_still_bounds_the_trip(
     assert t.end == at(end) and t.refined_by["end"] is None
 
 
+def test_the_minimum_move_of_a_fix_is_the_vehicles_threshold(tmp_path, capsys):
+    """ADR-0030 (ISSUE-0025): a tracker that jitters by some 65 m at rest
+    makes a trip at the default of 50 m, and none once the vehicle's
+    threshold says 100."""
+    def jitter(b):
+        b.heartbeat(0).heartbeat(60)
+        for i in range(1, 7):
+            b.fix(60 + 5 * i, HOME[0] + (0.0006 if i % 2 else 0), HOME[1], zone="home")
+        b.heartbeat(150)
+
+    jitter(Builder(tmp_path / "default", capsys))
+    assert len(trips.derive_from(tmp_path / "default", V)) == 1
+    jitter(Builder(tmp_path / "tuned", capsys, thresholds={"min_move_m": 100}))
+    assert trips.derive_from(tmp_path / "tuned", V) == []
+
+
 def test_a_movement_while_plugged_counts_and_is_reported(tmp_path, capsys):
     b = Builder(tmp_path, capsys)
     b.heartbeat(0).heartbeat(60)

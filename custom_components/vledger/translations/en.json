@@ -154,6 +154,7 @@
         "title": "Thresholds and time constants",
         "data": {
           "t_still_s": "Standstill (T_still)",
+          "min_move_m": "Minimum move of a position fix",
           "refuel_threshold_l": "Refuelling threshold",
           "t_settle_s": "Settling time after refuelling (T_settle)",
           "charging_threshold_pct": "Charging threshold (SoC fallback)",
@@ -170,6 +171,7 @@
           "trip_consumption_step_l_per_100km": "Display step of the trip computer's average"
         },
         "data_description": {
+          "min_move_m": "A fix closer than this to the previous one is GPS jitter at rest, not movement.",
           "refuel_threshold_l": "The smallest rise of the fuel level that counts as a refuelling. Set it above the largest rise the sensor shows without one — a level that errs by 3 L needs 5 L — or every slosh becomes a candidate."
         }
       },

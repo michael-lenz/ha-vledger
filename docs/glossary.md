@@ -236,8 +236,8 @@ level shown to 0.1 L that errs by a litre has a resolution of 1 L
 every figure read from a change of that sensor, and a figure that does
 not exceed its bound is not reported as one.
 
-**Thresholds and time constants.** T_still, the refuelling threshold,
-T_settle, the charging threshold (SoC fallback), the matching tolerance,
+**Thresholds and time constants.** T_still, the minimum move of a
+position fix, the refuelling threshold, T_settle, the charging threshold (SoC fallback), the matching tolerance,
 the plausibility threshold receipt/sensor, the heartbeat interval, the
 outage threshold, the rolling period, the consumption error threshold, the
 heating values, the thermal expansion coefficients and the temperature

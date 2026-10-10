@@ -50,7 +50,7 @@ _ROLE_DOMAINS: dict[str, list[str]] = {
 #: Every threshold of ``vconfig.DEFAULT_THRESHOLDS`` with the unit its form
 #: field shows; a test holds this list to the library's (ISSUE-0041).
 _THRESHOLD_UNITS = {
-    "t_still_s": "s", "refuel_threshold_l": "L", "t_settle_s": "s",
+    "t_still_s": "s", "min_move_m": "m", "refuel_threshold_l": "L", "t_settle_s": "s",
     "charging_threshold_pct": "%", "matching_tolerance_s": "s", "plausibility_pct": "%",
     "heartbeat_s": "s", "outage_s": "s", "rolling_period_d": "d",
     "consumption_error_pct": "%", "heating_value_kwh_per_l": "kWh/L",
