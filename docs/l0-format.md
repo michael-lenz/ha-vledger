@@ -15,7 +15,7 @@ L0 is JSON Lines, UTF-8, one JSON object per line. Every line has four
 fixed keys, then the keys of its kind:
 
 ```json
-{"v": 4, "t": "2026-10-09T07:12:03.412Z", "kind": "state", "subject": "a7c1…", …}
+{"v": 5, "t": "2026-10-09T07:12:03.412Z", "kind": "state", "subject": "a7c1…", …}
 ```
 
 | key | meaning |
@@ -39,13 +39,13 @@ One line per change of the state, or of a role-relevant attribute, of an
 assigned entity:
 
 ```json
-{"v":4,"t":"2026-10-09T07:12:03.412Z","kind":"state","subject":"a7c1…",
+{"v":5,"t":"2026-10-09T07:12:03.412Z","kind":"state","subject":"a7c1…",
  "role":"odometer","entity":"sensor.volvo_odometer","state":"123456","unit":"km",
  "reported_before":"2026-10-09T06:57:03.120Z"}
-{"v":4,"t":"2026-10-09T07:12:03.418Z","kind":"state","subject":"a7c1…",
+{"v":5,"t":"2026-10-09T07:12:03.418Z","kind":"state","subject":"a7c1…",
  "role":"position","entity":"device_tracker.volvo","state":"not_home",
  "attrs":{"latitude":48.1371,"longitude":11.5754,"gps_accuracy":12,"source_type":"gps"}}
-{"v":4,"t":"2026-10-09T07:14:00.001Z","kind":"state","subject":"a7c1…",
+{"v":5,"t":"2026-10-09T07:14:00.001Z","kind":"state","subject":"a7c1…",
  "role":"charging_state","entity":"sensor.volvo_charging","state":"unavailable"}
 ```
 
@@ -79,16 +79,19 @@ Written when capture for a subject begins, with a snapshot of every
 assigned role as it stands:
 
 ```json
-{"v":4,"t":"2026-10-09T06:00:00.000Z","kind":"start","subject":"a7c1…",
+{"v":5,"t":"2026-10-09T06:00:00.000Z","kind":"start","subject":"a7c1…",
  "vledger":"0.6.0","homeassistant":"2026.10.1",
  "snapshot":[{"role":"odometer","entity":"sensor.volvo_odometer","state":"123456",
               "unit":"km","since":"2026-10-08T22:41:10.000Z"}]}
 ```
 
-`since` is the entity's `last_updated` at snapshot time: how old the
-snapshotted value is. The snapshot is the only L0 content that is not a
-change; the derivation reads each entry's value at its `since`, but no
-earlier than the stream's last line before the start — a value that
+`since` is when the snapshotted value last changed — the entity's
+`last_changed`, or its `last_updated` for a role whose attributes are part
+of its value, those the whitelist above names: `position` (ADR-0036; before
+version 5 it was `last_updated` for every role, which an attribute update
+moves too). The snapshot is the only L0 content that is not a change; the
+derivation reads each entry's value at its `since`, but no earlier than
+the stream's last line before the start — a value that
 changed after capture stopped listening is placed where the stream can
 still vouch for it, never inside an event the previous run completed
 (ADR-0028) — and drops an entry that repeats the value its role already
@@ -115,7 +118,7 @@ The complete configuration of the subject, written at start (after the
 start line) and on every change:
 
 ```json
-{"v":4,"t":"2026-10-09T06:00:00.050Z","kind":"config","subject":"a7c1…",
+{"v":5,"t":"2026-10-09T06:00:00.050Z","kind":"config","subject":"a7c1…",
  "config":{"name":"Volvo",
    "roles":{"odometer":{"entity":"sensor.volvo_odometer"},
             "charging_state":{"entity":"sensor.volvo_charging","map":{"charging":["Charging"]}}},
@@ -194,3 +197,4 @@ versions a stream holds.
 | 2 | `reported_before` on `state` lines (ADR-0011); a version 1 stream has no sampling interval to measure |
 | 3 | the roles `engine`, `lock`, `in_use` (ADR-0021) and `fuel_flap` (ADR-0022) |
 | 4 | the role `trip_consumption`, the trip computer's average since its reset (ADR-0025) |
+| 5 | a snapshot entry's `since` is when its value last changed, `last_changed` for every role but `position` (ADR-0036); in earlier versions it is `last_updated`, which is never earlier, so a reader treats both alike |

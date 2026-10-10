@@ -32,10 +32,18 @@ async def _settle(hass, entry):
     await hass.async_block_till_done(wait_background_tasks=True)
 
 
-async def test_a_stream_is_written_start_to_stop(hass, vehicle_entry, tmp_path):
+async def test_a_stream_is_written_start_to_stop(hass, vehicle_entry, tmp_path, freezer):
+    freezer.move_to("2026-10-09T06:00:00Z")
     hass.states.async_set("sensor.volvo_odometer", "100", {"unit_of_measurement": "km"})
     hass.states.async_set("device_tracker.volvo", "home",
                           {"latitude": 48.1, "longitude": 11.5, "gps_accuracy": 10, "battery": 80})
+    # The same values a minute later with an attribute moved: last_updated
+    # moves, last_changed stays (ADR-0036).
+    freezer.move_to("2026-10-09T06:01:00Z")
+    hass.states.async_set("sensor.volvo_odometer", "100", {"unit_of_measurement": "km", "polled": 1})
+    hass.states.async_set("device_tracker.volvo", "home",
+                          {"latitude": 48.1, "longitude": 11.5, "gps_accuracy": 10, "battery": 81})
+    freezer.move_to("2026-10-09T06:02:00Z")
     vehicle_entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(vehicle_entry.entry_id)
     await _settle(hass, vehicle_entry)
@@ -69,6 +77,11 @@ async def test_a_stream_is_written_start_to_stop(hass, vehicle_entry, tmp_path):
     snap = {s["role"]: s for s in start["snapshot"]}
     assert snap["odometer"]["state"] == "100" and snap["odometer"]["unit"] == "km"
     assert snap["position"]["attrs"] == {"latitude": 48.1, "longitude": 11.5, "gps_accuracy": 10}
+    # since is when the value last changed: the odometer's state, the
+    # position's attributes with it (ADR-0036).
+    assert snap["odometer"]["since"] == "2026-10-09T06:00:00.000Z"
+    assert snap["position"]["since"] == "2026-10-09T06:01:00.000Z"
+    assert start["v"] == 5
     assert snap["charging_state"]["state"] == "unavailable"   # never set
     assert lines[1]["config"]["thresholds"]["heartbeat_s"] == 600
     assert "base_path" not in lines[1]["config"]

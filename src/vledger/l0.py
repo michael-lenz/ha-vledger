@@ -21,8 +21,9 @@ from vledger.layout import Subject
 #: The schema version this module writes, and the highest it reads. Version
 #: 2 adds ``reported_before`` to the state line (ADR-0011), version 3 the
 #: roles of :data:`ROLES_SINCE_3` (ADR-0021, ADR-0022), version 4 the role
-#: of :data:`ROLES_SINCE_4` (ADR-0025).
-VERSION = 4
+#: of :data:`ROLES_SINCE_4` (ADR-0025), version 5 makes a snapshot entry's
+#: ``since`` the time its value last changed (ADR-0036).
+VERSION = 5
 
 KINDS = ("state", "start", "stop", "heartbeat", "config")
 STOP_REASONS = ("shutdown", "unload", "reload")

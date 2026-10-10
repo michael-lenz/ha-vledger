@@ -230,7 +230,11 @@ class Capture:
             if state is None:
                 entry.update(state="unavailable", since=t)
             else:
-                entry.update(state=state.state, since=clock.to_text(state.last_updated))
+                # since is when the value last changed (ADR-0036): the state's
+                # last_changed, or last_updated for a role whose attributes
+                # are part of its value, which last_changed does not follow.
+                since = state.last_updated if l0.RELEVANT_ATTRS.get(role) else state.last_changed
+                entry.update(state=state.state, since=clock.to_text(since))
                 unit = state.attributes.get("unit_of_measurement")
                 if unit is not None:
                     entry["unit"] = unit
