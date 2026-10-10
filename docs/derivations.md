@@ -135,7 +135,7 @@ sensor pair), and `in_use`; markers `ignition`, `plug_state`,
    movement events inside the trip while plug or charging state says the
    vehicle could not drive: sample timing or a wrong mapping, reported and
    never corrected (ADR-0012, point 5).
-6. **Consumption** (ADR-0025) — the trip's own figure, never the
+6. **Consumption** (ADR-0025, ADR-0026) — the trip's own figure, never the
    vehicle's, which is tank to tank ([Metrics](#metrics)). The fuel the
    trip used, `fuel_consumed_l`, comes from the **trip computer** where
    `trip_consumption` is assigned: the fuel since the counter's reset at
@@ -150,10 +150,13 @@ sensor pair), and `in_use`; markers `ignition`, `plug_state`,
    2 × `soc_resolution_pct` / 100 × the capacity, negative when the
    battery gained. Each quantity has its error beside it whatever its
    size; the rates `fuel_l_per_100km` and `battery_kwh_per_100km`, on the
-   trip's distance, are `null` unless the quantity exceeds its own error
-   — a trip too short for the figure shows none — and carry the error as
-   a share, `…_error_pct`. A trip across a gap is `incomplete` in all of
-   them.
+   trip's distance, are `null` where the quantity is within its error of
+   zero *and* that error over the distance is more than one step of the
+   rate, 0.1 per 100 km (`trips.RATE_STEP`) — a figure right to the step
+   it is shown in is shown whatever its sign, so an electric trip read
+   from the trip computer is 0, not `null` — and carry the error as a
+   share, `…_error_pct`, where the quantity is not zero. A trip across a
+   gap is `incomplete` in all of them.
 7. **Complete** once T_still has elapsed after the last movement, by the
    stream.
 

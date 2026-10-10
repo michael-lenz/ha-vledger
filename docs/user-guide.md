@@ -138,8 +138,10 @@ receipt is entered, and *unavailable* while L1 is rebuilt:
 | **Last trip** | every vehicle | its distance | start, end, zones, positions, how the distance was measured, the fuel and charge it used, … |
 | **Last refuelling** | a vehicle with a fuel | the receipt's litres, or the sensor's before a receipt | start, end, level before and after, price, full tank, place, the receipt and how well it matched, … |
 | **Last charging session** | a vehicle with a net battery capacity | the energy from the grid | start, end, state of charge, charge point, cost, charging loss, the receipt, … |
-| **Last trip fuel consumption** | a vehicle with a fuel | its litres per 100 km | start, end, distance, the litres used with their source — the trip computer, or the fuel level — and possible error |
-| **Last trip electricity consumption** | a vehicle with a net battery capacity | its kWh per 100 km, battery-side | start, end, distance, the kWh used with their possible error |
+| **Last trip fuel consumed** | a vehicle with a fuel | the litres it used | start, end, distance, the litres used with their source — the trip computer, or the fuel level — and possible error |
+| **Last trip fuel per 100 km** | a vehicle with a fuel | its litres per 100 km | as *Last trip fuel consumed* |
+| **Last trip battery energy** | a vehicle with a net battery capacity | the kWh it took from the battery | start, end, distance, the kWh used with their possible error |
+| **Last trip battery energy per 100 km** | a vehicle with a net battery capacity | its kWh per 100 km, battery-side | as *Last trip battery energy* |
 | **Waiting for a receipt** | a vehicle with either | how many refuellings and charging sessions are *unconfirmed* or *ambiguous* | the count per kind and confirmation |
 
 Only completed events are shown: a trip under way appears once its
@@ -150,15 +152,19 @@ estimated or is incomplete. The route of a trip is not an attribute; it
 is in the GPX export ([below](#exports-vledger-export)). Positions are
 attributes but are not kept in Home Assistant's history.
 
-The two consumption entities show the last trip's own figure, never the
-vehicle's — that is the tank-to-tank consumption of the periods. Each is
-*unknown* when the trip was too short for a figure: the quantity used is
-reported only as a rate when it exceeds what the sensor can be wrong by,
-and the attributes still show the quantity and its possible error. With
-the trip computer assigned the fuel figure is the car's own measurement;
-from the fuel level alone it is an estimate that needs the sensor's
-resolution among the parameters. A negative electricity figure means the
-engine charged the battery during the trip.
+The four trip figures show the last trip's own fuel and battery energy,
+never the vehicle's — that is the tank-to-tank consumption of the
+periods. A figure is shown when its sign is certain, or when it is right
+to the step it is shown in (0.1 per 100 km); otherwise the quantity and
+its rate are *unknown* together, and the attributes still show the
+quantity and its possible error. With the trip computer assigned, the
+fuel figure is the car's own measurement, and an electric trip shows
+0 litres. From the fuel level alone it is an estimate that needs the
+sensor's resolution among the parameters, and a trip using less than the
+level can be wrong by — about 2 L at a resolution of 1 L — is *unknown*,
+an electric trip included: the level cannot tell 0 L from 2 L. A
+negative battery figure means the engine charged the battery during the
+trip.
 
 Units follow the instance: a US-customary instance shows miles and
 gallons, and an entity's settings choose another unit. Attributes stay in
@@ -196,8 +202,8 @@ enabled; the year's and the rolling period's exist but are disabled, and
 *Settings → Entities* enables the ones you want. Nine more show the
 lifetime line, the vehicle's overall figures: **Charge cycles in total**
 and **Tank fills in total**, both including the starting values
-configured; **Fuel consumption**, tank to tank, with the receipts it
-spans and its relative error as attributes; **Grid energy per 100 km in
+configured; **Fuel per 100 km in total**, tank to tank, with the receipts
+it spans and its relative error as attributes; **Grid energy per 100 km in
 total** and **Battery energy per 100 km in total**, the electricity
 consumption on the whole distance since capture began; and the totals
 **Distance in total**, **Fuel consumed in total**, **Grid energy in
@@ -217,8 +223,8 @@ What they keep as statistics:
   no statistics: a sliding window is neither a level nor a running sum.
 - A **rate** or **share** is a level, kept as one.
 - **Charge cycles in total**, **Tank fills in total** and the four
-  totals are running totals; **Fuel consumption** and the two overall
-  rates are levels.
+  totals are running totals; **Fuel per 100 km in total** and the two
+  overall rates are levels.
 
 Distances and litres follow the instance's units, as above. The
 electricity rates, `kWh/100km`, carry a device class, so an entity's
@@ -485,8 +491,10 @@ its source (`trip_computer` where the trip computer's average is
 assigned, else `fuel_level`), quality and possible error, and
 `fuel_l_per_100km` on the trip's distance; `battery_consumed_kwh` from
 the change in state of charge, and `battery_kwh_per_100km`. A rate is
-empty when the quantity does not exceed its own error — the trip was too
-short for one — while the quantity and the error are always there.
+empty when its source cannot tell it from zero to one step of 0.1 per
+100 km — the quantity within its error of zero, and that error over the
+distance more than a step — while the quantity and the error are always
+there.
 Every trip carries its distance with its source and quality (`odometer`
 measured, `trip_counter` measured, `waypoints` estimated), the positions
 and zones at both ends, every fix in between, the mean outside

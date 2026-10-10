@@ -756,6 +756,62 @@ def test_the_trip_computer_measures_the_fuel_and_a_reset_zeroes_the_start(tmp_pa
     assert (second.fuel_l_per_100km, second.fuel_l_per_100km_error_pct) == (8.0, 0.6)
 
 
+def test_an_electric_leg_from_the_trip_computer_is_zero_not_unknown(tmp_path, capsys):
+    """ISSUE-0043's leg: after the counter's reset at the departure, 10 km at
+    an average of 0.0 is no fuel, give or take 0.005 L. That error over the
+    distance is half a step, so the rate is shown, as zero (ADR-0026,
+    point 1); there is no share of nothing."""
+    roles = dict(CYCLE_ROLES, trip_consumption={"entity": "sensor.avg"})
+    b = Builder(tmp_path, capsys, roles=roles, parameters=dict(PER_CYCLE, fuel="petrol"))
+    b.state(-30, "trip_distance", 54.7, "km").state(-30, "trip_consumption", 7.6, "L/100 km")
+    b.heartbeat(0)
+    b.state(10, "lock", "unlocked", before=9).state(12, "lock", "locked", before=11)
+    upload(b, 40, 10.0, 1010)                             # the counter went down: reset at departure
+    b.state(40, "trip_consumption", 0.0, "L/100 km", before=38)
+    b.heartbeat(100)
+    [t] = trips.derive_from(tmp_path, V, completed_only=True)
+    assert t.distance_km == 10
+    assert {k: v for k, v in _consumed(t).items() if k.startswith("fuel")} == {
+        "fuel_consumed_l": 0.0, "fuel_consumed_quality": "measured",
+        "fuel_consumed_source": "trip_computer", "fuel_consumed_error_l": 0.005,
+        "fuel_l_per_100km": 0.0, "fuel_l_per_100km_quality": "measured",
+        "fuel_l_per_100km_error_pct": None,
+    }
+
+
+def test_the_same_leg_from_the_level_alone_stays_unknown(tmp_path, capsys):
+    """Without the trip computer the leg is 0.1 L, give or take 2: over 10 km
+    that error is 20 L/100 km, two hundred steps, and the sign is not
+    certain either (ADR-0026, What it costs)."""
+    b = Builder(tmp_path, capsys, roles=CYCLE_ROLES, parameters=dict(
+        PER_CYCLE, fuel="petrol", fuel_level_resolution_l=1.0))
+    b.heartbeat(0)
+    b.state(10, "lock", "unlocked", before=9).state(12, "lock", "locked", before=11)
+    upload(b, 40, 10.0, 1010)
+    b.state(40, "fuel_level", 20.4, "L", before=38)
+    b.heartbeat(100)
+    [t] = trips.derive_from(tmp_path, V, completed_only=True)
+    assert (t.fuel_consumed_l, t.fuel_consumed_error_l, t.fuel_l_per_100km) == (0.1, 2.0, None)
+
+
+def test_a_charge_held_is_zero_battery_energy_only_when_read_finely_enough(tmp_path, capsys):
+    """22 km on the engine with the charge held at 80 %. Read to a tenth of a
+    percent, 0 kWh give or take 0.02 is within one step over the distance:
+    zero, and a positive one. Read in whole percent, give or take 0.2, it is
+    ten steps and stays unknown (ADR-0026, point 1)."""
+    for resolution, rate in ((0.1, 0.0), (1, None)):
+        path = tmp_path / str(resolution)
+        b = Builder(path, capsys, parameters={"battery_net_kwh": 10, "soc_resolution_pct": resolution})
+        b.heartbeat(0)
+        end = b.drive(60)
+        b.state(end + 3, "soc", 80, "%")
+        b.heartbeat(end + 60).state(end + 200, "odometer", 1022, "km")
+        [t] = trips.derive_from(path, V)
+        assert (t.battery_consumed_kwh, t.battery_kwh_per_100km) == (0.0, rate)
+        assert str(t.battery_consumed_kwh) == "0.0"                      # not -0.0
+        assert rate is None or str(t.battery_kwh_per_100km) == "0.0"
+
+
 def test_a_trip_across_a_gap_is_incomplete_in_its_consumption_too(tmp_path, capsys):
     b = Builder(tmp_path, capsys, parameters={"fuel": "petrol", "fuel_level_resolution_l": 0.2})
     b.heartbeat(0)

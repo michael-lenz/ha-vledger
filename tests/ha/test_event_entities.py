@@ -59,11 +59,12 @@ async def test_which_entities_a_vehicle_gets(hass, vehicle_entry, phev_entry, ch
     await _setup(hass, vehicle_entry, phev_entry, chargepoint_entry)
     ids = set(hass.states.async_entity_ids("sensor"))
     event_sensors = {"last_trip", "last_refuelling", "last_charging_session", "waiting_for_a_receipt",
-                     "last_trip_fuel_consumption", "last_trip_electricity_consumption"}
-    # Petrol only: no charging session and no electricity consumption to show.
+                     "last_trip_fuel_per_100_km", "last_trip_fuel_consumed",
+                     "last_trip_battery_energy_per_100_km", "last_trip_battery_energy"}
+    # Petrol only: no charging session and no battery energy to show.
     assert {i for i in ids if i.removeprefix("sensor.volvo_") in event_sensors} == {
         "sensor.volvo_last_trip", "sensor.volvo_last_refuelling", "sensor.volvo_waiting_for_a_receipt",
-        "sensor.volvo_last_trip_fuel_consumption"}
+        "sensor.volvo_last_trip_fuel_per_100_km", "sensor.volvo_last_trip_fuel_consumed"}
     assert {i for i in ids if i.removeprefix("sensor.golf_") in event_sensors} == {
         f"sensor.golf_{k}" for k in event_sensors}
     assert not [i for i in ids if i.removeprefix("sensor.home_") in event_sensors]
@@ -153,14 +154,15 @@ async def test_unavailable_while_l1_is_rebuilt(hass, vehicle_entry):
 
 async def test_the_last_trips_consumption_is_a_slice_of_its_line(hass, phev_entry, stand_in):
     """ADR-0025, point 5: the rate as the state, the keys it rests on as
-    the attributes, no state class, the unit as it is."""
+    the attributes, no state class, the unit as it is; and the quantity
+    beside it, shown where its rate is (ADR-0026, point 2)."""
     stand_in["trip"].append(trip(0, 25.0, **consumption(
         fuel_consumed_l=1.75, fuel_consumed_quality="measured", fuel_consumed_source="trip_computer",
         fuel_consumed_error_l=0.113, fuel_l_per_100km=7.0, fuel_l_per_100km_quality="measured",
         fuel_l_per_100km_error_pct=6.4, battery_consumed_kwh=0.05, battery_consumed_quality="estimated",
         battery_consumed_error_kwh=0.208)))      # the battery figure is swallowed by its error
     await _setup(hass, phev_entry)
-    s = _state(hass, "sensor.golf_last_trip_fuel_consumption")
+    s = _state(hass, "sensor.golf_last_trip_fuel_per_100_km")
     assert float(s.state) == 7.0 and s.attributes["unit_of_measurement"] == "L/100km"
     assert "state_class" not in s.attributes and "device_class" not in s.attributes
     assert s.attributes["state_quality"] == "measured"
@@ -168,16 +170,45 @@ async def test_the_last_trips_consumption_is_a_slice_of_its_line(hass, phev_entr
     assert s.attributes["fuel_consumed_error_l"] == 0.113 and s.attributes["fuel_l_per_100km_error_pct"] == 6.4
     assert s.attributes["distance_km"] == 25.0 and s.attributes["start"] == at(0)
     assert "battery_consumed_kwh" not in s.attributes and "waypoints" not in s.attributes
-    e = _state(hass, "sensor.golf_last_trip_electricity_consumption")
+    e = _state(hass, "sensor.golf_last_trip_battery_energy_per_100_km")
     assert e.state == "unknown" and e.attributes["unit_of_measurement"] == "kWh/100km"
     assert e.attributes["device_class"] == "energy_distance"             # ADR-0032; the fuel rate has none
     assert e.attributes["battery_consumed_kwh"] == 0.05 and e.attributes["state_quality"] is None
     assert "fuel_consumed_l" not in e.attributes
+    # The quantities: the fuel shown with its rate, the battery energy
+    # unknown with it, each on the same slice of the line.
+    q = _state(hass, "sensor.golf_last_trip_fuel_consumed")
+    assert float(q.state) == 1.75 and q.attributes["unit_of_measurement"] == "L"
+    assert q.attributes["device_class"] == "volume" and "state_class" not in q.attributes
+    assert q.attributes["state_quality"] == "measured"
+    from custom_components.vledger.sensor import FUEL_SLICE
+    assert {k: q.attributes[k] for k in FUEL_SLICE} == {k: s.attributes[k] for k in FUEL_SLICE}
+    b = _state(hass, "sensor.golf_last_trip_battery_energy")
+    assert b.state == "unknown" and b.attributes["unit_of_measurement"] == "kWh"
+    assert b.attributes["device_class"] == "energy" and b.attributes["battery_consumed_kwh"] == 0.05
+    assert b.attributes["state_quality"] is None
     # One quantity, one spelling of its unit on every entity (ISSUE-0038).
-    assert s.attributes["unit_of_measurement"] == _state(hass, "sensor.golf_fuel_consumption").attributes["unit_of_measurement"]
+    assert s.attributes["unit_of_measurement"] == _state(hass, "sensor.golf_fuel_per_100_km_in_total").attributes["unit_of_measurement"]
     assert e.attributes["unit_of_measurement"] == _state(hass, "sensor.golf_battery_energy_per_100_km_in_total").attributes["unit_of_measurement"]
     # The whole line stays the last trip's.
     assert _state(hass, "sensor.golf_last_trip").attributes["fuel_l_per_100km"] == 7.0
+
+
+async def test_a_trip_that_burnt_no_fuel_shows_zero_in_both_entities(hass, phev_entry, stand_in):
+    """ISSUE-0043's leg: 10 km on the battery, the trip computer's 0.0 L give
+    or take 0.005 — within one step over the distance, so zero, not unknown
+    (ADR-0026, point 1), in the rate and in the quantity alike."""
+    stand_in["trip"].append(trip(0, 10.0, **consumption(
+        fuel_consumed_l=0.0, fuel_consumed_quality="measured", fuel_consumed_source="trip_computer",
+        fuel_consumed_error_l=0.005, fuel_l_per_100km=0.0, fuel_l_per_100km_quality="measured",
+        battery_consumed_kwh=1.88, battery_consumed_quality="estimated", battery_consumed_error_kwh=0.376,
+        battery_kwh_per_100km=18.8, battery_kwh_per_100km_quality="estimated",
+        battery_kwh_per_100km_error_pct=20.0)))
+    await _setup(hass, phev_entry)
+    assert float(_state(hass, "sensor.golf_last_trip_fuel_per_100_km").state) == 0.0
+    assert float(_state(hass, "sensor.golf_last_trip_fuel_consumed").state) == 0.0
+    assert float(_state(hass, "sensor.golf_last_trip_battery_energy").state) == 1.88
+    assert float(_state(hass, "sensor.golf_last_trip_battery_energy_per_100_km").state) == 18.8
 
 
 def test_positions_stay_out_of_the_recorder():

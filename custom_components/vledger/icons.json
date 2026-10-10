@@ -54,6 +54,12 @@
       "last_trip_electricity_consumption": {
         "default": "mdi:lightning-bolt"
       },
+      "last_trip_fuel_consumed": {
+        "default": "mdi:fuel"
+      },
+      "last_trip_battery_energy": {
+        "default": "mdi:car-battery"
+      },
       "unconfirmed_candidates": {
         "default": "mdi:receipt-text-clock"
       },

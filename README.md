@@ -54,8 +54,10 @@ behaviour is the design, held as requirements in the project's register
   share), charge cycles and tank-fill equivalents. Fuel consumption is
   tank-to-tank between any two receipts, corrected by the fuel level sensor,
   so a tank that is never filled up still gets a figure. A single trip's
-  consumption is its own figure beside that, from the trip computer or
-  the sensor deltas, shown only when it exceeds its possible error.
+  fuel and battery energy are its own figures beside that, in litres and
+  kWh and per 100 km, from the trip computer or the sensor deltas, shown
+  when they exceed their possible error or are right to the step they are
+  shown in — an electric trip read from the trip computer is 0 L.
 
 ## What it is built of
 

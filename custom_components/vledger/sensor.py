@@ -3,11 +3,11 @@
 sensors about the raw log (TASK-0008): what the stream holds and how it is
 filling, without opening a file browser. For a vehicle, the event sensors
 (ADR-0016): the last trip, refuelling and charging session, and how many
-events wait for a receipt (ADR-0016), the last trip's consumption per
-100 km, fuel and electricity, each a slice of the same trip line
-(ADR-0025, point 5), and the metrics of the current month, year and
-rolling period with the lifetime counters (ADR-0018) — read from L1,
-never derived here (ARC-05)."""
+events wait for a receipt (ADR-0016), the last trip's fuel and battery
+energy, each as a quantity and per 100 km and each a slice of the same
+trip line (ADR-0025, point 5; ADR-0026, point 2), and the metrics of the
+current month, year and rolling period with the lifetime counters
+(ADR-0018) — read from L1, never derived here (ARC-05)."""
 
 from __future__ import annotations
 
@@ -160,25 +160,42 @@ class ConsumptionSensorDescription(EventSensorDescription):
     gate: str
     #: The keys of the trip line this figure rests on, shown as attributes.
     attributes: tuple[str, ...]
+    #: For a quantity, the rate of the same energy: the quantity is shown
+    #: exactly when the rate is (ADR-0026, point 2).
+    with_rate: str | None = None
 
+
+#: The slice of the trip line one energy's figures rest on (ADR-0025, point 5).
+FUEL_SLICE = ("start", "end", "quality", "distance_km", "distance_quality",
+              "fuel_consumed_l", "fuel_consumed_quality", "fuel_consumed_source",
+              "fuel_consumed_error_l", "fuel_l_per_100km_error_pct")
+BATTERY_SLICE = ("start", "end", "quality", "distance_km", "distance_quality",
+                 "battery_consumed_kwh", "battery_consumed_quality",
+                 "battery_consumed_error_kwh", "battery_kwh_per_100km_error_pct")
 
 CONSUMPTION_SENSORS: tuple[ConsumptionSensorDescription, ...] = (
     ConsumptionSensorDescription(
         key="last_trip_fuel_consumption", translation_key="last_trip_fuel_consumption",
         kind=TRIP, gate=REFUELLING, native_unit_of_measurement=L_PER_100KM,
         suggested_display_precision=1,
-        values=(("fuel_l_per_100km", "fuel_l_per_100km_quality"),),
-        attributes=("start", "end", "quality", "distance_km", "distance_quality",
-                    "fuel_consumed_l", "fuel_consumed_quality", "fuel_consumed_source",
-                    "fuel_consumed_error_l", "fuel_l_per_100km_error_pct")),
+        values=(("fuel_l_per_100km", "fuel_l_per_100km_quality"),), attributes=FUEL_SLICE),
+    ConsumptionSensorDescription(
+        key="last_trip_fuel_consumed", translation_key="last_trip_fuel_consumed",
+        kind=TRIP, gate=REFUELLING, device_class=SensorDeviceClass.VOLUME,
+        native_unit_of_measurement=UnitOfVolume.LITERS, suggested_display_precision=2,
+        values=(("fuel_consumed_l", "fuel_consumed_quality"),), attributes=FUEL_SLICE,
+        with_rate="fuel_l_per_100km"),
     ConsumptionSensorDescription(
         key="last_trip_electricity_consumption", translation_key="last_trip_electricity_consumption",
         kind=TRIP, gate=CHARGING, device_class=SensorDeviceClass.ENERGY_DISTANCE,
         native_unit_of_measurement=KWH_PER_100KM, suggested_display_precision=1,
-        values=(("battery_kwh_per_100km", "battery_kwh_per_100km_quality"),),
-        attributes=("start", "end", "quality", "distance_km", "distance_quality",
-                    "battery_consumed_kwh", "battery_consumed_quality",
-                    "battery_consumed_error_kwh", "battery_kwh_per_100km_error_pct")),
+        values=(("battery_kwh_per_100km", "battery_kwh_per_100km_quality"),), attributes=BATTERY_SLICE),
+    ConsumptionSensorDescription(
+        key="last_trip_battery_energy", translation_key="last_trip_battery_energy",
+        kind=TRIP, gate=CHARGING, device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR, suggested_display_precision=2,
+        values=(("battery_consumed_kwh", "battery_consumed_quality"),), attributes=BATTERY_SLICE,
+        with_rate="battery_kwh_per_100km"),
 )
 
 
@@ -340,12 +357,20 @@ class LastEventSensor(_L1Sensor):
 
 
 class ConsumptionSensor(LastEventSensor):
-    """The last trip's consumption per 100 km (ADR-0025, point 5): the rate
-    as the state — unknown where the trip was too short for one — and the
-    slice of the trip line it rests on as the attributes. No state class:
-    one trip is not a statistic (ADR-0016, point 5)."""
+    """The last trip's fuel or battery energy, per 100 km or as a quantity
+    (ADR-0025, point 5; ADR-0026, point 2): the figure as the state, and the
+    slice of the trip line it rests on as the attributes. The rate is null
+    in L1 where its source cannot tell it from zero to one step (ADR-0026,
+    point 1), and the quantity follows it, so both are unknown together.
+    No state class: one trip is not a statistic (ADR-0016, point 5)."""
 
     entity_description: ConsumptionSensorDescription
+
+    def _value(self) -> tuple[float | None, str | None]:
+        rate = self.entity_description.with_rate
+        if rate and (self._event or {}).get(rate) is None:
+            return None, None
+        return super()._value()
 
     @property
     def extra_state_attributes(self) -> dict | None:

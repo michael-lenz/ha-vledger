@@ -322,10 +322,10 @@
             "name": "Verbrauchter Kraftstoff, möglicher Fehler (L)"
           },
           "fuel_l_per_100km": {
-            "name": "Kraftstoffverbrauch (L/100 km)"
+            "name": "Kraftstoff pro 100 km (L)"
           },
           "fuel_l_per_100km_quality": {
-            "name": "Qualität des Kraftstoffverbrauchs",
+            "name": "Qualität des Kraftstoffs pro 100 km",
             "state": {
               "measured": "Gemessen",
               "receipt": "Beleg",
@@ -334,7 +334,7 @@
             }
           },
           "fuel_l_per_100km_error_pct": {
-            "name": "Kraftstoffverbrauch, möglicher Fehler (%)"
+            "name": "Kraftstoff pro 100 km, möglicher Fehler (%)"
           },
           "battery_consumed_kwh": {
             "name": "Verbrauchte Batterieenergie (kWh)"
@@ -352,10 +352,10 @@
             "name": "Verbrauchte Batterieenergie, möglicher Fehler (kWh)"
           },
           "battery_kwh_per_100km": {
-            "name": "Stromverbrauch (kWh/100 km)"
+            "name": "Batterieenergie pro 100 km (kWh)"
           },
           "battery_kwh_per_100km_quality": {
-            "name": "Qualität des Stromverbrauchs",
+            "name": "Qualität der Batterieenergie pro 100 km",
             "state": {
               "measured": "Gemessen",
               "receipt": "Beleg",
@@ -364,7 +364,7 @@
             }
           },
           "battery_kwh_per_100km_error_pct": {
-            "name": "Stromverbrauch, möglicher Fehler (%)"
+            "name": "Batterieenergie pro 100 km, möglicher Fehler (%)"
           }
         }
       },
@@ -595,7 +595,7 @@
         }
       },
         "last_trip_fuel_consumption": {
-          "name": "Kraftstoffverbrauch der letzten Fahrt",
+          "name": "Kraftstoff pro 100 km der letzten Fahrt",
           "state_attributes": {
             "start": {
               "name": "Beginn"
@@ -650,12 +650,72 @@
               "name": "Verbrauchter Kraftstoff, möglicher Fehler (L)"
             },
             "fuel_l_per_100km_error_pct": {
-              "name": "Kraftstoffverbrauch, möglicher Fehler (%)"
+              "name": "Kraftstoff pro 100 km, möglicher Fehler (%)"
+            }
+          }
+        },
+        "last_trip_fuel_consumed": {
+          "name": "Verbrauchter Kraftstoff der letzten Fahrt",
+          "state_attributes": {
+            "start": {
+              "name": "Beginn"
+            },
+            "end": {
+              "name": "Ende"
+            },
+            "quality": {
+              "name": "Qualität",
+              "state": {
+                "measured": "Gemessen",
+                "receipt": "Beleg",
+                "estimated": "Geschätzt",
+                "incomplete": "Unvollständig"
+              }
+            },
+            "state_quality": {
+              "name": "Qualität des Zustands",
+              "state": {
+                "measured": "Gemessen",
+                "receipt": "Beleg",
+                "estimated": "Geschätzt",
+                "incomplete": "Unvollständig"
+              }
+            },
+            "distance_km": {
+              "name": "Strecke (km)"
+            },
+            "distance_quality": {
+              "name": "Qualität der Strecke"
+            },
+            "fuel_consumed_l": {
+              "name": "Verbrauchter Kraftstoff (L)"
+            },
+            "fuel_consumed_quality": {
+              "name": "Qualität des verbrauchten Kraftstoffs",
+              "state": {
+                "measured": "Gemessen",
+                "receipt": "Beleg",
+                "estimated": "Geschätzt",
+                "incomplete": "Unvollständig"
+              }
+            },
+            "fuel_consumed_source": {
+              "name": "Quelle des verbrauchten Kraftstoffs",
+              "state": {
+                "trip_computer": "Bordcomputer",
+                "fuel_level": "Kraftstoffstand"
+              }
+            },
+            "fuel_consumed_error_l": {
+              "name": "Verbrauchter Kraftstoff, möglicher Fehler (L)"
+            },
+            "fuel_l_per_100km_error_pct": {
+              "name": "Kraftstoff pro 100 km, möglicher Fehler (%)"
             }
           }
         },
         "last_trip_electricity_consumption": {
-          "name": "Stromverbrauch der letzten Fahrt",
+          "name": "Batterieenergie pro 100 km der letzten Fahrt",
           "state_attributes": {
             "start": {
               "name": "Beginn"
@@ -703,7 +763,60 @@
               "name": "Verbrauchte Batterieenergie, möglicher Fehler (kWh)"
             },
             "battery_kwh_per_100km_error_pct": {
-              "name": "Stromverbrauch, möglicher Fehler (%)"
+              "name": "Batterieenergie pro 100 km, möglicher Fehler (%)"
+            }
+          }
+        },
+        "last_trip_battery_energy": {
+          "name": "Batterieenergie der letzten Fahrt",
+          "state_attributes": {
+            "start": {
+              "name": "Beginn"
+            },
+            "end": {
+              "name": "Ende"
+            },
+            "quality": {
+              "name": "Qualität",
+              "state": {
+                "measured": "Gemessen",
+                "receipt": "Beleg",
+                "estimated": "Geschätzt",
+                "incomplete": "Unvollständig"
+              }
+            },
+            "state_quality": {
+              "name": "Qualität des Zustands",
+              "state": {
+                "measured": "Gemessen",
+                "receipt": "Beleg",
+                "estimated": "Geschätzt",
+                "incomplete": "Unvollständig"
+              }
+            },
+            "distance_km": {
+              "name": "Strecke (km)"
+            },
+            "distance_quality": {
+              "name": "Qualität der Strecke"
+            },
+            "battery_consumed_kwh": {
+              "name": "Verbrauchte Batterieenergie (kWh)"
+            },
+            "battery_consumed_quality": {
+              "name": "Qualität der verbrauchten Batterieenergie",
+              "state": {
+                "measured": "Gemessen",
+                "receipt": "Beleg",
+                "estimated": "Geschätzt",
+                "incomplete": "Unvollständig"
+              }
+            },
+            "battery_consumed_error_kwh": {
+              "name": "Verbrauchte Batterieenergie, möglicher Fehler (kWh)"
+            },
+            "battery_kwh_per_100km_error_pct": {
+              "name": "Batterieenergie pro 100 km, möglicher Fehler (%)"
             }
           }
         },
@@ -1277,7 +1390,7 @@
         }
       },
       "fuel_consumption": {
-        "name": "Kraftstoffverbrauch",
+        "name": "Kraftstoff pro 100 km insgesamt",
         "state_attributes": {
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },

@@ -148,7 +148,7 @@ async def test_the_consumption_and_its_interval(hass, vehicle_entry, period_line
                     consumption_receipts=3, consumption_error_pct=1.2)
     period_lines.append(lifetime)
     await _setup(hass, vehicle_entry)
-    s = _state(hass, "sensor.volvo_fuel_consumption")
+    s = _state(hass, "sensor.volvo_fuel_per_100_km_in_total")
     assert float(s.state) == 6.84 and s.attributes["unit_of_measurement"] == "L/100km"
     assert s.attributes["state_class"] == "measurement" and s.attributes["state_quality"] == "receipt"
     assert s.attributes["consumption_receipts"] == 3 and s.attributes["consumption_error_pct"] == 1.2
@@ -206,7 +206,7 @@ async def test_unavailable_while_l1_is_rebuilt(hass, vehicle_entry):
     capture.set_recomputing(True)
     await hass.async_block_till_done()
     assert _state(hass, "sensor.volvo_distance_this_month").state == "unavailable"
-    assert _state(hass, "sensor.volvo_fuel_consumption").state == "unavailable"
+    assert _state(hass, "sensor.volvo_fuel_per_100_km_in_total").state == "unavailable"
     capture.set_recomputing(False)
     await hass.async_block_till_done()
     assert _state(hass, "sensor.volvo_distance_this_month").state == "0"

@@ -35,6 +35,11 @@ from vledger.series import Fix, Sample, Stream
 MEASURED, ESTIMATED, INCOMPLETE = "measured", "estimated", "incomplete"
 #: Where a trip's fuel figure was read (ADR-0025, point 2).
 TRIP_COMPUTER, FUEL_LEVEL = "trip_computer", "fuel_level"
+#: One step of a trip's rate per 100 km, L or kWh (ADR-0026, point 1): the
+#: precision the rate entities display, and the trip computer's own display
+#: step. A figure whose error over the distance is within it is shown
+#: whatever its sign. A constant, not a threshold.
+RATE_STEP = 0.1
 
 #: The lines of one poll land milliseconds apart, in an order Home Assistant
 #: chooses. A marker this close to a boundary movement is at it (ISSUE-0031),
@@ -401,15 +406,16 @@ def _trip_computer(s: Stream, start: str, end: str, settle_s: float
 
 def _rate(used: float | None, error: float | None, km: float | None
           ) -> tuple[float | None, float | None]:
-    """(the rate per 100 km, its error as a share of it): the rate only where
-    the quantity exceeds its own error over a distance (ADR-0025, point 4),
+    """(the rate per 100 km, its error as a share of it): the rate over a
+    distance where the quantity exceeds its own error, or where that error
+    over the distance is within one step of the rate (ADR-0026, point 1);
     the share whenever the quantity is not zero."""
     if used is None or error is None:
         return None, None
     share = round(error / abs(used) * 100, 1) if used else None
-    if not km or abs(used) <= error:
+    if not km or (abs(used) <= error and error / km * 100 > RATE_STEP):
         return None, share
-    return round(used / km * 100, 3), share
+    return round(used / km * 100, 3) + 0.0, share   # + 0.0: no negative zero
 
 
 def _consumption(s: Stream, start: str, end: str, settle_s: float, crossed: bool,
@@ -438,7 +444,7 @@ def _consumption(s: Stream, start: str, end: str, settle_s: float, crossed: bool
     battery_rate, battery_share = _rate(battery, battery_err, km)
 
     def r(x, digits=3):
-        return None if x is None else round(x, digits)
+        return None if x is None else round(x, digits) + 0.0   # no negative zero
 
     return {
         "fuel_consumed_l": r(fuel), "fuel_consumed_quality": fuel_q,
