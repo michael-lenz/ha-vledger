@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+import vledger.derivations  # noqa: F401 — imported for the registration it performs
 from vledger import l0, l1, layout
 from vledger.layout import Subject
 
