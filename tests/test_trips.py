@@ -298,10 +298,12 @@ def test_a_gap_after_the_standstill_leaves_the_trip_before_it_complete(tmp_path,
          "attrs": {"latitude": ROAD[2][0], "longitude": ROAD[2][1], "gps_accuracy": 0}},
     ]
     b.run("start", *b.b, "--t", at(end + 50), "--homeassistant", "2026.9.4", "--snapshot", json.dumps(snapshot))
-    b.state(end + 75, "odometer", 1029, "km")          # moved across the reload
+    b.state(end + 75, "odometer", 1029, "km")          # moved after the reload
     found = trips.derive_from(tmp_path, V)
     assert found[0] == before[0]
-    assert [t.quality for t in found] == ["measured", "incomplete"]
+    # The reload's snapshot held the odometer through it, so the gap is
+    # bridged and the trip after it is complete too (ADR-0037).
+    assert [t.quality for t in found] == ["measured", "measured"]
 
 
 def test_a_gap_inside_the_standstill_is_counted_when_the_trip_completes(tmp_path, capsys):
@@ -314,6 +316,94 @@ def test_a_gap_inside_the_standstill_is_counted_when_the_trip_completes(tmp_path
     assert [t.quality for t in before] == ["incomplete"]
     b.state(end + 75, "odometer", 1029, "km")
     assert trips.derive_from(tmp_path, V)[0] == before[0]
+
+
+def restart(b, stop_min, start_min, odo, odo_since, where, where_since, reason="reload"):
+    """Capture stopped and started again, the start's snapshot carrying the
+    odometer and the position with the since of each."""
+    b.run("stop", *b.b, "--t", at(stop_min), "--reason", reason)
+    snapshot = [
+        {"role": "odometer", "entity": "x.odometer", "state": str(odo), "unit": "km", "since": at(odo_since)},
+        {"role": "position", "entity": "x.position", "state": "not_home", "since": at(where_since),
+         "attrs": {"latitude": where[0], "longitude": where[1], "gps_accuracy": 0}},
+    ]
+    b.run("start", *b.b, "--t", at(start_min), "--homeassistant", "2026.9.4", "--snapshot", json.dumps(snapshot))
+
+
+def test_a_reload_inside_the_standstill_that_the_odometer_held_through_leaves_the_trip_complete(tmp_path, capsys):
+    """ADR-0037 (ISSUE-0051): the snapshot repeats the odometer with a since
+    before the stop, so the gap hid no movement and the standstill runs
+    through it; the trip completes measured, and stays so."""
+    from test_fixtures import replay
+    b = Builder(tmp_path / "stream", capsys)
+    b.heartbeat(0)
+    end = b.drive(60)                                   # last movement at 105
+    restart(b, end + 10, end + 10, 1022.0, end, ROAD[2], end)
+    b.heartbeat(end + 40)
+    s = series.load(tmp_path / "stream", V)
+    assert [g.reason for g in s.gaps] == ["stopped"] and trips.bridged(s) == s.gaps
+    before = trips.derive_from(tmp_path / "stream", V, completed_only=True)
+    assert [(t.quality, t.distance_km, t.end) for t in before] == [("measured", 22, at(107))]
+    b.state(end + 75, "odometer", 1029, "km")
+    found = trips.derive_from(tmp_path / "stream", V)
+    assert found[0] == before[0] and found[1].quality == "measured"
+    replay(tmp_path / "stream", tmp_path / "replay")
+
+
+def test_a_reload_inside_a_drive_that_the_odometer_held_through_is_no_gap(tmp_path, capsys):
+    """ADR-0037: a four-minute reload at a red light, the odometer unchanged
+    across it, and the drive is one measured trip."""
+    from test_fixtures import replay
+    b = Builder(tmp_path / "stream", capsys)
+    b.heartbeat(0)
+    b.state(60, "ignition", "on")
+    b.state(75, "odometer", 1007, "km").fix(75, *ROAD[0])
+    restart(b, 80, 84, 1007.0, 75, ROAD[0], 75)
+    b.state(90, "odometer", 1015, "km").fix(90, *ROAD[1])
+    b.state(105, "odometer", 1022, "km").fix(105, *ROAD[2])
+    b.state(107, "ignition", "off")
+    b.heartbeat(150)
+    [t] = trips.derive_from(tmp_path / "stream", V)
+    assert (t.quality, t.distance_km, t.start, t.end) == ("measured", 22, at(60), at(107))
+    replay(tmp_path / "stream", tmp_path / "replay")
+
+
+def test_a_fix_that_moved_inside_the_gap_keeps_it_a_gap(tmp_path, capsys):
+    """ADR-0037, point 1: the odometer held through the reload, but the
+    tracker's coordinates changed inside it — a movement placed there by
+    ADR-0028 — and the gap splits and marks as before."""
+    b = Builder(tmp_path, capsys)
+    b.heartbeat(0)
+    b.state(75, "odometer", 1007, "km").fix(75, *ROAD[0])
+    restart(b, 80, 84, 1007.0, 75, ROAD[1], 82)
+    b.state(90, "odometer", 1015, "km").fix(90, *ROAD[1])
+    b.state(105, "odometer", 1022, "km").fix(105, *ROAD[2])
+    b.heartbeat(150)
+    s = series.load(tmp_path, V)
+    assert trips.bridged(s) == []
+    found = trips.derive_from(tmp_path, V)
+    assert found and all(t.quality == "incomplete" for t in found)
+
+
+def test_a_per_cycle_vehicle_reads_a_bridged_gap_as_a_gap(tmp_path, capsys):
+    """ADR-0037, point 4: a per-cycle vehicle's values move once per cycle,
+    so a reload in a short stop still ends the trip (ADR-0024)."""
+    b = cycle_builder(tmp_path, capsys)
+    b.heartbeat(0)
+    b.state(10, "lock", "unlocked", before=9).state(12, "lock", "locked", before=11)
+    upload(b, 40, 25.0, 1025)
+    b.state(41, "lock", "unlocked", before=40).state(42, "lock", "locked", before=41)
+    b.run("stop", *b.b, "--t", at(44), "--reason", "reload")
+    snapshot = [{"role": "trip_distance", "entity": "x.trip_distance", "state": "25.0", "unit": "km", "since": at(40)},
+                {"role": "odometer", "entity": "x.odometer", "state": "1025", "unit": "km", "since": at(40)},
+                {"role": "lock", "entity": "x.lock", "state": "locked", "since": at(42)}]
+    b.run("start", *b.b, "--t", at(44), "--homeassistant", "2026.9.4", "--snapshot", json.dumps(snapshot))
+    b.state(47, "lock", "unlocked", before=46).state(48, "lock", "locked", before=47)
+    b.heartbeat(55)
+    upload(b, 70, 40.0, 1040)
+    b.heartbeat(120)
+    found = trips.derive_from(tmp_path, V, completed_only=True)
+    assert [(t.start, t.end) for t in found] == [(at(10), at(40)), (at(47), at(70))]
 
 
 def test_distance_falls_back_to_the_trip_counter_then_to_straight_lines(tmp_path, capsys):

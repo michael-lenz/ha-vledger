@@ -179,7 +179,7 @@ def _seed_lines(base: Path, subject: Subject, since: str) -> tuple[list[dict], s
     return out, before_since
 
 
-def _repeats(latest, item) -> bool:
+def repeats(latest, item) -> bool:
     """Whether a snapshot entry repeats the latest sample of its role: the
     same value, whenever it was set (ISSUE-0014). A dropout is a time, and
     repeats only itself."""
@@ -208,7 +208,7 @@ def load(base: Path, subject: Subject, *, since: str | None = None,
         # A restart's snapshot repeats the value its role already holds;
         # read again, it would land inside whatever event already holds
         # it (ISSUE-0014). What repeats the latest sample is dropped.
-        if seeding and items and _repeats(items[-1], item):
+        if seeding and items and repeats(items[-1], item):
             return
         items.append(item)
 

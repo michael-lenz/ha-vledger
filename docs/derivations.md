@@ -94,11 +94,19 @@ sensor pair), and `in_use`; markers `ignition`, `plug_state`,
    however far apart its reports are. A span still open at the stream's
    end is movement up to its last line, and the trip it belongs to is not
    complete. A capture gap between two movements
-   always ends the span before it and starts a new one. The trip after a
+   ends the span before it and starts a new one. The trip after a
    gap is `incomplete`, since it may have begun inside it; the trip before
    it too when the gap begins within T_still of its last movement, since
    its end is then unknown. That answer is fixed the moment the trip
-   completes, whatever the stream holds later (ISSUE-0014).
+   completes, whatever the stream holds later (ISSUE-0014). A gap the
+   vehicle's distance source held through — the first of odometer, trip
+   counter and position the stream holds has, at the gap's end, the
+   restart's reading that repeats its last one before the gap (ADR-0035)
+   — with no movement of any role inside it, is **bridged**: it is no gap
+   to the trips (ADR-0037). It neither ends a span nor marks a trip, a
+   standstill runs through it, and two readings that agree stand in for
+   the span of nothing between them. Everything else — `gaps`, the
+   periods, charging sessions and refuellings — reads the gap as before.
 3. **Refining by markers** (ADR-0012, ADR-0021). A start marker —
    ignition turning `on`, the plug turning `unplugged`, the lock turning
    `unlocked`, the engine turning `running` — within T_still before the first

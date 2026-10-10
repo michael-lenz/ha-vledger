@@ -157,10 +157,39 @@ def movements(s: Stream) -> list[Movement]:
     return out
 
 
+DISTANCE_ROLES = ("odometer", "trip_distance", "position")
+
+
+def bridged(s: Stream, moves: list[Movement] | None = None) -> list[l0.Gap]:
+    """The capture gaps that are no gap to the trip derivation (ADR-0037):
+    the stream's distance source — the first of :data:`DISTANCE_ROLES` it
+    holds, FAH-04's order — has a sample at the gap's end that repeats its
+    last sample at or before the gap's start, which is how a restart's
+    snapshot entry that held through the gap is read (ADR-0035), and no
+    movement of any role lies inside the gap. A ``silence`` or ``open`` gap
+    has no start line to end it and is never bridged."""
+    role = next((r for r in DISTANCE_ROLES
+                 if (s.fixes if r == "position" else s.series.get(r))), None)
+    if role is None or not s.gaps:
+        return []
+    samples = s.fixes if role == "position" else s.series[role]
+    moved = [clock.parse(m.t) for m in (movements(s) if moves is None else moves)]
+    out = []
+    for g in s.gaps:
+        at_end = next((x for x in samples if x.t == g.end), None)
+        before = series.last_at_or_before(samples, g.start)
+        lo, hi = clock.parse(g.start), clock.parse(g.end)
+        if (at_end is not None and before is not None and series.repeats(before, at_end)
+                and not any(lo < tm < hi for tm in moved)):
+            out.append(g)
+    return out
+
+
 def _spans(moves: list[Movement], t_still_s: float, gaps: list[l0.Gap],
            in_use: list[tuple[str, str, float | None]] = ()) -> list[tuple[str, str, bool]]:
-    """(first movement, last movement, crosses a gap) per trip. No standstill
-    lies inside a span the vehicle was reported in use (ADR-0021)."""
+    """(first movement, last movement, crosses a gap) per trip, ``gaps``
+    being the ones not bridged (:func:`bridged`). No standstill lies inside
+    a span the vehicle was reported in use (ADR-0021)."""
     if not moves:
         return []
     still = timedelta(seconds=t_still_s)
@@ -513,7 +542,8 @@ def derive(s: Stream, *, completed_only: bool = False) -> list[Trip]:
     if in_use_now(s) and use and s.last_t:
         # Still in use as far as the stream knows: movement up to its end.
         use[-1] = (use[-1][0], s.last_t, use[-1][2])
-    spans = _spans(moves, t_still, s.gaps, use)
+    skip = bridged(s, moves)
+    spans = _spans(moves, t_still, [g for g in s.gaps if g not in skip], use)
     starts, ends = markers(s, START_MARKERS), markers(s, END_MARKERS)
     if completed_only and spans and s.last_t:
         first, last, crossed = spans[-1]
