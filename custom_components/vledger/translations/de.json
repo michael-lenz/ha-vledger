@@ -533,7 +533,11 @@
   "issues": {
     "entity_removed": {
       "title": "{name}: {entity} wurde entfernt",
-      "description": "Die der Rolle {role} von {name} zugeordnete Entität existiert nicht mehr. Sie wird als unavailable protokolliert, bis in den Optionen eine andere Entität zugeordnet wird."
+      "description": "Die der Rolle {role} von {name} zugeordnete Entität existiert nicht mehr. Sie wird als unavailable protokolliert, bis sie wieder meldet oder in den Optionen eine andere Entität zugeordnet wird."
+    },
+    "entity_unavailable": {
+      "title": "{name}: {entity} meldet seit {since} nicht",
+      "description": "Die der Rolle {role} von {name} zugeordnete Entität ist seit {since} nicht verfügbar, länger als die Ausfallschwelle von {threshold}. Das Fahrtenbuch hält ihren letzten Wert; was inzwischen geschah, fehlt in der Ableitung. Der Hinweis verschwindet, sobald die Entität wieder einen Wert meldet. Ist sie dauerhaft weg, in den Optionen eine andere Entität zuordnen."
     }
   },
   "services": {

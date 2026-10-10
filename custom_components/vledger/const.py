@@ -17,7 +17,10 @@ STATUS_RUNNING = "running"
 STATUS_STOPPED = "stopped"
 STATUS_RECOMPUTING = "recomputing"
 
+#: The Repairs issues of HAI-08: an assigned entity gone from the registry,
+#: and one unavailable for longer than ``outage_s``.
 ISSUE_ENTITY_REMOVED = "entity_removed"
+ISSUE_ENTITY_UNAVAILABLE = "entity_unavailable"
 
 SERVICE_RECOMPUTE = "recompute"
 

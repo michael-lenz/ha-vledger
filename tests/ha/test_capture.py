@@ -4,10 +4,21 @@
 from datetime import timedelta
 
 import pytest
+from custom_components.vledger.const import (
+    DATA_KIND,
+    DATA_SUBJECT,
+    DOMAIN,
+    OPT_BASE_PATH,
+)
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.util import dt as dt_util
-from pytest_homeassistant_custom_component.common import async_fire_time_changed
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+)
 
+from vledger import config as vconfig
 from vledger import l0
 from vledger.layout import Subject
 
@@ -97,8 +108,6 @@ async def test_reload_writes_stop_start_config(hass, vehicle_entry, tmp_path):
 
 
 async def test_a_removed_entity_is_unavailable_and_raises_an_issue(hass, vehicle_entry, tmp_path):
-    from homeassistant.helpers import issue_registry as ir
-
     hass.states.async_set("sensor.volvo_odometer", "100")
     vehicle_entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(vehicle_entry.entry_id)
@@ -163,3 +172,126 @@ async def test_tank_capacity_is_demanded_only_for_percent(hass, unit):
 
     hass.states.async_set("sensor.fuel", "50", {"unit_of_measurement": unit})
     assert _needs_tank_capacity(hass, {"fuel_level": {"entity": "sensor.fuel"}}) == (unit == "%")
+
+
+def _entry(tmp_path, **thresholds):
+    options = vconfig.vehicle(
+        "Volvo",
+        {"odometer": {"entity": "sensor.volvo_odometer"},
+         "charging_state": {"entity": "sensor.volvo_charging", "map": {"charging": ["Charging"]}}},
+        {"fuel": "petrol", "tank_capacity_l": 71}, thresholds)
+    options[OPT_BASE_PATH] = str(tmp_path)
+    return MockConfigEntry(domain=DOMAIN, title="Volvo", unique_id="a7c1",
+                           data={DATA_KIND: "vehicle", DATA_SUBJECT: "a7c1"}, options=options)
+
+
+def _issue_ids(hass) -> set[str]:
+    return {k[1] for k in ir.async_get(hass).issues if k[0] == "vledger"}
+
+
+async def _elapse(hass, entry, freezer, when: str) -> None:
+    freezer.move_to(when)
+    async_fire_time_changed(hass, dt_util.utcnow())
+    await _settle(hass, entry)
+
+
+async def test_an_entity_unavailable_longer_than_the_threshold_raises_an_issue_until_it_reports(
+        hass, tmp_path, freezer):
+    """HAI-08's second half: the timer runs from when the entity stopped
+    reporting, and the first value it reports again clears the issue."""
+    entry = _entry(tmp_path, outage_s=3600, heartbeat_s=600)
+    freezer.move_to("2026-10-09T06:00:00Z")
+    hass.states.async_set("sensor.volvo_odometer", "100")
+    hass.states.async_set("sensor.volvo_charging", "Idle")
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await _settle(hass, entry)
+    assert _issue_ids(hass) == set()
+
+    freezer.move_to("2026-10-09T06:10:00Z")
+    hass.states.async_set("sensor.volvo_odometer", "unavailable")
+    await _settle(hass, entry)
+    assert entry.runtime_data.capture.outages == {"sensor.volvo_odometer": "2026-10-09T06:10:00.000Z"}
+    freezer.move_to("2026-10-09T06:40:00Z")
+    hass.states.async_set("sensor.volvo_odometer", "unknown")     # the same outage, not a new one
+    await _settle(hass, entry)
+    assert entry.runtime_data.capture.outages == {"sensor.volvo_odometer": "2026-10-09T06:10:00.000Z"}
+
+    await _elapse(hass, entry, freezer, "2026-10-09T07:09:00Z")
+    assert _issue_ids(hass) == set()
+    await _elapse(hass, entry, freezer, "2026-10-09T07:11:00Z")
+    assert _issue_ids(hass) == {"entity_unavailable_a7c1_sensor.volvo_odometer"}
+    # The stream says what Home Assistant said; the issue adds nothing to it.
+    states = [(x.line["state"]) for x in l0.read(tmp_path, V, kind="state")]
+    assert states == ["unavailable", "unknown"]
+
+    freezer.move_to("2026-10-09T08:00:00Z")
+    hass.states.async_set("sensor.volvo_odometer", "101")
+    await _settle(hass, entry)
+    assert _issue_ids(hass) == set()
+    assert entry.runtime_data.capture.outages == {}
+    assert entry.runtime_data.capture.counts()["outages"] == {}
+
+
+async def test_an_outage_is_counted_from_when_the_entity_stopped_not_from_the_start(
+        hass, tmp_path, freezer):
+    """A restart in the middle of an outage does not restart the clock: an
+    entity that exists is in outage since Home Assistant last saw it
+    change, one that does not since the stream's last line of its role. One
+    already past the threshold at start raises the issue at once."""
+    entry = _entry(tmp_path, outage_s=3600, heartbeat_s=600)
+    freezer.move_to("2026-10-09T05:30:00Z")
+    hass.states.async_set("sensor.volvo_odometer", "unavailable")
+    hass.states.async_set("sensor.volvo_charging", "Idle")
+    freezer.move_to("2026-10-09T06:00:00Z")
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await _settle(hass, entry)
+    assert entry.runtime_data.capture.outages == {"sensor.volvo_odometer": "2026-10-09T05:30:00.000Z"}
+    await _elapse(hass, entry, freezer, "2026-10-09T06:29:00Z")
+    assert _issue_ids(hass) == set()
+    await _elapse(hass, entry, freezer, "2026-10-09T06:31:00Z")
+    assert _issue_ids(hass) == {"entity_unavailable_a7c1_sensor.volvo_odometer"}
+
+    freezer.move_to("2026-10-09T06:40:00Z")
+    hass.states.async_remove("sensor.volvo_charging")
+    await _settle(hass, entry)
+    assert _issue_ids(hass) == {"entity_unavailable_a7c1_sensor.volvo_odometer",
+                                "entity_removed_a7c1_sensor.volvo_charging"}
+
+    # A reload while both are out: the odometer's issue is back at once;
+    # the charging state, gone from Home Assistant, is in outage since its
+    # last line in the stream, not since this start.
+    freezer.move_to("2026-10-09T06:50:00Z")
+    new_options = dict(entry.options, thresholds=dict(entry.options["thresholds"], t_still_s=3600))
+    hass.config_entries.async_update_entry(entry, options=new_options)
+    await hass.async_block_till_done()
+    await _settle(hass, entry)
+    assert _issue_ids(hass) == {"entity_unavailable_a7c1_sensor.volvo_odometer"}
+    assert entry.runtime_data.capture.outages == {"sensor.volvo_odometer": "2026-10-09T05:30:00.000Z",
+                                                  "sensor.volvo_charging": "2026-10-09T06:40:00.000Z"}
+    await _elapse(hass, entry, freezer, "2026-10-09T07:41:00Z")
+    assert _issue_ids(hass) == {"entity_unavailable_a7c1_sensor.volvo_odometer",
+                                "entity_unavailable_a7c1_sensor.volvo_charging"}
+
+    hass.states.async_set("sensor.volvo_charging", "Idle")
+    await _settle(hass, entry)
+    assert _issue_ids(hass) == {"entity_unavailable_a7c1_sensor.volvo_odometer"}
+
+    # Unloading takes the capture's opinion with it.
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert _issue_ids(hass) == set()
+
+
+async def test_a_removed_entity_that_comes_back_clears_its_issue(hass, vehicle_entry, tmp_path):
+    hass.states.async_set("sensor.volvo_odometer", "100")
+    vehicle_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(vehicle_entry.entry_id)
+    await _settle(hass, vehicle_entry)
+    hass.states.async_remove("sensor.volvo_odometer")
+    await _settle(hass, vehicle_entry)
+    assert "entity_removed_a7c1_sensor.volvo_odometer" in _issue_ids(hass)
+    hass.states.async_set("sensor.volvo_odometer", "101")
+    await _settle(hass, vehicle_entry)
+    assert "entity_removed_a7c1_sensor.volvo_odometer" not in _issue_ids(hass)

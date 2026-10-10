@@ -533,7 +533,11 @@
   "issues": {
     "entity_removed": {
       "title": "{name}: {entity} was removed",
-      "description": "The entity assigned to the role {role} of {name} no longer exists. It is logged as unavailable until a different entity is assigned in the options."
+      "description": "The entity assigned to the role {role} of {name} no longer exists. It is logged as unavailable until it reports again or a different entity is assigned in the options."
+    },
+    "entity_unavailable": {
+      "title": "{name}: {entity} has not reported since {since}",
+      "description": "The entity assigned to the role {role} of {name} has been unavailable since {since}, longer than the outage threshold of {threshold}. The ledger holds its last value; whatever happened meanwhile is missing from the derivation. This clears as soon as the entity reports a value again. If it is gone for good, assign a different entity in the options."
     }
   },
   "services": {

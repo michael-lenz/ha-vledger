@@ -12,6 +12,15 @@ The writer also keeps the numbers the diagnostic entities show (TASK-0008):
 before its first line it counts the stream once with the library
 (``vledger l0 stats``), then carries every count forward from the lines it
 writes — only the size of the file it just appended to is read from disk.
+
+An assigned entity that stops reporting is watched (HAI-08): one timer per
+entity in outage, started when it goes ``unavailable`` or ``unknown`` — or
+is so at start, counted from when Home Assistant last saw it change, or
+from the stream's last line of that role where that is earlier: a restart
+does not restart the clock — and cancelled by the first value it reports
+again. When the timer reaches ``outage_s`` a Repairs issue names the
+entity; the value that ends the outage clears it, as it clears the issue
+of an entity that was removed.
 """
 
 from __future__ import annotations
@@ -22,6 +31,7 @@ from collections.abc import Callable
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.const import __version__ as HA_VERSION
 from homeassistant.core import (
     CALLBACK_TYPE,
@@ -33,6 +43,7 @@ from homeassistant.core import (
 )
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.event import (
+    async_call_later,
     async_track_state_change_event,
     async_track_time_change,
     async_track_time_interval,
@@ -40,11 +51,13 @@ from homeassistant.helpers.event import (
 from homeassistant.util import dt as dt_util
 
 from vledger import __version__, clock, l0, stats
+from vledger import config as vconfig
 from vledger.layout import Subject
 
 from .const import (
     DOMAIN,
     ISSUE_ENTITY_REMOVED,
+    ISSUE_ENTITY_UNAVAILABLE,
     STATUS_RECOMPUTING,
     STATUS_RUNNING,
     STATUS_STOPPED,
@@ -117,7 +130,10 @@ class Capture:
         self.roles = roles_of(config)
         self.entities = {spec["entity"]: role for role, spec in self.roles.items()}
         self.specs = {role: spec for role, spec in self.roles.items()}
-        self.heartbeat_s = int((config.get("thresholds") or {}).get("heartbeat_s", l0.DEFAULT_HEARTBEAT_S))
+        thresholds = config.get("thresholds") or {}
+        self.heartbeat_s = int(thresholds.get("heartbeat_s", l0.DEFAULT_HEARTBEAT_S))
+        # A charge point has no thresholds (ADR-0008, point 2): the default holds.
+        self.outage_s = int(thresholds.get("outage_s", vconfig.DEFAULT_THRESHOLDS["outage_s"]))
 
         self.running = False
         # Set by the L1 writer while it rebuilds: capture goes on, the
@@ -137,6 +153,12 @@ class Capture:
         self.last_state_at: str | None = None
         self.gap_finder = l0.GapFinder()
 
+        # Entities in outage (HAI-08): since when, and the timer that raises
+        # the issue once outage_s has passed — gone once it has fired.
+        self.outages: dict[str, str] = {}
+        self._outage_timers: dict[str, CALLBACK_TYPE] = {}
+        self._removed: set[str] = set()
+
         self._queue: asyncio.Queue[l0.Line] = asyncio.Queue()
         self._writer: asyncio.Task | None = None
         self._unsubscribe: list[CALLBACK_TYPE] = []
@@ -151,6 +173,12 @@ class Capture:
         self._put(l0.start(t, self.subject, vledger=__version__, homeassistant=HA_VERSION,
                            snapshot=self._snapshot(t)))
         self._put(l0.config(t, self.subject, config=self.config))
+        for entity_id, role in self.entities.items():
+            state = self.hass.states.get(entity_id)
+            if state is None:
+                self._outage_begins(entity_id, role, t)
+            elif state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+                self._outage_begins(entity_id, role, clock.to_text(state.last_changed))
         if self.entities:
             self._unsubscribe.append(
                 async_track_state_change_event(self.hass, list(self.entities), self._on_state))
@@ -167,6 +195,10 @@ class Capture:
         for unsub in self._unsubscribe:
             unsub()
         self._unsubscribe.clear()
+        # A capture that is not running has no opinion about its entities;
+        # the next start raises the issue again at once if the outage holds.
+        for entity_id in {*self.outages, *self._removed}:
+            self._outage_ends(entity_id)
         self._put(l0.stop(clock.to_text(clock.now()), self.subject, reason=reason))
         await self._queue.join()
         if self._writer:
@@ -220,13 +252,8 @@ class Capture:
         if new is None:
             # Removed from the registry: what Home Assistant itself shows for it.
             self._put(l0.state(t, self.subject, role, entity_id, "unavailable"))
-            ir.async_create_issue(
-                self.hass, DOMAIN, f"{ISSUE_ENTITY_REMOVED}_{self.subject.id}_{entity_id}",
-                is_fixable=False, severity=ir.IssueSeverity.WARNING,
-                translation_key=ISSUE_ENTITY_REMOVED,
-                translation_placeholders={"entity": entity_id, "role": role,
-                                          "name": self.config.get("name", self.subject.id)},
-            )
+            self._removed.add(entity_id)
+            self._raise_issue(ISSUE_ENTITY_REMOVED, entity_id, role)
             return
         if not _changed(role, old, new):
             return
@@ -235,6 +262,75 @@ class Capture:
             unit=new.attributes.get("unit_of_measurement"),
             attrs=new.attributes, measured_at=_measured_at(self.specs[role], new),
             reported_before=_reported_before(old, t)))
+        if new.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            self._outage_begins(entity_id, role, t)
+        else:
+            self._outage_ends(entity_id)
+
+    # --- outages (HAI-08) --------------------------------------------------
+
+    def _outage_begins(self, entity_id: str, role: str, since: str) -> None:
+        """Start the outage timer for an entity, unless one runs: a change
+        from ``unavailable`` to ``unknown`` is the same outage."""
+        if entity_id in self.outages:
+            return
+        self.outages[entity_id] = since
+        remaining = self.outage_s - (clock.now() - clock.parse(since)).total_seconds()
+        if remaining <= 0:
+            self._outage_elapsed(entity_id, role)
+            return
+
+        @callback
+        def elapsed(_now: datetime) -> None:
+            self._outage_timers.pop(entity_id, None)
+            self._outage_elapsed(entity_id, role)
+
+        self._outage_timers[entity_id] = async_call_later(self.hass, remaining, elapsed)
+
+    def _outage_elapsed(self, entity_id: str, role: str) -> None:
+        since = dt_util.as_local(clock.parse(self.outages[entity_id]))
+        self._raise_issue(ISSUE_ENTITY_UNAVAILABLE, entity_id, role,
+                          since=since.strftime("%Y-%m-%d %H:%M"),
+                          threshold=f"{self.outage_s / 3600:g} h")
+        self._notify()
+
+    def _outage_ends(self, entity_id: str) -> None:
+        """A value came in: no outage, and no issue — of this outage or of a
+        removal this entity has come back from."""
+        self._cancel_outage(entity_id)
+        self._removed.discard(entity_id)
+        for key in (ISSUE_ENTITY_UNAVAILABLE, ISSUE_ENTITY_REMOVED):
+            ir.async_delete_issue(self.hass, DOMAIN, f"{key}_{self.subject.id}_{entity_id}")
+
+    def _cancel_outage(self, entity_id: str) -> None:
+        timer = self._outage_timers.pop(entity_id, None)
+        if timer:
+            timer()
+        self.outages.pop(entity_id, None)
+
+    def _backdate_outages(self, last_states: dict[str, dict]) -> None:
+        """The stream knows when an outage began where Home Assistant does
+        not — an entity that no longer exists, or one that came back
+        ``unavailable`` after a restart: its role's last state line, when
+        it says so and is earlier than what the start could tell."""
+        for entity_id, since in list(self.outages.items()):
+            role = self.entities[entity_id]
+            line = last_states.get(role)
+            if (not line or line.get("entity") != entity_id
+                    or line["state"] not in stats.OUTAGE_STATES
+                    or clock.parse(line["t"]) >= clock.parse(since)):
+                continue
+            self._cancel_outage(entity_id)
+            self._outage_begins(entity_id, role, line["t"])
+
+    def _raise_issue(self, key: str, entity_id: str, role: str, **placeholders: str) -> None:
+        ir.async_create_issue(
+            self.hass, DOMAIN, f"{key}_{self.subject.id}_{entity_id}",
+            is_fixable=False, severity=ir.IssueSeverity.WARNING, translation_key=key,
+            translation_placeholders={"entity": entity_id, "role": role,
+                                      "name": self.config.get("name", self.subject.id),
+                                      **placeholders},
+        )
 
     @callback
     def _on_heartbeat(self, now: datetime) -> None:
@@ -290,6 +386,7 @@ class Capture:
         if last:
             self.last_state_role, self.last_state_at = last[0], last[1]["t"]
         self.gap_finder = s.finder
+        self._backdate_outages(s.last_states)
 
     def _wrote(self, line: l0.Line, month: str, size: int) -> None:
         t, kind = line["t"], line["kind"]
@@ -341,6 +438,7 @@ class Capture:
             "last_state_at": self.last_state_at,
             "gaps": len(self.gaps),
             "latest_gap": latest.__dict__ if latest else None,
+            "outages": dict(self.outages),
         }
 
     # --- for the entities --------------------------------------------------

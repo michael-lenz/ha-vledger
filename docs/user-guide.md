@@ -85,7 +85,11 @@ them reloads the entry, which the stream records as stop, start and the
 new configuration.
 
 If an assigned entity disappears, it is logged as `unavailable` and a
-repair issue names it until another entity is assigned.
+repair issue names it. One that stays `unavailable` or `unknown` for longer
+than the outage threshold (24 h, in the options) gets a repair issue too,
+counted from the moment it stopped reporting — a restart in between does
+not reset it. Either issue clears the moment the entity reports a value
+again; an entity that is gone for good is replaced in the options.
 
 The integration also keeps the derivation on disk, L1
 ([below](#the-derivation-on-disk-vledger-l1)), the moment events complete.
