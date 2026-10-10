@@ -710,6 +710,571 @@
             "name": "Charging sessions ambiguous"
           }
         }
+      },
+      "distance_km_month": {
+        "name": "Distance this month",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "distance_km_year": {
+        "name": "Distance this year",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "distance_km_rolling": {
+        "name": "Distance in the rolling period",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "eur_per_100km_month": {
+        "name": "Cost per 100 km this month",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "eur_per_100km_year": {
+        "name": "Cost per 100 km this year",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "eur_per_100km_rolling": {
+        "name": "Cost per 100 km in the rolling period",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "fuel_purchased_l_month": {
+        "name": "Fuel purchased this month",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "fuel_level_corrected": { "name": "Corrected by the fuel level" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "fuel_purchased_l_year": {
+        "name": "Fuel purchased this year",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "fuel_level_corrected": { "name": "Corrected by the fuel level" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "fuel_purchased_l_rolling": {
+        "name": "Fuel purchased in the rolling period",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "fuel_level_corrected": { "name": "Corrected by the fuel level" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "fuel_consumed_l_month": {
+        "name": "Fuel consumed this month",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "fuel_level_corrected": { "name": "Corrected by the fuel level" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "fuel_consumed_l_year": {
+        "name": "Fuel consumed this year",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "fuel_level_corrected": { "name": "Corrected by the fuel level" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "fuel_consumed_l_rolling": {
+        "name": "Fuel consumed in the rolling period",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "fuel_level_corrected": { "name": "Corrected by the fuel level" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "fuel_cost_eur_month": {
+        "name": "Fuel cost this month",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "fuel_level_corrected": { "name": "Corrected by the fuel level" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "fuel_cost_eur_year": {
+        "name": "Fuel cost this year",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "fuel_level_corrected": { "name": "Corrected by the fuel level" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "fuel_cost_eur_rolling": {
+        "name": "Fuel cost in the rolling period",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "fuel_level_corrected": { "name": "Corrected by the fuel level" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "tank_fills_month": {
+        "name": "Tank fills this month",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "fuel_level_corrected": { "name": "Corrected by the fuel level" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "tank_fills_year": {
+        "name": "Tank fills this year",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "fuel_level_corrected": { "name": "Corrected by the fuel level" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "tank_fills_rolling": {
+        "name": "Tank fills in the rolling period",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "fuel_level_corrected": { "name": "Corrected by the fuel level" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "grid_kwh_month": {
+        "name": "Grid energy this month",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "soc_corrected": { "name": "Corrected by the state of charge" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "grid_kwh_year": {
+        "name": "Grid energy this year",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "soc_corrected": { "name": "Corrected by the state of charge" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "grid_kwh_rolling": {
+        "name": "Grid energy in the rolling period",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "soc_corrected": { "name": "Corrected by the state of charge" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "battery_kwh_month": {
+        "name": "Battery energy this month",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "soc_corrected": { "name": "Corrected by the state of charge" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "battery_kwh_year": {
+        "name": "Battery energy this year",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "soc_corrected": { "name": "Corrected by the state of charge" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "battery_kwh_rolling": {
+        "name": "Battery energy in the rolling period",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "soc_corrected": { "name": "Corrected by the state of charge" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "electricity_cost_eur_month": {
+        "name": "Electricity cost this month",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "soc_corrected": { "name": "Corrected by the state of charge" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "electricity_cost_eur_year": {
+        "name": "Electricity cost this year",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "soc_corrected": { "name": "Corrected by the state of charge" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "electricity_cost_eur_rolling": {
+        "name": "Electricity cost in the rolling period",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "soc_corrected": { "name": "Corrected by the state of charge" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "grid_kwh_per_100km_month": {
+        "name": "Grid energy per 100 km this month",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "soc_corrected": { "name": "Corrected by the state of charge" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "grid_kwh_per_100km_year": {
+        "name": "Grid energy per 100 km this year",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "soc_corrected": { "name": "Corrected by the state of charge" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "grid_kwh_per_100km_rolling": {
+        "name": "Grid energy per 100 km in the rolling period",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "soc_corrected": { "name": "Corrected by the state of charge" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "battery_kwh_per_100km_month": {
+        "name": "Battery energy per 100 km this month",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "soc_corrected": { "name": "Corrected by the state of charge" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "battery_kwh_per_100km_year": {
+        "name": "Battery energy per 100 km this year",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "soc_corrected": { "name": "Corrected by the state of charge" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "battery_kwh_per_100km_rolling": {
+        "name": "Battery energy per 100 km in the rolling period",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "soc_corrected": { "name": "Corrected by the state of charge" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "charge_cycles_month": {
+        "name": "Charge cycles this month",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "soc_corrected": { "name": "Corrected by the state of charge" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "charge_cycles_year": {
+        "name": "Charge cycles this year",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "soc_corrected": { "name": "Corrected by the state of charge" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "charge_cycles_rolling": {
+        "name": "Charge cycles in the rolling period",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "soc_corrected": { "name": "Corrected by the state of charge" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "fuel_eur_per_100km_month": {
+        "name": "Fuel cost per 100 km this month",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "fuel_level_corrected": { "name": "Corrected by the fuel level" },
+          "soc_corrected": { "name": "Corrected by the state of charge" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "fuel_eur_per_100km_year": {
+        "name": "Fuel cost per 100 km this year",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "fuel_level_corrected": { "name": "Corrected by the fuel level" },
+          "soc_corrected": { "name": "Corrected by the state of charge" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "fuel_eur_per_100km_rolling": {
+        "name": "Fuel cost per 100 km in the rolling period",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "fuel_level_corrected": { "name": "Corrected by the fuel level" },
+          "soc_corrected": { "name": "Corrected by the state of charge" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "electricity_eur_per_100km_month": {
+        "name": "Electricity cost per 100 km this month",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "fuel_level_corrected": { "name": "Corrected by the fuel level" },
+          "soc_corrected": { "name": "Corrected by the state of charge" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "electricity_eur_per_100km_year": {
+        "name": "Electricity cost per 100 km this year",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "fuel_level_corrected": { "name": "Corrected by the fuel level" },
+          "soc_corrected": { "name": "Corrected by the state of charge" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "electricity_eur_per_100km_rolling": {
+        "name": "Electricity cost per 100 km in the rolling period",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "fuel_level_corrected": { "name": "Corrected by the fuel level" },
+          "soc_corrected": { "name": "Corrected by the state of charge" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "electric_energy_share_month": {
+        "name": "Electric share of energy this month",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "fuel_level_corrected": { "name": "Corrected by the fuel level" },
+          "soc_corrected": { "name": "Corrected by the state of charge" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "electric_energy_share_year": {
+        "name": "Electric share of energy this year",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "fuel_level_corrected": { "name": "Corrected by the fuel level" },
+          "soc_corrected": { "name": "Corrected by the state of charge" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "electric_energy_share_rolling": {
+        "name": "Electric share of energy in the rolling period",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "fuel_level_corrected": { "name": "Corrected by the fuel level" },
+          "soc_corrected": { "name": "Corrected by the state of charge" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "electric_distance_share_month": {
+        "name": "Electric share of distance this month",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "fuel_level_corrected": { "name": "Corrected by the fuel level" },
+          "soc_corrected": { "name": "Corrected by the state of charge" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "electric_distance_share_year": {
+        "name": "Electric share of distance this year",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "fuel_level_corrected": { "name": "Corrected by the fuel level" },
+          "soc_corrected": { "name": "Corrected by the state of charge" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "electric_distance_share_rolling": {
+        "name": "Electric share of distance in the rolling period",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "open": { "name": "Still running" },
+          "gaps": { "name": "Capture gaps" },
+          "fuel_level_corrected": { "name": "Corrected by the fuel level" },
+          "soc_corrected": { "name": "Corrected by the state of charge" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "charge_cycles_total": {
+        "name": "Charge cycles in total",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "gaps": { "name": "Capture gaps" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "tank_fills_total": {
+        "name": "Tank fills in total",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "gaps": { "name": "Capture gaps" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
+      "fuel_consumption": {
+        "name": "Fuel consumption",
+        "state_attributes": {
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "gaps": { "name": "Capture gaps" },
+          "consumption_from": { "name": "From the receipt of" },
+          "consumption_to": { "name": "To the receipt of" },
+          "consumption_receipts": { "name": "Receipts spanned" },
+          "consumption_error_pct": { "name": "Relative error (%)" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
       }
     },
     "button": {

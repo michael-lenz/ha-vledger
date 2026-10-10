@@ -33,8 +33,9 @@ rolling period and lifetime in L1, and for any span from `vledger report
 metrics`; L1 is exported as CSV, JSON and GPX, from the shell and by a
 Home Assistant action into the media folder; every trip carries its own
 consumption, from the car's trip computer where it reports one, and the
-last trip's is an entity. In Home Assistant the period metrics are not
-shown yet. Every behaviour described below is the design,
+last trip's is an entity. In Home Assistant the current month's, year's
+and rolling period's metrics are entities, and every corrected month is
+kept as a statistic. Every behaviour described below is the design,
 held as requirements in the project's register (`ha-vledger-pm`); what
 does not exist yet is marked *(planned)*.
 

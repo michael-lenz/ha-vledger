@@ -12,10 +12,11 @@ corrected, cancelled and matched with the `receipt` verbs and `derive
 match`, and in Home Assistant with actions and a dashboard form; the
 last trip, refuelling and charging session, the last trip's fuel and
 electricity consumption and what waits for a receipt are entities, and
-new events fire Home Assistant events and, for a receipt to enter,
-notifications; L1 is exported as CSV, JSON and GPX with the `export`
-verbs and the `vledger.export` action, and `report metrics` gives the
-metrics of any span. Metric entities in Home Assistant are planned.
+so are the metrics of the current month, year and rolling period, whose
+corrected months are kept as statistics; new events fire Home Assistant
+events and, for a receipt to enter, notifications; L1 is exported as
+CSV, JSON and GPX with the `export` verbs and the `vledger.export`
+action, and `report metrics` gives the metrics of any span.
 
 ## In Home Assistant
 
@@ -179,7 +180,70 @@ the units L1 uses, which each name says — `distance_km`, `quantity_l`,
 
 None of these keeps long-term statistics except **Waiting for a
 receipt**: the last trip's distance is one trip, not a level worth
-averaging. Totals per month and year are the metric entities (planned).
+averaging. Totals per month and year are the metric entities, below.
+
+### Metrics per month, year and rolling period
+
+The vehicle's device also shows the metrics of `periods.jsonl`
+([below](#periods)): one entity per metric for the current month, the
+current year and the rolling period. "Current" is the month holding the
+stream's last line, so a new month begins with the first line written
+in it, not with the clock. Which metrics a vehicle gets follows its
+energies, as the receipt forms do:
+
+| metric | shown for | kind |
+|---|---|---|
+| **Distance**, **Cost per 100 km** | every vehicle | sum, rate |
+| **Fuel purchased**, **Fuel consumed**, **Fuel cost**, **Tank fills** | a vehicle with a fuel | sums |
+| **Grid energy**, **Battery energy**, **Electricity cost**, **Charge cycles** | a vehicle with a net battery capacity | sums |
+| **Grid energy per 100 km**, **Battery energy per 100 km** | a vehicle with a net battery capacity | rates |
+| **Fuel cost per 100 km**, **Electricity cost per 100 km**, **Electric share of energy**, **Electric share of distance** | a vehicle with both | rates, shares |
+
+Each is named after its period — *Distance this month*, *Distance this
+year*, *Distance in the rolling period*. The month's entities are
+enabled; the year's and the rolling period's exist but are disabled, and
+*Settings → Entities* enables the ones you want. Three more show the
+lifetime line: **Charge cycles in total** and **Tank fills in total**,
+both including the starting values configured, and **Fuel consumption**,
+tank to tank, with the receipts it spans and its relative error as
+attributes.
+
+Every metric entity's attributes are its line's **Start**, **End**,
+**Still running** and **Capture gaps**, and **Quality of the state**;
+fuel metrics add whether the fuel level corrected them, electricity
+metrics whether the state of charge did.
+
+What they keep as statistics:
+
+- A month's or year's **sum** is a total that restarts with its period,
+  so Home Assistant's statistics add the months up and a correction after
+  a rebuild counts as the change it is. The rolling period's sums keep
+  no statistics: a sliding window is neither a level nor a running sum.
+- A **rate** or **share** is a level, kept as one.
+- **Charge cycles in total** and **Tank fills in total** are running
+  totals, **Fuel consumption** a level.
+
+Distances and litres follow the instance's units, as above. Rates are
+shown as they are — `kWh/100km`, `L/100km`, and costs per 100 km in the
+instance's currency — without conversion; shares in per cent. Costs are
+shown in the instance's currency, the one the receipt form asks for.
+
+The month's and year's energy sums can be added to Home Assistant's
+energy dashboard. Do not add **Grid energy** next to a wallbox meter
+that already measures the same charging: the dashboard would count it
+twice.
+
+**Corrected history.** An entity's statistics keep what it showed at the
+time, so when a rebuild corrects a past month — a corrected receipt, a
+changed parameter — its statistics keep the old value. The ledger
+therefore also writes every metric as a statistic of its own, one value
+per month, and writes the whole series again whenever a run changes the
+months. These are named after the vehicle and the metric — *Golf
+Distance* — with the id `vledger:<subject>_<metric>`; in a **Statistics
+graph** card, pick them with the period *Month* (the change for a sum,
+the mean for a rate). Use the entities for the month under way and these
+for the history. Removing a vehicle leaves them in the recorder; delete
+them under *Developer tools → Statistics*.
 
 ### Receipts in Home Assistant
 
@@ -570,6 +634,7 @@ vledger l1 status --vehicle a7c1                 # the manifest, what waits for 
 vledger l1 read --vehicle a7c1 --kind trip       # the events, as l0 read prints lines
 vledger l1 read --vehicle a7c1 --kind trip --last 1   # only the last one, read from the end of the file
 vledger l1 update --vehicle a7c1                 # what the integration runs live: append what completed, print what is new
+vledger l1 read --vehicle a7c1 --kind period --current   # the current month, year, rolling and lifetime lines
 vledger l1 clean --vehicle a7c1                  # delete l1/ — it is regenerable
 ```
 

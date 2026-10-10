@@ -34,6 +34,7 @@ from .const import (
     OPT_NOTIFY_TARGET,
     SERVICE_RECOMPUTE,
 )
+from .external_statistics import MonthlyStatistics
 from .l1view import L1View
 from .l1writer import L1Writer
 from .receipt_desk import ReceiptDesk
@@ -50,14 +51,16 @@ RECOMPUTE_SCHEMA = vol.Schema({vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string})
 @dataclass
 class Vledger:
     """What one config entry runs: the raw log and the derivation on disk,
-    and for a vehicle the receipt desk (ADR-0015), what its event
-    entities display (ADR-0016) and what announces new events (ADR-0020)."""
+    and for a vehicle the receipt desk (ADR-0015), what its event and
+    metric entities display (ADR-0016, ADR-0018), its months as external
+    statistics (ADR-0019) and what announces new events (ADR-0020)."""
 
     capture: Capture
     l1: L1Writer
     desk: ReceiptDesk | None
     view: L1View | None = None
     announcer: Announcer | None = None
+    statistics: MonthlyStatistics | None = None
 
 
 type VledgerConfigEntry = ConfigEntry[Vledger]
@@ -104,7 +107,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: VledgerConfigEntry) -> b
     desk = ReceiptDesk(hass, capture, writer) if vehicle else None
     view = L1View(hass, capture, writer) if vehicle else None
     announcer = Announcer(hass, entry, capture, writer) if vehicle else None
-    entry.runtime_data = Vledger(capture, writer, desk, view, announcer)
+    statistics = MonthlyStatistics(hass, capture, writer) if vehicle else None
+    entry.runtime_data = Vledger(capture, writer, desk, view, announcer, statistics)
     await capture.async_start()
     await writer.async_start()
     if desk:
@@ -113,6 +117,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: VledgerConfigEntry) -> b
         view.async_start()
     if announcer:
         announcer.async_start()
+    if statistics:
+        statistics.async_start()
 
     async def on_hass_stop(_: Event) -> None:
         await writer.async_stop()
@@ -139,6 +145,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: VledgerConfigEntry) -> 
         entry.runtime_data.view.async_stop()
     if entry.runtime_data.announcer:
         entry.runtime_data.announcer.async_stop()
+    if entry.runtime_data.statistics:
+        entry.runtime_data.statistics.async_stop()
     await entry.runtime_data.l1.async_stop()
     capture = entry.runtime_data.capture
     await capture.async_stop(capture.stop_reason or "unload")

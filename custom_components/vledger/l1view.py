@@ -1,13 +1,14 @@
 # SPDX-License-Identifier: BSD-3-Clause
-"""What the event entities display (ADR-0016): per vehicle, the last event
-of every kind it has and the count of events waiting for a receipt.
+"""What the event and metric entities display (ADR-0016, ADR-0018): per
+vehicle, the last event of every kind it has, the count of events waiting
+for a receipt, and the current lines of ``periods.jsonl``.
 
 The view reads L1 through the library's functions only (``l1.last``,
-``l1.waiting``; ADR-0016, point 8), in one executor job that all of the
-vehicle's event entities share. It reads once at start, so the entities
-show what is on disk before the writer's first run, and again after every
-run of the writer (point 7). L1 is authoritative; this only displays it
-(ARC-05).
+``l1.waiting``, ``l1.current_periods``; ADR-0016, point 8; ADR-0018,
+point 6), in one executor job that all of the vehicle's entities share.
+It reads once at start, so the entities show what is on disk before the
+writer's first run, and again after every run of the writer (point 7).
+L1 is authoritative; this only displays it (ARC-05).
 """
 
 from __future__ import annotations
@@ -55,6 +56,8 @@ class L1View:
         self.last: dict[str, dict | None] = dict.fromkeys(self.kinds)
         #: Per kind that takes a receipt, the count per waiting confirmation.
         self.waiting: dict[str, dict[str, int]] = {}
+        #: The current month, year, rolling and lifetime lines, or None.
+        self.periods: dict[str, dict | None] = dict.fromkeys(l1.CURRENT)
         self._lock = asyncio.Lock()
         self._listeners: list[Callable[[], None]] = []
         self._unlisten: CALLBACK_TYPE | None = None
@@ -83,13 +86,13 @@ class L1View:
         # Serialised, so an earlier read never lands after a later one.
         async with self._lock:
             try:
-                self.last, self.waiting = await self.hass.async_add_executor_job(self._read)
+                self.last, self.waiting, self.periods = await self.hass.async_add_executor_job(self._read)
             except Exception:
                 _LOGGER.exception("vledger: could not read L1 of %s", self.subject.id)
                 return
         self._notify()
 
-    def _read(self) -> tuple[dict[str, dict | None], dict[str, dict[str, int]]]:
+    def _read(self) -> tuple[dict[str, dict | None], dict[str, dict[str, int]], dict[str, dict | None]]:
         last = {}
         for kind in self.kinds:
             events = l1.last(self.base, self.subject, kind)
@@ -98,7 +101,7 @@ class L1View:
         if self.receipt_kinds:
             counts = l1.waiting(self.base, self.subject)
             waiting = {k: counts[k] for k in self.receipt_kinds}
-        return last, waiting
+        return last, waiting, l1.current_periods(self.base, self.subject)
 
     def listen(self, cb: Callable[[], None]) -> CALLBACK_TYPE:
         self._listeners.append(cb)
