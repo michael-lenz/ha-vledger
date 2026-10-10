@@ -44,7 +44,7 @@ _ROLE_DOMAINS: dict[str, list[str]] = {
     "ignition": ["sensor", "binary_sensor"], "outside_temperature": ["sensor"],
     "fuel_price": ["sensor"], "engine": ["sensor", "binary_sensor"],
     "lock": ["lock", "sensor", "binary_sensor"], "in_use": ["sensor", "binary_sensor"],
-    "fuel_flap": ["sensor", "binary_sensor"],
+    "fuel_flap": ["sensor", "binary_sensor"], "trip_consumption": ["sensor"],
 }
 
 _THRESHOLD_UNITS = {
@@ -53,6 +53,7 @@ _THRESHOLD_UNITS = {
     "heartbeat_s": "s", "outage_s": "s", "rolling_period_d": "d",
     "consumption_error_pct": "%", "heating_value_kwh_per_l": "kWh/L",
     "beta_per_k": "1/K", "temperature_tau_s": "s", "exit_window_s": "s",
+    "trip_consumption_step_l_per_100km": "L/100 km",
 }
 
 
@@ -87,6 +88,7 @@ def _all_parameters_schema() -> vol.Schema:
         vol.Optional("tank_capacity_l"): _number("L"),
         vol.Optional("battery_net_kwh"): _number("kWh"),
         vol.Optional("fuel_level_resolution_l"): _number("L"),
+        vol.Optional("soc_resolution_pct"): _number("%"),
         vol.Optional("charging_loss_factor"): _number(minimum=1),
         vol.Optional("eta_el"): _number(),
         vol.Optional("eta_ice"): _number(),

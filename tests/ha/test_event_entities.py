@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """The event entities (ADR-0016): the last trip, refuelling and charging
 session and the count of what waits for a receipt — shown as L1 holds them,
-read back with the library."""
+read back with the library — and the last trip's consumption (ADR-0025)."""
 
 import dataclasses
 import json
@@ -26,11 +26,21 @@ def refuelling(minutes, delta_l=40.0):
             "sensor_delta_l": delta_l, "sensor_delta_quality": "estimated", "version": "x"}
 
 
-def trip(minutes, km):
+def trip(minutes, km, **consumption):
     return {"kind": "trip", "subject": V.id, "start": at(minutes), "end": at(minutes + 30),
             "quality": "measured", "distance_km": km, "distance_quality": "measured",
             "distance_source": "odometer", "start_position": {"latitude": 51.0, "longitude": 7.0},
-            "waypoints": [{"t": at(minutes), "latitude": 51.0, "longitude": 7.0}], "version": "x"}
+            "waypoints": [{"t": at(minutes), "latitude": 51.0, "longitude": 7.0}], "version": "x",
+            **consumption}
+
+
+def consumption(**given):
+    """The consumption keys of a trip line (ADR-0025, point 1), null unless given."""
+    keys = ("fuel_consumed_l", "fuel_consumed_quality", "fuel_consumed_source", "fuel_consumed_error_l",
+            "fuel_l_per_100km", "fuel_l_per_100km_quality", "fuel_l_per_100km_error_pct",
+            "battery_consumed_kwh", "battery_consumed_quality", "battery_consumed_error_kwh",
+            "battery_kwh_per_100km", "battery_kwh_per_100km_quality", "battery_kwh_per_100km_error_pct")
+    return {k: given.get(k) for k in keys}
 
 
 def session(minutes, kwh):
@@ -48,10 +58,12 @@ def _state(hass, entity_id):
 async def test_which_entities_a_vehicle_gets(hass, vehicle_entry, phev_entry, chargepoint_entry):
     await _setup(hass, vehicle_entry, phev_entry, chargepoint_entry)
     ids = set(hass.states.async_entity_ids("sensor"))
-    event_sensors = {"last_trip", "last_refuelling", "last_charging_session", "waiting_for_a_receipt"}
-    # Petrol only: no charging session to show.
+    event_sensors = {"last_trip", "last_refuelling", "last_charging_session", "waiting_for_a_receipt",
+                     "last_trip_fuel_consumption", "last_trip_electricity_consumption"}
+    # Petrol only: no charging session and no electricity consumption to show.
     assert {i for i in ids if i.removeprefix("sensor.volvo_") in event_sensors} == {
-        "sensor.volvo_last_trip", "sensor.volvo_last_refuelling", "sensor.volvo_waiting_for_a_receipt"}
+        "sensor.volvo_last_trip", "sensor.volvo_last_refuelling", "sensor.volvo_waiting_for_a_receipt",
+        "sensor.volvo_last_trip_fuel_consumption"}
     assert {i for i in ids if i.removeprefix("sensor.golf_") in event_sensors} == {
         f"sensor.golf_{k}" for k in event_sensors}
     assert not [i for i in ids if i.removeprefix("sensor.home_") in event_sensors]
@@ -139,6 +151,31 @@ async def test_unavailable_while_l1_is_rebuilt(hass, vehicle_entry):
     assert _state(hass, "sensor.volvo_last_trip").state == "unknown"
 
 
+async def test_the_last_trips_consumption_is_a_slice_of_its_line(hass, phev_entry, stand_in):
+    """ADR-0025, point 5: the rate as the state, the keys it rests on as
+    the attributes, no state class, the unit as it is."""
+    stand_in["trip"].append(trip(0, 25.0, **consumption(
+        fuel_consumed_l=1.75, fuel_consumed_quality="measured", fuel_consumed_source="trip_computer",
+        fuel_consumed_error_l=0.113, fuel_l_per_100km=7.0, fuel_l_per_100km_quality="measured",
+        fuel_l_per_100km_error_pct=6.4, battery_consumed_kwh=0.05, battery_consumed_quality="estimated",
+        battery_consumed_error_kwh=0.208)))      # the battery figure is swallowed by its error
+    await _setup(hass, phev_entry)
+    s = _state(hass, "sensor.golf_last_trip_fuel_consumption")
+    assert float(s.state) == 7.0 and s.attributes["unit_of_measurement"] == "L/100 km"
+    assert "state_class" not in s.attributes and "device_class" not in s.attributes
+    assert s.attributes["state_quality"] == "measured"
+    assert s.attributes["fuel_consumed_source"] == "trip_computer"
+    assert s.attributes["fuel_consumed_error_l"] == 0.113 and s.attributes["fuel_l_per_100km_error_pct"] == 6.4
+    assert s.attributes["distance_km"] == 25.0 and s.attributes["start"] == at(0)
+    assert "battery_consumed_kwh" not in s.attributes and "waypoints" not in s.attributes
+    e = _state(hass, "sensor.golf_last_trip_electricity_consumption")
+    assert e.state == "unknown" and e.attributes["unit_of_measurement"] == "kWh/100 km"
+    assert e.attributes["battery_consumed_kwh"] == 0.05 and e.attributes["state_quality"] is None
+    assert "fuel_consumed_l" not in e.attributes
+    # The whole line stays the last trip's.
+    assert _state(hass, "sensor.golf_last_trip").attributes["fuel_l_per_100km"] == 7.0
+
+
 def test_positions_stay_out_of_the_recorder():
     from custom_components.vledger.sensor import LastEventSensor
 
@@ -165,10 +202,15 @@ def test_every_attribute_has_a_name_in_both_languages():
     from custom_components.vledger.sensor import EVENT_SENSORS
 
     shapes = {"trip": trips.Trip, "refuelling": refuellings.Refuelling, "charging": charging.Session}
+    from custom_components.vledger.sensor import CONSUMPTION_SENSORS
+
     for lang in ("strings.json", "translations/en.json", "translations/de.json"):
         sensors = json.loads((ROOT / lang).read_text())["entity"]["sensor"]
         for d in EVENT_SENSORS:
             named = set(sensors[d.translation_key]["state_attributes"])
             assert _keys(d.kind, shapes[d.kind]) <= named, (lang, d.kind)
+        for d in CONSUMPTION_SENSORS:
+            named = set(sensors[d.translation_key]["state_attributes"])
+            assert set(d.attributes) | {"state_quality"} <= named, (lang, d.key)
         waiting = set(sensors["unconfirmed_candidates"]["state_attributes"])
         assert waiting == {f"{k}_{s}" for k in receipts.EVENT_KINDS for s in l1.WAITING}

@@ -3,7 +3,9 @@
 sensors about the raw log (TASK-0008): what the stream holds and how it is
 filling, without opening a file browser. For a vehicle, the event sensors
 (ADR-0016): the last trip, refuelling and charging session, and how many
-events wait for a receipt — read from L1, never derived here (ARC-05)."""
+events wait for a receipt — read from L1, never derived here (ARC-05) —
+and the last trip's consumption per 100 km, fuel and electricity, each a
+slice of the same trip line (ADR-0025, point 5)."""
 
 from __future__ import annotations
 
@@ -36,6 +38,11 @@ from .const import STATUS_RECOMPUTING, STATUS_RUNNING, STATUS_STOPPED
 from .entity import device_info
 from .l1view import NOT_ATTRIBUTES, POSITIONS, TRIP, L1View
 from .l1writer import L1Writer
+from .receipt_desk import CHARGING, REFUELLING
+
+#: The units Home Assistant has no device class for (ADR-0018, point 4;
+#: ISSUE-0028): shown as they are, unconverted.
+LITRES_PER_100KM, KWH_PER_100KM = "L/100 km", "kWh/100 km"
 
 
 def _time(t: str | None) -> datetime | None:
@@ -131,6 +138,36 @@ EVENT_SENSORS: tuple[EventSensorDescription, ...] = (
         values=(("grid_kwh", "grid_kwh_quality"),)),
 )
 
+
+@dataclass(frozen=True, kw_only=True)
+class ConsumptionSensorDescription(EventSensorDescription):
+    #: The receipt kind whose gate this shares (ADR-0016, point 1): a fuel
+    #: figure for a vehicle with a fuel, a battery figure with a capacity.
+    gate: str
+    #: The keys of the trip line this figure rests on, shown as attributes.
+    attributes: tuple[str, ...]
+
+
+CONSUMPTION_SENSORS: tuple[ConsumptionSensorDescription, ...] = (
+    ConsumptionSensorDescription(
+        key="last_trip_fuel_consumption", translation_key="last_trip_fuel_consumption",
+        kind=TRIP, gate=REFUELLING, native_unit_of_measurement=LITRES_PER_100KM,
+        suggested_display_precision=1,
+        values=(("fuel_l_per_100km", "fuel_l_per_100km_quality"),),
+        attributes=("start", "end", "quality", "distance_km", "distance_quality",
+                    "fuel_consumed_l", "fuel_consumed_quality", "fuel_consumed_source",
+                    "fuel_consumed_error_l", "fuel_l_per_100km_error_pct")),
+    ConsumptionSensorDescription(
+        key="last_trip_electricity_consumption", translation_key="last_trip_electricity_consumption",
+        kind=TRIP, gate=CHARGING, native_unit_of_measurement=KWH_PER_100KM,
+        suggested_display_precision=1,
+        values=(("battery_kwh_per_100km", "battery_kwh_per_100km_quality"),),
+        attributes=("start", "end", "quality", "distance_km", "distance_quality",
+                    "battery_consumed_kwh", "battery_consumed_quality",
+                    "battery_consumed_error_kwh", "battery_kwh_per_100km_error_pct")),
+)
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: VledgerConfigEntry,
                             add_entities: AddEntitiesCallback) -> None:
     capture = entry.runtime_data.capture
@@ -141,6 +178,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: VledgerConfigEntry,
         writer = entry.runtime_data.l1
         entities += [LastEventSensor(view, writer, capture, d)
                      for d in EVENT_SENSORS if d.kind in view.kinds]
+        entities += [ConsumptionSensor(view, writer, capture, d)
+                     for d in CONSUMPTION_SENSORS if d.gate in view.receipt_kinds]
         if view.receipt_kinds:
             entities.append(WaitingSensor(view, writer, capture))
     add_entities(entities)
@@ -270,6 +309,24 @@ class LastEventSensor(_L1Sensor):
         if e is None:
             return None
         attrs = {k: v for k, v in e.items() if k not in NOT_ATTRIBUTES}
+        attrs["state_quality"] = self._value()[1]
+        return attrs
+
+
+class ConsumptionSensor(LastEventSensor):
+    """The last trip's consumption per 100 km (ADR-0025, point 5): the rate
+    as the state — unknown where the trip was too short for one — and the
+    slice of the trip line it rests on as the attributes. No state class:
+    one trip is not a statistic (ADR-0016, point 5)."""
+
+    entity_description: ConsumptionSensorDescription
+
+    @property
+    def extra_state_attributes(self) -> dict | None:
+        e = self._event
+        if e is None:
+            return None
+        attrs = {k: e.get(k) for k in self.entity_description.attributes}
         attrs["state_quality"] = self._value()[1]
         return attrs
 

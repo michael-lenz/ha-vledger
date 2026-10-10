@@ -31,7 +31,8 @@
           "engine": "Motor läuft",
           "lock": "Schloss",
           "in_use": "Fahrzeug in Benutzung",
-          "fuel_flap": "Tankklappe"
+          "fuel_flap": "Tankklappe",
+          "trip_consumption": "Bordcomputer: Durchschnittsverbrauch"
         }
       },
       "mapping": {
@@ -109,7 +110,8 @@
           "engine": "Motor läuft",
           "lock": "Schloss",
           "in_use": "Fahrzeug in Benutzung",
-          "fuel_flap": "Tankklappe"
+          "fuel_flap": "Tankklappe",
+          "trip_consumption": "Bordcomputer: Durchschnittsverbrauch"
         }
       },
       "mapping": {
@@ -136,7 +138,8 @@
           "eta_ice": "Wirkungsgrad Kraftstoff bis Rad",
           "charge_cycles_start": "Ladezyklen vor Erfassungsbeginn",
           "tank_fills_start": "Tankfüllungen vor Erfassungsbeginn",
-          "movement_reporting": "Wie Bewegung gemeldet wird"
+          "movement_reporting": "Wie Bewegung gemeldet wird",
+          "soc_resolution_pct": "Auflösung des Ladestandsensors"
         }
       },
       "thresholds": {
@@ -155,7 +158,8 @@
           "heating_value_kwh_per_l": "Heizwert",
           "beta_per_k": "Wärmeausdehnungskoeffizient",
           "temperature_tau_s": "Tiefpass-Zeitkonstante der Außentemperatur",
-          "exit_window_s": "Aussteige-Fenster um eine Ankunft (Fahrzeuge mit Meldung pro Fahrzyklus)"
+          "exit_window_s": "Aussteige-Fenster um eine Ankunft (Fahrzeuge mit Meldung pro Fahrzyklus)",
+          "trip_consumption_step_l_per_100km": "Anzeigeschritt des Bordcomputer-Durchschnitts"
         }
       },
       "meter": {
@@ -281,6 +285,73 @@
           },
           "movements_while_plugged": {
             "name": "Bewegungen bei eingestecktem Stecker"
+          },
+          "fuel_consumed_l": {
+            "name": "Verbrauchter Kraftstoff (L)"
+          },
+          "fuel_consumed_quality": {
+            "name": "Qualität des verbrauchten Kraftstoffs",
+            "state": {
+              "measured": "Gemessen",
+              "receipt": "Beleg",
+              "estimated": "Geschätzt",
+              "incomplete": "Unvollständig"
+            }
+          },
+          "fuel_consumed_source": {
+            "name": "Quelle des verbrauchten Kraftstoffs",
+            "state": {
+              "trip_computer": "Bordcomputer",
+              "fuel_level": "Kraftstoffstand"
+            }
+          },
+          "fuel_consumed_error_l": {
+            "name": "Verbrauchter Kraftstoff, möglicher Fehler (L)"
+          },
+          "fuel_l_per_100km": {
+            "name": "Kraftstoffverbrauch (L/100 km)"
+          },
+          "fuel_l_per_100km_quality": {
+            "name": "Qualität des Kraftstoffverbrauchs",
+            "state": {
+              "measured": "Gemessen",
+              "receipt": "Beleg",
+              "estimated": "Geschätzt",
+              "incomplete": "Unvollständig"
+            }
+          },
+          "fuel_l_per_100km_error_pct": {
+            "name": "Kraftstoffverbrauch, möglicher Fehler (%)"
+          },
+          "battery_consumed_kwh": {
+            "name": "Verbrauchte Batterieenergie (kWh)"
+          },
+          "battery_consumed_quality": {
+            "name": "Qualität der verbrauchten Batterieenergie",
+            "state": {
+              "measured": "Gemessen",
+              "receipt": "Beleg",
+              "estimated": "Geschätzt",
+              "incomplete": "Unvollständig"
+            }
+          },
+          "battery_consumed_error_kwh": {
+            "name": "Verbrauchte Batterieenergie, möglicher Fehler (kWh)"
+          },
+          "battery_kwh_per_100km": {
+            "name": "Stromverbrauch (kWh/100 km)"
+          },
+          "battery_kwh_per_100km_quality": {
+            "name": "Qualität des Stromverbrauchs",
+            "state": {
+              "measured": "Gemessen",
+              "receipt": "Beleg",
+              "estimated": "Geschätzt",
+              "incomplete": "Unvollständig"
+            }
+          },
+          "battery_kwh_per_100km_error_pct": {
+            "name": "Stromverbrauch, möglicher Fehler (%)"
           }
         }
       },
@@ -510,6 +581,119 @@
           }
         }
       },
+        "last_trip_fuel_consumption": {
+          "name": "Kraftstoffverbrauch der letzten Fahrt",
+          "state_attributes": {
+            "start": {
+              "name": "Beginn"
+            },
+            "end": {
+              "name": "Ende"
+            },
+            "quality": {
+              "name": "Qualität",
+              "state": {
+                "measured": "Gemessen",
+                "receipt": "Beleg",
+                "estimated": "Geschätzt",
+                "incomplete": "Unvollständig"
+              }
+            },
+            "state_quality": {
+              "name": "Qualität des Zustands",
+              "state": {
+                "measured": "Gemessen",
+                "receipt": "Beleg",
+                "estimated": "Geschätzt",
+                "incomplete": "Unvollständig"
+              }
+            },
+            "distance_km": {
+              "name": "Strecke (km)"
+            },
+            "distance_quality": {
+              "name": "Qualität der Strecke"
+            },
+            "fuel_consumed_l": {
+              "name": "Verbrauchter Kraftstoff (L)"
+            },
+            "fuel_consumed_quality": {
+              "name": "Qualität des verbrauchten Kraftstoffs",
+              "state": {
+                "measured": "Gemessen",
+                "receipt": "Beleg",
+                "estimated": "Geschätzt",
+                "incomplete": "Unvollständig"
+              }
+            },
+            "fuel_consumed_source": {
+              "name": "Quelle des verbrauchten Kraftstoffs",
+              "state": {
+                "trip_computer": "Bordcomputer",
+                "fuel_level": "Kraftstoffstand"
+              }
+            },
+            "fuel_consumed_error_l": {
+              "name": "Verbrauchter Kraftstoff, möglicher Fehler (L)"
+            },
+            "fuel_l_per_100km_error_pct": {
+              "name": "Kraftstoffverbrauch, möglicher Fehler (%)"
+            }
+          }
+        },
+        "last_trip_electricity_consumption": {
+          "name": "Stromverbrauch der letzten Fahrt",
+          "state_attributes": {
+            "start": {
+              "name": "Beginn"
+            },
+            "end": {
+              "name": "Ende"
+            },
+            "quality": {
+              "name": "Qualität",
+              "state": {
+                "measured": "Gemessen",
+                "receipt": "Beleg",
+                "estimated": "Geschätzt",
+                "incomplete": "Unvollständig"
+              }
+            },
+            "state_quality": {
+              "name": "Qualität des Zustands",
+              "state": {
+                "measured": "Gemessen",
+                "receipt": "Beleg",
+                "estimated": "Geschätzt",
+                "incomplete": "Unvollständig"
+              }
+            },
+            "distance_km": {
+              "name": "Strecke (km)"
+            },
+            "distance_quality": {
+              "name": "Qualität der Strecke"
+            },
+            "battery_consumed_kwh": {
+              "name": "Verbrauchte Batterieenergie (kWh)"
+            },
+            "battery_consumed_quality": {
+              "name": "Qualität der verbrauchten Batterieenergie",
+              "state": {
+                "measured": "Gemessen",
+                "receipt": "Beleg",
+                "estimated": "Geschätzt",
+                "incomplete": "Unvollständig"
+              }
+            },
+            "battery_consumed_error_kwh": {
+              "name": "Verbrauchte Batterieenergie, möglicher Fehler (kWh)"
+            },
+            "battery_kwh_per_100km_error_pct": {
+              "name": "Stromverbrauch, möglicher Fehler (%)"
+            }
+          }
+        },
       "unconfirmed_candidates": {
         "name": "Wartet auf einen Beleg",
         "state_attributes": {

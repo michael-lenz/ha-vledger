@@ -34,15 +34,22 @@ record; every earlier version stays readable.
 or charge point data. The system reads it and never asks it to refresh.
 
 **Role.** The domain meaning of a source entity: `odometer`, `position`,
-`trip_distance`, `fuel_level`, `soc`, `charging_state`, `plug_state`,
-`ignition`, `engine`, `lock`, `in_use`, `fuel_flap`, `outside_temperature`,
-`fuel_price` for a vehicle;
+`trip_distance`, `trip_consumption`, `fuel_level`, `soc`, `charging_state`,
+`plug_state`, `ignition`, `engine`, `lock`, `in_use`, `fuel_flap`,
+`outside_temperature`, `fuel_price` for a vehicle;
 `energy_meter` for a charge point — and `power`, which nothing assigns
 yet (ISSUE-0023). Every role is optional; what a vehicle can do follows
 from the roles it has.
 
 **Movement role.** `odometer`, `position` or `trip_distance` — a role whose
 change means the vehicle moved. At least one is mandatory.
+
+**Trip computer.** The car's own trip meter: its distance since its reset
+is the trip counter (`trip_distance`), its average consumption since the
+same reset is `trip_consumption`, in L/100 km. Together they say how much
+fuel the car measured since the reset — distance × average / 100 — and the
+difference between two readings is a trip's fuel, to a tenth of a litre
+where the fuel level sensor errs by one (ADR-0025).
 
 **Sampling interval.** The actual time between two updates of a source
 entity, as measured, not as promised: a state line's time minus the last
@@ -215,16 +222,17 @@ reported together with the number of gaps.
 ## Parameters
 
 **Vehicle parameters.** Tank capacity, net battery capacity, fuel type, the
-two counters' starting values, the fuel level sensor's resolution, the
-charging loss factor, the efficiencies, and how the vehicle reports
-movement — sampled while driving, or once per driving cycle (ADR-0024). Each is mandatory only when an
-enabled derivation needs it.
+two counters' starting values, the fuel level sensor's resolution and the
+state of charge sensor's, the charging loss factor, the efficiencies, and
+how the vehicle reports movement — sampled while driving, or once per
+driving cycle (ADR-0024). Each is mandatory only when an enabled
+derivation needs it.
 
 **Thresholds and time constants.** T_still, the refuelling threshold,
 T_settle, the charging threshold (SoC fallback), the matching tolerance,
 the plausibility threshold receipt/sensor, the heartbeat interval, the
 outage threshold, the rolling period, the consumption error threshold, the
 heating values, the thermal expansion coefficients and the temperature
-low-pass time constant, and the exit window around an arrival. All
-configurable per vehicle; each requirement
-that uses one states its default.
+low-pass time constant, the exit window around an arrival, and the
+display step of the trip computer's average. All configurable per
+vehicle; each requirement that uses one states its default.

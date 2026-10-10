@@ -31,7 +31,8 @@
           "engine": "Engine running",
           "lock": "Lock",
           "in_use": "Vehicle in use",
-          "fuel_flap": "Fuel flap"
+          "fuel_flap": "Fuel flap",
+          "trip_consumption": "Trip computer: average consumption"
         }
       },
       "mapping": {
@@ -109,7 +110,8 @@
           "engine": "Engine running",
           "lock": "Lock",
           "in_use": "Vehicle in use",
-          "fuel_flap": "Fuel flap"
+          "fuel_flap": "Fuel flap",
+          "trip_consumption": "Trip computer: average consumption"
         }
       },
       "mapping": {
@@ -136,7 +138,8 @@
           "eta_ice": "Efficiency fuel to wheel",
           "charge_cycles_start": "Charge cycles before capture began",
           "tank_fills_start": "Tank fills before capture began",
-          "movement_reporting": "How movement is reported"
+          "movement_reporting": "How movement is reported",
+          "soc_resolution_pct": "State of charge sensor resolution"
         }
       },
       "thresholds": {
@@ -155,7 +158,8 @@
           "heating_value_kwh_per_l": "Lower heating value",
           "beta_per_k": "Thermal expansion coefficient",
           "temperature_tau_s": "Temperature low-pass time constant",
-          "exit_window_s": "Exit window around an arrival (per-cycle vehicles)"
+          "exit_window_s": "Exit window around an arrival (per-cycle vehicles)",
+          "trip_consumption_step_l_per_100km": "Display step of the trip computer's average"
         }
       },
       "meter": {
@@ -281,6 +285,73 @@
           },
           "movements_while_plugged": {
             "name": "Movements while plugged in"
+          },
+          "fuel_consumed_l": {
+            "name": "Fuel consumed (L)"
+          },
+          "fuel_consumed_quality": {
+            "name": "Fuel consumed quality",
+            "state": {
+              "measured": "Measured",
+              "receipt": "Receipt",
+              "estimated": "Estimated",
+              "incomplete": "Incomplete"
+            }
+          },
+          "fuel_consumed_source": {
+            "name": "Fuel consumed source",
+            "state": {
+              "trip_computer": "Trip computer",
+              "fuel_level": "Fuel level"
+            }
+          },
+          "fuel_consumed_error_l": {
+            "name": "Fuel consumed, possible error (L)"
+          },
+          "fuel_l_per_100km": {
+            "name": "Fuel consumption (L/100 km)"
+          },
+          "fuel_l_per_100km_quality": {
+            "name": "Fuel consumption quality",
+            "state": {
+              "measured": "Measured",
+              "receipt": "Receipt",
+              "estimated": "Estimated",
+              "incomplete": "Incomplete"
+            }
+          },
+          "fuel_l_per_100km_error_pct": {
+            "name": "Fuel consumption, possible error (%)"
+          },
+          "battery_consumed_kwh": {
+            "name": "Battery energy consumed (kWh)"
+          },
+          "battery_consumed_quality": {
+            "name": "Battery energy consumed quality",
+            "state": {
+              "measured": "Measured",
+              "receipt": "Receipt",
+              "estimated": "Estimated",
+              "incomplete": "Incomplete"
+            }
+          },
+          "battery_consumed_error_kwh": {
+            "name": "Battery energy consumed, possible error (kWh)"
+          },
+          "battery_kwh_per_100km": {
+            "name": "Electricity consumption (kWh/100 km)"
+          },
+          "battery_kwh_per_100km_quality": {
+            "name": "Electricity consumption quality",
+            "state": {
+              "measured": "Measured",
+              "receipt": "Receipt",
+              "estimated": "Estimated",
+              "incomplete": "Incomplete"
+            }
+          },
+          "battery_kwh_per_100km_error_pct": {
+            "name": "Electricity consumption, possible error (%)"
           }
         }
       },
@@ -510,6 +581,119 @@
           }
         }
       },
+        "last_trip_fuel_consumption": {
+          "name": "Last trip fuel consumption",
+          "state_attributes": {
+            "start": {
+              "name": "Start"
+            },
+            "end": {
+              "name": "End"
+            },
+            "quality": {
+              "name": "Quality",
+              "state": {
+                "measured": "Measured",
+                "receipt": "Receipt",
+                "estimated": "Estimated",
+                "incomplete": "Incomplete"
+              }
+            },
+            "state_quality": {
+              "name": "Quality of the state",
+              "state": {
+                "measured": "Measured",
+                "receipt": "Receipt",
+                "estimated": "Estimated",
+                "incomplete": "Incomplete"
+              }
+            },
+            "distance_km": {
+              "name": "Distance (km)"
+            },
+            "distance_quality": {
+              "name": "Distance quality"
+            },
+            "fuel_consumed_l": {
+              "name": "Fuel consumed (L)"
+            },
+            "fuel_consumed_quality": {
+              "name": "Fuel consumed quality",
+              "state": {
+                "measured": "Measured",
+                "receipt": "Receipt",
+                "estimated": "Estimated",
+                "incomplete": "Incomplete"
+              }
+            },
+            "fuel_consumed_source": {
+              "name": "Fuel consumed source",
+              "state": {
+                "trip_computer": "Trip computer",
+                "fuel_level": "Fuel level"
+              }
+            },
+            "fuel_consumed_error_l": {
+              "name": "Fuel consumed, possible error (L)"
+            },
+            "fuel_l_per_100km_error_pct": {
+              "name": "Fuel consumption, possible error (%)"
+            }
+          }
+        },
+        "last_trip_electricity_consumption": {
+          "name": "Last trip electricity consumption",
+          "state_attributes": {
+            "start": {
+              "name": "Start"
+            },
+            "end": {
+              "name": "End"
+            },
+            "quality": {
+              "name": "Quality",
+              "state": {
+                "measured": "Measured",
+                "receipt": "Receipt",
+                "estimated": "Estimated",
+                "incomplete": "Incomplete"
+              }
+            },
+            "state_quality": {
+              "name": "Quality of the state",
+              "state": {
+                "measured": "Measured",
+                "receipt": "Receipt",
+                "estimated": "Estimated",
+                "incomplete": "Incomplete"
+              }
+            },
+            "distance_km": {
+              "name": "Distance (km)"
+            },
+            "distance_quality": {
+              "name": "Distance quality"
+            },
+            "battery_consumed_kwh": {
+              "name": "Battery energy consumed (kWh)"
+            },
+            "battery_consumed_quality": {
+              "name": "Battery energy consumed quality",
+              "state": {
+                "measured": "Measured",
+                "receipt": "Receipt",
+                "estimated": "Estimated",
+                "incomplete": "Incomplete"
+              }
+            },
+            "battery_consumed_error_kwh": {
+              "name": "Battery energy consumed, possible error (kWh)"
+            },
+            "battery_kwh_per_100km_error_pct": {
+              "name": "Electricity consumption, possible error (%)"
+            }
+          }
+        },
       "unconfirmed_candidates": {
         "name": "Waiting for a receipt",
         "state_attributes": {

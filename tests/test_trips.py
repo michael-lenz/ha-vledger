@@ -10,7 +10,7 @@ import json
 from datetime import timedelta
 from itertools import pairwise
 
-from vledger import clock, geo, series, trips, units
+from vledger import clock, export, geo, series, trips, units
 from vledger.cli import main
 from vledger.layout import Subject
 
@@ -622,3 +622,109 @@ def test_a_late_report_after_a_written_trip_line_by_line_equals_one_rebuild(tmp_
     found = trips.derive_from(tmp_path / "stream", V)
     assert [(t.start, t.end, t.distance_km) for t in found] == [(at(10), at(40), 20), (at(200), at(230), 20)]
     replay(tmp_path / "stream", tmp_path / "replay")
+
+
+# --- a trip's consumption (ADR-0025) -----------------------------------------
+
+def _consumed(t):
+    return {k: v for k, v in trips.to_dict(t).items()
+            if k.startswith(("fuel_consumed", "fuel_l_per", "battery_consumed", "battery_kwh_per"))}
+
+
+def test_from_the_level_a_rate_is_shown_only_when_the_fuel_exceeds_the_sensors_error(tmp_path, capsys):
+    """The drive of test_a_drive_between_two_standstills: 22 km, 1.6 L and
+    18 % of a 10 kWh battery, read with the level good to 0.2 L."""
+    b = Builder(tmp_path, capsys, parameters={"fuel": "petrol", "fuel_level_resolution_l": 0.2,
+                                               "battery_net_kwh": 10})
+    b.heartbeat(0)
+    end = b.drive(60)
+    b.state(end + 3, "soc", 62, "%").state(end + 3, "fuel_level", 18.9, "L")
+    b.heartbeat(end + 60).state(end + 200, "odometer", 1022, "km")
+    [t] = trips.derive_from(tmp_path, V)
+    assert _consumed(t) == {
+        "fuel_consumed_l": 1.6, "fuel_consumed_quality": "estimated",
+        "fuel_consumed_source": "fuel_level", "fuel_consumed_error_l": 0.4,
+        "fuel_l_per_100km": 7.273, "fuel_l_per_100km_quality": "estimated",
+        "fuel_l_per_100km_error_pct": 25.0,
+        "battery_consumed_kwh": 1.8, "battery_consumed_quality": "estimated",
+        "battery_consumed_error_kwh": 0.2,
+        "battery_kwh_per_100km": 8.182, "battery_kwh_per_100km_quality": "estimated",
+        "battery_kwh_per_100km_error_pct": 11.1,
+    }
+    # The keys ride on the trip event, so the verb and the CSV carry them.
+    assert set(_consumed(t)) <= set(export.columns("trip", []))
+
+
+def test_a_level_whose_error_swallows_the_fuel_gives_the_quantity_and_no_rate(tmp_path, capsys):
+    b = Builder(tmp_path, capsys, parameters={"fuel": "petrol", "fuel_level_resolution_l": 1.0})
+    b.heartbeat(0)
+    end = b.drive(60)
+    b.state(end + 3, "fuel_level", 18.9, "L")
+    b.heartbeat(end + 60).state(end + 200, "odometer", 1022, "km")
+    [t] = trips.derive_from(tmp_path, V)
+    c = _consumed(t)
+    assert (c["fuel_consumed_l"], c["fuel_consumed_error_l"]) == (1.6, 2.0)   # 1.6 L, give or take 2
+    assert c["fuel_l_per_100km"] is None and c["fuel_l_per_100km_error_pct"] is None
+    assert c["fuel_l_per_100km_quality"] is None
+    assert c["battery_consumed_kwh"] is None                                    # no capacity
+
+
+def test_without_the_levels_resolution_the_level_gives_no_fuel_figure(tmp_path, capsys):
+    b = Builder(tmp_path, capsys, parameters={"fuel": "petrol"})
+    b.heartbeat(0)
+    end = b.drive(60)
+    b.state(end + 3, "fuel_level", 18.9, "L")
+    b.heartbeat(end + 60).state(end + 200, "odometer", 1022, "km")
+    [t] = trips.derive_from(tmp_path, V)
+    assert t.delta_fuel_l == -1.6                                              # FAH-05 stays
+    assert t.fuel_consumed_l is None and t.fuel_consumed_source is None
+
+
+def test_the_trip_computer_measures_the_fuel_and_a_reset_zeroes_the_start(tmp_path, capsys):
+    """A per-cycle vehicle whose trip counter reports its average since the
+    reset: 100 km at 6.0 then 125 km at 6.2 is 1.75 L for a 25 km leg; after
+    the counter's reset at a departure, 10 km at 8.0 is the whole 0.8 L."""
+    roles = dict(CYCLE_ROLES, trip_consumption={"entity": "sensor.avg"})
+    b = Builder(tmp_path, capsys, roles=roles, parameters=dict(
+        PER_CYCLE, fuel="petrol", fuel_level_resolution_l=1.0))
+    b.state(-30, "trip_distance", 100.0, "km").state(-30, "trip_consumption", 6.0, "L/100 km")
+    b.heartbeat(0)
+    b.state(10, "lock", "unlocked", before=9).state(12, "lock", "locked", before=11)
+    upload(b, 40, 125.0, 1025)
+    b.state(40, "trip_consumption", 6.2, "L/100 km", before=38)
+    b.state(43, "fuel_level", 17.0, "L", before=38)      # the level says 3.5 L: the computer wins
+    b.heartbeat(100)
+    b.state(160, "lock", "unlocked", before=159)
+    upload(b, 180, 10.0, 1035)                            # the counter went down: reset at departure
+    b.state(180, "trip_consumption", 8.0, "L/100 km", before=178)
+    b.heartbeat(230)
+    first, second = trips.derive_from(tmp_path, V, completed_only=True)
+    assert first.distance_km == 25 and first.delta_fuel_l == -3.5
+    assert _consumed(first) == {
+        "fuel_consumed_l": 1.75, "fuel_consumed_quality": "measured",
+        "fuel_consumed_source": "trip_computer", "fuel_consumed_error_l": 0.113,
+        "fuel_l_per_100km": 7.0, "fuel_l_per_100km_quality": "measured",
+        "fuel_l_per_100km_error_pct": 6.4,
+        "battery_consumed_kwh": None, "battery_consumed_quality": None,
+        "battery_consumed_error_kwh": None, "battery_kwh_per_100km": None,
+        "battery_kwh_per_100km_quality": None, "battery_kwh_per_100km_error_pct": None,
+    }
+    assert (second.fuel_consumed_l, second.fuel_consumed_error_l) == (0.8, 0.005)
+    assert (second.fuel_l_per_100km, second.fuel_l_per_100km_error_pct) == (8.0, 0.6)
+
+
+def test_a_trip_across_a_gap_is_incomplete_in_its_consumption_too(tmp_path, capsys):
+    b = Builder(tmp_path, capsys, parameters={"fuel": "petrol", "fuel_level_resolution_l": 0.2})
+    b.heartbeat(0)
+    m = 60
+    b.state(m + 15, "odometer", 1007, "km").fix(m + 15, *ROAD[0])
+    b.run("stop", *b.b, "--t", at(m + 20), "--reason", "shutdown")
+    b.run("start", *b.b, "--t", at(m + 25), "--homeassistant", "2026.9.4")
+    b.state(m + 45, "odometer", 1022, "km").fix(m + 45, *ROAD[2])
+    b.state(m + 48, "fuel_level", 18.9, "L")
+    b.heartbeat(m + 120).state(m + 200, "odometer", 1022, "km")
+    found = trips.derive_from(tmp_path, V)
+    after = [t for t in found if t.start == at(m + 45)]
+    assert after and after[0].quality == "incomplete"
+    assert after[0].fuel_consumed_quality == "incomplete"
+    assert after[0].fuel_l_per_100km_quality in (None, "incomplete")

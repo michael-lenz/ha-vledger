@@ -9,55 +9,131 @@
           "recomputing": "mdi:refresh"
         }
       },
-      "month_file_size": { "default": "mdi:file-outline" },
-      "stream_size": { "default": "mdi:database-outline" },
-      "month_files": { "default": "mdi:file-multiple-outline" },
-      "last_line": { "default": "mdi:text-box-check-outline" },
-      "last_heartbeat": { "default": "mdi:heart-pulse" },
-      "last_state_line": { "default": "mdi:car-clock" },
-      "lines_since_start": { "default": "mdi:counter" },
-      "lines_today": { "default": "mdi:calendar-today" },
-      "capture_gaps": { "default": "mdi:timeline-alert-outline" },
-      "latest_capture_gap": { "default": "mdi:timer-alert-outline" },
-      "last_trip": { "default": "mdi:map-marker-distance" },
-      "last_refuelling": { "default": "mdi:gas-station" },
-      "last_charging_session": { "default": "mdi:ev-station" },
-      "unconfirmed_candidates": { "default": "mdi:receipt-text-clock" }
+      "month_file_size": {
+        "default": "mdi:file-outline"
+      },
+      "stream_size": {
+        "default": "mdi:database-outline"
+      },
+      "month_files": {
+        "default": "mdi:file-multiple-outline"
+      },
+      "last_line": {
+        "default": "mdi:text-box-check-outline"
+      },
+      "last_heartbeat": {
+        "default": "mdi:heart-pulse"
+      },
+      "last_state_line": {
+        "default": "mdi:car-clock"
+      },
+      "lines_since_start": {
+        "default": "mdi:counter"
+      },
+      "lines_today": {
+        "default": "mdi:calendar-today"
+      },
+      "capture_gaps": {
+        "default": "mdi:timeline-alert-outline"
+      },
+      "latest_capture_gap": {
+        "default": "mdi:timer-alert-outline"
+      },
+      "last_trip": {
+        "default": "mdi:map-marker-distance"
+      },
+      "last_refuelling": {
+        "default": "mdi:gas-station"
+      },
+      "last_charging_session": {
+        "default": "mdi:ev-station"
+      },
+      "last_trip_fuel_consumption": {
+        "default": "mdi:fuel"
+      },
+      "last_trip_electricity_consumption": {
+        "default": "mdi:lightning-bolt"
+      },
+      "unconfirmed_candidates": {
+        "default": "mdi:receipt-text-clock"
+      }
     },
     "button": {
-      "refuelling_receipt_enter": { "default": "mdi:gas-station" },
-      "charging_receipt_enter": { "default": "mdi:ev-station" }
+      "refuelling_receipt_enter": {
+        "default": "mdi:gas-station"
+      },
+      "charging_receipt_enter": {
+        "default": "mdi:ev-station"
+      }
     },
     "datetime": {
-      "refuelling_receipt_time": { "default": "mdi:clock-edit-outline" },
-      "charging_receipt_time": { "default": "mdi:clock-edit-outline" }
+      "refuelling_receipt_time": {
+        "default": "mdi:clock-edit-outline"
+      },
+      "charging_receipt_time": {
+        "default": "mdi:clock-edit-outline"
+      }
     },
     "number": {
-      "refuelling_receipt_quantity": { "default": "mdi:fuel" },
-      "refuelling_receipt_total_price": { "default": "mdi:cash" },
-      "refuelling_receipt_unit_price": { "default": "mdi:cash-multiple" },
-      "charging_receipt_quantity": { "default": "mdi:lightning-bolt" },
-      "charging_receipt_total_price": { "default": "mdi:cash" }
+      "refuelling_receipt_quantity": {
+        "default": "mdi:fuel"
+      },
+      "refuelling_receipt_total_price": {
+        "default": "mdi:cash"
+      },
+      "refuelling_receipt_unit_price": {
+        "default": "mdi:cash-multiple"
+      },
+      "charging_receipt_quantity": {
+        "default": "mdi:lightning-bolt"
+      },
+      "charging_receipt_total_price": {
+        "default": "mdi:cash"
+      }
     },
     "select": {
-      "refuelling_receipt_event": { "default": "mdi:receipt-text-clock-outline" },
-      "charging_receipt_event": { "default": "mdi:receipt-text-clock-outline" }
+      "refuelling_receipt_event": {
+        "default": "mdi:receipt-text-clock-outline"
+      },
+      "charging_receipt_event": {
+        "default": "mdi:receipt-text-clock-outline"
+      }
     },
     "switch": {
-      "refuelling_receipt_full": { "default": "mdi:gauge-full" }
+      "refuelling_receipt_full": {
+        "default": "mdi:gauge-full"
+      }
     },
     "text": {
-      "refuelling_receipt_place": { "default": "mdi:map-marker-outline" },
-      "refuelling_receipt_note": { "default": "mdi:note-text-outline" },
-      "charging_receipt_place": { "default": "mdi:map-marker-outline" },
-      "charging_receipt_note": { "default": "mdi:note-text-outline" }
+      "refuelling_receipt_place": {
+        "default": "mdi:map-marker-outline"
+      },
+      "refuelling_receipt_note": {
+        "default": "mdi:note-text-outline"
+      },
+      "charging_receipt_place": {
+        "default": "mdi:map-marker-outline"
+      },
+      "charging_receipt_note": {
+        "default": "mdi:note-text-outline"
+      }
     }
   },
   "services": {
-    "add_refuelling_receipt": { "service": "mdi:gas-station" },
-    "add_charging_receipt": { "service": "mdi:ev-station" },
-    "cancel_receipt": { "service": "mdi:receipt-text-remove-outline" },
-    "recompute": { "service": "mdi:refresh" },
-    "export": { "service": "mdi:file-export-outline" }
+    "add_refuelling_receipt": {
+      "service": "mdi:gas-station"
+    },
+    "add_charging_receipt": {
+      "service": "mdi:ev-station"
+    },
+    "cancel_receipt": {
+      "service": "mdi:receipt-text-remove-outline"
+    },
+    "recompute": {
+      "service": "mdi:refresh"
+    },
+    "export": {
+      "service": "mdi:file-export-outline"
+    }
   }
 }

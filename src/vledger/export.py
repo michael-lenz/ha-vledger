@@ -49,6 +49,10 @@ COLUMNS: dict[str, tuple[str, ...]] = {
         "distance_km", "distance_quality", "distance_source",
         "start_position", "end_position", "start_zone", "end_zone",
         "outside_temperature_c", "delta_soc_pct", "delta_fuel_l",
+        "fuel_consumed_l", "fuel_consumed_quality", "fuel_consumed_source", "fuel_consumed_error_l",
+        "fuel_l_per_100km", "fuel_l_per_100km_quality", "fuel_l_per_100km_error_pct",
+        "battery_consumed_kwh", "battery_consumed_quality", "battery_consumed_error_kwh",
+        "battery_kwh_per_100km", "battery_kwh_per_100km_quality", "battery_kwh_per_100km_error_pct",
         "refined_by", "movements_while_plugged"),
     "refuelling": ENVELOPE + (
         "position", "zone", "level_before_l", "level_after_l", "settled_at",

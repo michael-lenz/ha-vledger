@@ -10,9 +10,10 @@ atoms exist; L1 is written and read with `derive … --write` and the `l1`
 verbs, and the integration keeps it live; receipts are entered,
 corrected, cancelled and matched with the `receipt` verbs and `derive
 match`, and in Home Assistant with actions and a dashboard form; the
-last trip, refuelling and charging session and what waits for a receipt
-are entities, and new events fire Home Assistant events and, for a
-receipt to enter, notifications; L1 is exported as CSV, JSON and GPX with the `export`
+last trip, refuelling and charging session, the last trip's fuel and
+electricity consumption and what waits for a receipt are entities, and
+new events fire Home Assistant events and, for a receipt to enter,
+notifications; L1 is exported as CSV, JSON and GPX with the `export`
 verbs and the `vledger.export` action, and `report metrics` gives the
 metrics of any span. Metric entities in Home Assistant are planned.
 
@@ -40,7 +41,11 @@ choose what to add.
    the odometer and position only arrive at the stop; set T_still to twice
    its update interval (60 minutes for one updated every 30) — unless the
    vehicle is set to report per driving cycle (below). **Fuel flap**
-   dates a refuelling to the pump.
+   dates a refuelling to the pump. **Trip computer: average consumption**
+   is the car's own average since its trip counter was reset, in
+   L/100 km; assigned next to the trip counter, it gives every trip the
+   fuel the car itself measured, which is finer than the fuel level by an
+   order of magnitude.
 3. **Mapping**, only when an enumerated role was assigned: tick the
    source's values that mean *charging*, *plugged in*, *ignition on*,
    *engine running*, *locked*, *in use* or *fuel flap open*. *unavailable*
@@ -102,7 +107,11 @@ vehicle: its trips are then read as legs from the departure (an unlock,
 the engine starting, the trip counter resetting) to the upload at the stop,
 and a stop is measured to the minute. The **exit window** (5 minutes) is
 how close to an arrival an unlock counts as getting out rather than
-setting off.
+setting off. The **fuel level sensor resolution** and the **state of
+charge sensor resolution** (1 %) say what each sensor is good to, not its
+display step — a level shown to 0.1 L can be off by a litre — and they
+bound every figure read from a sensor delta: a trip's consumption from
+the level needs the first, and without it the level yields none.
 
 If an assigned entity disappears, it is logged as `unavailable` and a
 repair issue names it. One that stays `unavailable` or `unknown` for longer
@@ -137,6 +146,8 @@ receipt is entered, and *unavailable* while L1 is rebuilt:
 | **Last trip** | every vehicle | its distance | start, end, zones, positions, how the distance was measured, the fuel and charge it used, … |
 | **Last refuelling** | a vehicle with a fuel | the receipt's litres, or the sensor's before a receipt | start, end, level before and after, price, full tank, place, the receipt and how well it matched, … |
 | **Last charging session** | a vehicle with a net battery capacity | the energy from the grid | start, end, state of charge, charge point, cost, charging loss, the receipt, … |
+| **Last trip fuel consumption** | a vehicle with a fuel | its litres per 100 km | start, end, distance, the litres used with their source — the trip computer, or the fuel level — and possible error |
+| **Last trip electricity consumption** | a vehicle with a net battery capacity | its kWh per 100 km, battery-side | start, end, distance, the kWh used with their possible error |
 | **Waiting for a receipt** | a vehicle with either | how many refuellings and charging sessions are *unconfirmed* or *ambiguous* | the count per kind and confirmation |
 
 Only completed events are shown: a trip under way appears once its
@@ -147,6 +158,16 @@ estimated or is incomplete. The route of a trip is not an attribute; it
 is in the GPX export ([below](#exports-vledger-export)). Positions are
 attributes but are not kept in Home Assistant's history.
 
+The two consumption entities show the last trip's own figure, never the
+vehicle's — that is the tank-to-tank consumption of the periods. Each is
+*unknown* when the trip was too short for a figure: the quantity used is
+reported only as a rate when it exceeds what the sensor can be wrong by,
+and the attributes still show the quantity and its possible error. With
+the trip computer assigned the fuel figure is the car's own measurement;
+from the fuel level alone it is an estimate that needs the sensor's
+resolution among the parameters. A negative electricity figure means the
+engine charged the battery during the trip.
+
 Units follow the instance: a US-customary instance shows miles and
 gallons, and an entity's settings choose another unit. Attributes stay in
 the units L1 uses, which each name says — `distance_km`, `quantity_l`,
@@ -156,7 +177,7 @@ the units L1 uses, which each name says — `distance_km`, `quantity_l`,
 {{ (state_attr('sensor.volvo_last_trip', 'distance_km') / 1.609344) | round(1) }}
 ```
 
-These four keep no long-term statistics except **Waiting for a
+None of these keeps long-term statistics except **Waiting for a
 receipt**: the last trip's distance is one trip, not a level worth
 averaging. Totals per month and year are the metric entities (planned).
 
@@ -397,7 +418,14 @@ stopped, the trip ends with the counter; the odometer's value still gives
 the distance. A vehicle set to report per driving cycle is read as legs
 instead: each from its departure to the upload at its stop, and legs whose
 stops are shorter than T_still make one trip ([glossary](glossary.md),
-*Leg*). Every trip carries its distance with its source and quality (`odometer`
+*Leg*). Every trip carries its own consumption: `fuel_consumed_l` with
+its source (`trip_computer` where the trip computer's average is
+assigned, else `fuel_level`), quality and possible error, and
+`fuel_l_per_100km` on the trip's distance; `battery_consumed_kwh` from
+the change in state of charge, and `battery_kwh_per_100km`. A rate is
+empty when the quantity does not exceed its own error — the trip was too
+short for one — while the quantity and the error are always there.
+Every trip carries its distance with its source and quality (`odometer`
 measured, `trip_counter` measured, `waypoints` estimated), the positions
 and zones at both ends, every fix in between, the mean outside
 temperature, and ΔSoC and Δfuel as estimates. A trip that spans a capture

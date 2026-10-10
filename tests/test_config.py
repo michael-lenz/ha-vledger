@@ -96,3 +96,15 @@ def test_movement_reporting_is_sampled_or_per_cycle():
     assert config.vehicle("V", roles)["thresholds"]["exit_window_s"] == 300
     with pytest.raises(ValueError, match="movement_reporting"):
         config.vehicle("V", roles, {"movement_reporting": "sometimes"})
+
+
+def test_the_trip_computer_needs_the_trip_counter_and_the_level_its_resolution():
+    v = config.vehicle("V", {"odometer": {"entity": "sensor.o"}, "trip_consumption": {"entity": "sensor.a"},
+                             "fuel_level": {"entity": "sensor.f"}}, {"fuel": "petrol", "tank_capacity_l": 40})
+    assert v["parameters"]["soc_resolution_pct"] == 1
+    assert v["thresholds"]["trip_consumption_step_l_per_100km"] == 0.1
+    said = config.missing(v)
+    assert any(s.startswith("trip_distance:") for s in said)
+    assert any(s.startswith("fuel_level_resolution_l:") for s in said)
+    v = config.vehicle("V", {"trip_distance": {"entity": "sensor.t"}, "trip_consumption": {"entity": "sensor.a"}})
+    assert not any(s.startswith("trip_distance:") for s in config.missing(v))

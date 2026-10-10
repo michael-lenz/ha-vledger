@@ -12,6 +12,11 @@ vehicle reported in use is moving (ADR-0021).
 What the sampling cannot show, the trip cannot show either: a stop shorter
 than the sampling interval merges into the trip (FAH-06), and a trip's
 start is the first sample that moved, not the moment the wheels turned.
+
+A trip carries its own consumption (ADR-0025): fuel from the trip computer
+where the vehicle has one, else from the level, and the battery side from
+the SoC — each with its error, and a rate only where the quantity exceeds
+that error. It is the trip's figure, never the vehicle's (VER-01, VER-10).
 """
 
 from __future__ import annotations
@@ -23,11 +28,13 @@ from datetime import timedelta
 from itertools import pairwise
 from pathlib import Path
 
-from vledger import __version__, clock, geo, l0, l1, series
+from vledger import __version__, clock, geo, l0, l1, periods, series
 from vledger.layout import Subject
 from vledger.series import Fix, Sample, Stream
 
 MEASURED, ESTIMATED, INCOMPLETE = "measured", "estimated", "incomplete"
+#: Where a trip's fuel figure was read (ADR-0025, point 2).
+TRIP_COMPUTER, FUEL_LEVEL = "trip_computer", "fuel_level"
 
 
 @dataclass(frozen=True)
@@ -85,6 +92,21 @@ class Trip:
     outside_temperature_c: float | None
     delta_soc_pct: float | None        # estimated, FAH-05
     delta_fuel_l: float | None         # estimated, FAH-05
+    # The trip's consumption (ADR-0025): the quantity with its error, and the
+    # rate on the trip's distance, null where the error swallows it.
+    fuel_consumed_l: float | None
+    fuel_consumed_quality: str | None  # measured from the trip computer, else estimated
+    fuel_consumed_source: str | None   # trip_computer or fuel_level
+    fuel_consumed_error_l: float | None
+    fuel_l_per_100km: float | None
+    fuel_l_per_100km_quality: str | None
+    fuel_l_per_100km_error_pct: float | None
+    battery_consumed_kwh: float | None  # estimated always; negative when the battery gained
+    battery_consumed_quality: str | None
+    battery_consumed_error_kwh: float | None
+    battery_kwh_per_100km: float | None
+    battery_kwh_per_100km_quality: str | None
+    battery_kwh_per_100km_error_pct: float | None
     refined_by: dict                   # {"start": role | None, "end": role | None}
     movements_while_plugged: int       # contradictions, reported (ADR-0012, point 5)
     version: str
@@ -331,11 +353,95 @@ def _delta(s: Stream, role: str, start: str, end: str, settle_s: float) -> float
     """Value after the trip (settled) minus the value before it — estimated
     always (FAH-05)."""
     before = _start_value(s, s.series.get(role, []), start)
-    settled_until = clock.to_text(clock.parse(end) + timedelta(seconds=settle_s))
-    after = series.last_at_or_before(s.series.get(role, []), settled_until)
+    after = series.last_at_or_before(s.series.get(role, []), _settled(end, settle_s))
     if before is None or after is None or clock.parse(after.t) < clock.parse(start):
         return None
     return round(after.value - before.value, 3)
+
+
+def _settled(end: str, settle_s: float) -> str:
+    return clock.to_text(clock.parse(end) + timedelta(seconds=settle_s))
+
+
+def _trip_computer(s: Stream, start: str, end: str, settle_s: float
+                   ) -> tuple[float, float] | None:
+    """(fuel used, its error) as the trip computer measures them (ADR-0025,
+    point 2): the fuel since the counter's reset is trip_distance × the
+    average / 100 at a reading, and the trip's fuel is that at the settled
+    end minus that before the start — zero where the counter went down in
+    between, its reset. The error is half the average's display step over
+    the distance at each reading. ``None`` without both roles, or without
+    a reading on either side of the trip."""
+    dist, avg = s.series.get("trip_distance", []), s.series.get("trip_consumption", [])
+    if not dist or not avg:
+        return None
+    settled = _settled(end, settle_s)
+    d0, a0 = _start_value(s, dist, start), _start_value(s, avg, start)
+    d1, a1 = series.last_at_or_before(dist, settled), series.last_at_or_before(avg, settled)
+    if (d0 is None or a0 is None or d1 is None or a1 is None
+            or clock.parse(d1.t) < clock.parse(start) or clock.parse(a1.t) < clock.parse(start)):
+        return None
+    reset = any(b.value < a.value for a, b in pairwise(series.between(dist, d0.t, d1.t)))
+    before = 0.0 if reset else d0.value * a0.value / 100
+    half_step = float(s.thresholds()["trip_consumption_step_l_per_100km"]) / 2
+    error = half_step * ((0.0 if reset else d0.value) + d1.value) / 100
+    return d1.value * a1.value / 100 - before, error
+
+
+def _rate(used: float | None, error: float | None, km: float | None
+          ) -> tuple[float | None, float | None]:
+    """(the rate per 100 km, its error as a share of it): the rate only where
+    the quantity exceeds its own error over a distance (ADR-0025, point 4),
+    the share whenever the quantity is not zero."""
+    if used is None or error is None:
+        return None, None
+    share = round(error / abs(used) * 100, 1) if used else None
+    if not km or abs(used) <= error:
+        return None, share
+    return round(used / km * 100, 3), share
+
+
+def _consumption(s: Stream, start: str, end: str, settle_s: float, crossed: bool,
+                 km: float | None, km_quality: str | None, delta_soc: float | None,
+                 delta_fuel: float | None) -> dict:
+    """The consumption keys of a trip (ADR-0025): fuel from the trip
+    computer, else from the level with the resolution known; the battery
+    side from the SoC delta; a trip across a gap is incomplete in all."""
+    p = s.parameters()
+    gap = INCOMPLETE if crossed else None
+    fuel = fuel_q = source = fuel_err = None
+    computed = _trip_computer(s, start, end, settle_s)
+    res = p.get("fuel_level_resolution_l")
+    if computed is not None:
+        (fuel, fuel_err), fuel_q, source = computed, periods.weakest(MEASURED, gap), TRIP_COMPUTER
+    elif delta_fuel is not None and res:
+        fuel, fuel_err = -delta_fuel, 2 * float(res)
+        fuel_q, source = periods.weakest(ESTIMATED, gap), FUEL_LEVEL
+    fuel_rate, fuel_share = _rate(fuel, fuel_err, km)
+    battery = battery_q = battery_err = None
+    capacity = p.get("battery_net_kwh")
+    if delta_soc is not None and capacity:
+        battery = -delta_soc / 100 * float(capacity)
+        battery_err = 2 * float(p.get("soc_resolution_pct") or 0) / 100 * float(capacity)
+        battery_q = periods.weakest(ESTIMATED, gap)
+    battery_rate, battery_share = _rate(battery, battery_err, km)
+
+    def r(x, digits=3):
+        return None if x is None else round(x, digits)
+
+    return {
+        "fuel_consumed_l": r(fuel), "fuel_consumed_quality": fuel_q,
+        "fuel_consumed_source": source, "fuel_consumed_error_l": r(fuel_err),
+        "fuel_l_per_100km": fuel_rate,
+        "fuel_l_per_100km_quality": periods.weakest(fuel_q, km_quality) if fuel_rate is not None else None,
+        "fuel_l_per_100km_error_pct": fuel_share if fuel_rate is not None else None,
+        "battery_consumed_kwh": r(battery), "battery_consumed_quality": battery_q,
+        "battery_consumed_error_kwh": r(battery_err),
+        "battery_kwh_per_100km": battery_rate,
+        "battery_kwh_per_100km_quality": (periods.weakest(battery_q, km_quality)
+                                          if battery_rate is not None else None),
+        "battery_kwh_per_100km_error_pct": battery_share if battery_rate is not None else None,
+    }
 
 
 def _trip(s: Stream, start: str, end: str, values_until: str, crossed: bool,
@@ -350,6 +456,8 @@ def _trip(s: Stream, start: str, end: str, values_until: str, crossed: bool,
     end_fix = waypoints[-1] if waypoints else None
     km, kq, ksrc = _distance(s, start, values_until, waypoints)
     temp = series.mean(series.between(s.series.get("outside_temperature", []), start, end))
+    delta_soc = _delta(s, "soc", start, values_until, settle)
+    delta_fuel = _delta(s, "fuel_level", start, values_until, settle)
     return Trip(
         kind="trip", subject=s.subject.id, start=start, end=end,
         quality=INCOMPLETE if crossed else MEASURED,
@@ -359,8 +467,9 @@ def _trip(s: Stream, start: str, end: str, values_until: str, crossed: bool,
         end_zone=end_fix.zone if end_fix else None,
         waypoints=[series.fix_dict(f) for f in waypoints],
         outside_temperature_c=temp,
-        delta_soc_pct=_delta(s, "soc", start, values_until, settle),
-        delta_fuel_l=_delta(s, "fuel_level", start, values_until, settle),
+        delta_soc_pct=delta_soc,
+        delta_fuel_l=delta_fuel,
+        **_consumption(s, start, values_until, settle, crossed, km, kq, delta_soc, delta_fuel),
         refined_by=refined_by,
         movements_while_plugged=_while_plugged(s, moves),
         version=__version__,

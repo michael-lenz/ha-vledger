@@ -52,6 +52,7 @@ DEFAULT_THRESHOLDS = {
     "beta_per_k": 9.5e-4,           # VER-08, petrol; diesel 8.0e-4
     "temperature_tau_s": 10800,     # VER-08
     "exit_window_s": 300,           # ADR-0024: an unlock this near an arrival is getting out
+    "trip_consumption_step_l_per_100km": 0.1,   # ADR-0025: the trip computer's display step
 }
 
 #: Per fuel, the thresholds whose default depends on it.
@@ -66,6 +67,7 @@ DEFAULT_PARAMETERS = {
     "tank_capacity_l": None,
     "battery_net_kwh": None,
     "fuel_level_resolution_l": None,   # measured on the reference vehicle, TASK-0002
+    "soc_resolution_pct": 1,           # ADR-0025: a state of charge in whole percent
     "charging_loss_factor": 1.12,      # LAD-06
     "eta_el": 0.85,                    # VER-05
     "eta_ice": 0.28,                   # VER-05, petrol; diesel 0.33
@@ -173,7 +175,11 @@ def missing(config: dict) -> list[str]:
     if "soc" in roles and p["battery_net_kwh"] is None:
         out.append("battery_net_kwh: battery-side energy and charging loss need it")
     if "fuel_level" in roles and p["fuel_level_resolution_l"] is None:
-        out.append("fuel_level_resolution_l: the consumption error threshold needs it")
+        out.append("fuel_level_resolution_l: the consumption error threshold and a trip's "
+                   "fuel consumption from the level need it")
+    if "trip_consumption" in roles and "trip_distance" not in roles:
+        out.append("trip_distance: trip_consumption is read with the trip counter and "
+                   "yields nothing alone")
     return out
 
 

@@ -31,8 +31,10 @@ three actions and a dashboard form, and every new event fires a Home
 Assistant event and, where a receipt is due, a notification; the metrics come per month, year,
 rolling period and lifetime in L1, and for any span from `vledger report
 metrics`; L1 is exported as CSV, JSON and GPX, from the shell and by a
-Home Assistant action into the media folder. In Home Assistant the
-metrics are not shown yet. Every behaviour described below is the design,
+Home Assistant action into the media folder; every trip carries its own
+consumption, from the car's trip computer where it reports one, and the
+last trip's is an entity. In Home Assistant the period metrics are not
+shown yet. Every behaviour described below is the design,
 held as requirements in the project's register (`ha-vledger-pm`); what
 does not exist yet is marked *(planned)*.
 
@@ -65,7 +67,9 @@ does not exist yet is marked *(planned)*.
   share two ways (energy by heating value, and an estimated distance
   share), charge cycles and tank-fill equivalents. Fuel consumption is
   tank-to-tank between any two receipts, corrected by the fuel level sensor,
-  so a tank that is never filled up still gets a figure.
+  so a tank that is never filled up still gets a figure. A single trip's
+  consumption is its own figure beside that, from the trip computer or
+  the sensor deltas, shown only when it exceeds its possible error.
 
 ## What it is built of
 
@@ -94,7 +98,7 @@ configured in the UI; no YAML.
 | Document | What it is |
 |---|---|
 | [docs/user-guide.md](docs/user-guide.md) | What a participant types: the `vledger` command, verb by verb |
-| [docs/l0-format.md](docs/l0-format.md) | The raw log's layout, version 3 — the specification a reader of their own files needs |
+| [docs/l0-format.md](docs/l0-format.md) | The raw log's layout, version 4 — the specification a reader of their own files needs |
 | [docs/l1-format.md](docs/l1-format.md) | The derivation on disk: files, manifest, cursor, rebuilds, and the exports rendered from it |
 | [docs/derivations.md](docs/derivations.md) | How each detection works as built: algorithm, roles and parameters, quality flags, limitations |
 | [docs/receipts-format.md](docs/receipts-format.md) | Receipts on disk, corrections and cancellations, and how they meet events |

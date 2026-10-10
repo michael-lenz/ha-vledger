@@ -16,10 +16,10 @@ here only as the derivations use it.
 A derivation reads a stream once, as series ([`series.py`](../src/vledger/series.py)),
 and never parses a line itself:
 
-- **Measuring roles** (`odometer`, `trip_distance`, `fuel_level`, `soc`,
-  `outside_temperature`, `fuel_price`, `energy_meter`, …) become numeric
-  samples in L1 units (km, L, kWh, %, °C), converted from the unit the
-  line states. A fuel level in % becomes litres of `tank_capacity_l`;
+- **Measuring roles** (`odometer`, `trip_distance`, `trip_consumption`,
+  `fuel_level`, `soc`, `outside_temperature`, `fuel_price`, `energy_meter`,
+  …) become numeric samples in L1 units (km, L, kWh, %, °C, L/100 km),
+  converted from the unit the line states. A fuel level in % becomes litres of `tank_capacity_l`;
   without a capacity there is no fuel series at all, and the refuelling
   detection says why rather than guess (ISSUE-0009). A state that is not
   a number — `unavailable`, `unknown` — is a **dropout**, not a value:
@@ -67,8 +67,10 @@ from several carries the weakest of them.
 **Reads:** movement roles `odometer`, `trip_distance`, `position` (or the
 sensor pair), and `in_use`; markers `ignition`, `plug_state`,
 `charging_state`, `engine`, `lock`;
-`soc`, `fuel_level`, `outside_temperature`. **Thresholds:** `t_still_s`
-(T_still, 1800 s), `t_settle_s` (360 s).
+`soc`, `fuel_level`, `trip_consumption`, `outside_temperature`.
+**Thresholds:** `t_still_s` (T_still, 1800 s), `t_settle_s` (360 s),
+`trip_consumption_step_l_per_100km` (0.1). **Parameters:**
+`fuel_level_resolution_l`, `soc_resolution_pct` (1), `battery_net_kwh`.
 
 1. **Movement events.** An odometer sample higher than the previous one;
    a trip counter sample higher than the previous one (going down is a
@@ -123,7 +125,26 @@ sensor pair), and `in_use`; markers `ignition`, `plug_state`,
    movement events inside the trip while plug or charging state says the
    vehicle could not drive: sample timing or a wrong mapping, reported and
    never corrected (ADR-0012, point 5).
-6. **Complete** once T_still has elapsed after the last movement, by the
+6. **Consumption** (ADR-0025) — the trip's own figure, never the
+   vehicle's, which is tank to tank ([Metrics](#metrics)). The fuel the
+   trip used, `fuel_consumed_l`, comes from the **trip computer** where
+   `trip_consumption` is assigned: the fuel since the counter's reset at
+   a reading is `trip_distance` × the average / 100, the trip's fuel is
+   that at the settled end minus that before the start — zero where the
+   counter went down in between, its reset — `measured`, source
+   `trip_computer`, with an error of half the average's display step over
+   the distance at each reading. Else it is −`delta_fuel_l`, `estimated`,
+   source `fuel_level`, error 2 × `fuel_level_resolution_l`; without that
+   parameter the level gives no figure. `battery_consumed_kwh` is
+   −`delta_soc_pct` / 100 × `battery_net_kwh`, `estimated`, error
+   2 × `soc_resolution_pct` / 100 × the capacity, negative when the
+   battery gained. Each quantity has its error beside it whatever its
+   size; the rates `fuel_l_per_100km` and `battery_kwh_per_100km`, on the
+   trip's distance, are `null` unless the quantity exceeds its own error
+   — a trip too short for the figure shows none — and carry the error as
+   a share, `…_error_pct`. A trip across a gap is `incomplete` in all of
+   them.
+7. **Complete** once T_still has elapsed after the last movement, by the
    stream.
 
 **Per-cycle vehicles** (ADR-0024). A vehicle whose `movement_reporting`
@@ -156,7 +177,7 @@ driving cycle, at the stop, and is read as legs instead of steps 2 and 3:
    departure — are each shorter than T_still are one trip, from the first
    departure to the last arrival; a capture gap in a stop ends the trip,
    one inside it makes it `incomplete`. `refined_by.start` names the role
-   that departed, `refined_by.end` is `null`. Steps 4 and 5 above give the
+   that departed, `refined_by.end` is `null`. Steps 4 to 6 above give the
    values.
 5. **Complete** once the stream's last line is T_still past the last
    arrival, no departure followed within T_still, and the vehicle is not
@@ -175,6 +196,11 @@ driving cycle, at the stop, and is read as legs instead of steps 2 and 3:
   from before it.
 - Without an odometer or trip counter, the distance is the chord between
   fixes and is short on every curve.
+- A trip computer reset by the driver in the middle of a trip, on a
+  vehicle that samples while driving, loses what was burnt before the
+  reset; on a per-cycle vehicle resets come with departures and lose
+  nothing. A source that reports its average in miles per gallon is not a
+  factor away from L/100 km and stays unread.
 
 ## Refuelling candidates
 

@@ -1,7 +1,7 @@
 # The L0 record format
 
-*Design document — the layout of the raw log, version 3, as decided in
-ADR-0004, ADR-0011, ADR-0021 and ADR-0022 of the project's register. This page is the
+*Design document — the layout of the raw log, version 4, as decided in
+ADR-0004, ADR-0011, ADR-0021, ADR-0022 and ADR-0025 of the project's register. This page is the
 specification a reader of their own files needs; the reasoning is in the
 decisions.*
 
@@ -20,7 +20,7 @@ fixed keys, then the keys of its kind:
 
 | key | meaning |
 |---|---|
-| `v` | schema version, integer; this page defines 3, and what earlier ones lack ([Versioning](#versioning)) |
+| `v` | schema version, integer; this page defines 4, and what earlier ones lack ([Versioning](#versioning)) |
 | `t` | the Home Assistant time of the event: UTC, ISO 8601, milliseconds, `Z` |
 | `kind` | `state`, `start`, `stop`, `heartbeat` or `config` |
 | `subject` | the vehicle or charge point this line belongs to |
@@ -183,3 +183,4 @@ versions a stream holds.
 | 1 | the format as first decided (ADR-0004) |
 | 2 | `reported_before` on `state` lines (ADR-0011); a version 1 stream has no sampling interval to measure |
 | 3 | the roles `engine`, `lock`, `in_use` (ADR-0021) and `fuel_flap` (ADR-0022) |
+| 4 | the role `trip_consumption`, the trip computer's average since its reset (ADR-0025) |
