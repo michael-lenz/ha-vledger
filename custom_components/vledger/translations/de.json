@@ -135,7 +135,8 @@
           "eta_el": "Wirkungsgrad Batterie bis Rad",
           "eta_ice": "Wirkungsgrad Kraftstoff bis Rad",
           "charge_cycles_start": "Ladezyklen vor Erfassungsbeginn",
-          "tank_fills_start": "Tankfüllungen vor Erfassungsbeginn"
+          "tank_fills_start": "Tankfüllungen vor Erfassungsbeginn",
+          "movement_reporting": "Wie Bewegung gemeldet wird"
         }
       },
       "thresholds": {
@@ -153,7 +154,8 @@
           "consumption_error_pct": "Verbrauchsfehlerschwelle",
           "heating_value_kwh_per_l": "Heizwert",
           "beta_per_k": "Wärmeausdehnungskoeffizient",
-          "temperature_tau_s": "Tiefpass-Zeitkonstante der Außentemperatur"
+          "temperature_tau_s": "Tiefpass-Zeitkonstante der Außentemperatur",
+          "exit_window_s": "Aussteige-Fenster um eine Ankunft (Fahrzeuge mit Meldung pro Fahrzyklus)"
         }
       },
       "meter": {
@@ -184,6 +186,9 @@
     }
   },
   "selector": {
+    "movement_reporting": {
+      "options": { "sampled": "Während der Fahrt abgetastet", "per_cycle": "Einmal pro Fahrzyklus, beim Halt" }
+    },
     "fuel": {
       "options": { "petrol": "Benzin", "diesel": "Diesel" }
     },

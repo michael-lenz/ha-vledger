@@ -338,14 +338,46 @@ def _delta(s: Stream, role: str, start: str, end: str, settle_s: float) -> float
     return round(after.value - before.value, 3)
 
 
+def _trip(s: Stream, start: str, end: str, values_until: str, crossed: bool,
+          refined_by: dict, moves: list[Movement], settle: float) -> Trip:
+    """A trip from its boundaries: its time runs from ``start`` to ``end``,
+    its values are read up to ``values_until`` — a late report still
+    belongs to it."""
+    # Where the vehicle was before it moved, then every fix while moving.
+    start_fix = series.last_before(s.fixes, start) or series.last_at_or_before(s.fixes, start)
+    inside = series.between(s.fixes, start, values_until)
+    waypoints = ([start_fix] if start_fix and start_fix not in inside else []) + inside
+    end_fix = waypoints[-1] if waypoints else None
+    km, kq, ksrc = _distance(s, start, values_until, waypoints)
+    temp = series.mean(series.between(s.series.get("outside_temperature", []), start, end))
+    return Trip(
+        kind="trip", subject=s.subject.id, start=start, end=end,
+        quality=INCOMPLETE if crossed else MEASURED,
+        distance_km=km, distance_quality=kq, distance_source=ksrc,
+        start_position=series.fix_dict(start_fix), end_position=series.fix_dict(end_fix),
+        start_zone=start_fix.zone if start_fix else None,
+        end_zone=end_fix.zone if end_fix else None,
+        waypoints=[series.fix_dict(f) for f in waypoints],
+        outside_temperature_c=temp,
+        delta_soc_pct=_delta(s, "soc", start, values_until, settle),
+        delta_fuel_l=_delta(s, "fuel_level", start, values_until, settle),
+        refined_by=refined_by,
+        movements_while_plugged=_while_plugged(s, moves),
+        version=__version__,
+    )
+
+
 def derive(s: Stream, *, completed_only: bool = False) -> list[Trip]:
     """Every trip in the stream, in order (FAH-01 to FAH-07).
 
     With ``completed_only``, only trips whose standstill has elapsed —
     T_still after the last movement, judged by the stream's last line, not
     by the clock, so the answer is the same whenever it is asked (ABL-01)
-    — which is what L1 holds (ADR-0009).
+    — which is what L1 holds (ADR-0009). A vehicle that reports once per
+    driving cycle is read as legs instead (ADR-0023).
     """
+    if s.parameters().get("movement_reporting") == "per_cycle":
+        return _derive_per_cycle(s, completed_only=completed_only)
     thr = s.thresholds()
     t_still = float(thr["t_still_s"])
     settle = float(thr["t_settle_s"])
@@ -369,31 +401,131 @@ def derive(s: Stream, *, completed_only: bool = False) -> list[Trip]:
         until = _moving_until(inside_moves, _role_intervals(s, floor, last))
         start, end, refined_by = _refine(first, until, t_still, starts, ends, floor)
         floor = end
-        # A late report still belongs to the trip: its values are read up to
-        # it, while the trip's time ends where the vehicle stopped.
-        values_until = max(end, last, key=clock.parse)
-        # Where the vehicle was before it moved, then every fix while moving.
-        start_fix = series.last_before(s.fixes, start) or series.last_at_or_before(s.fixes, start)
-        inside = series.between(s.fixes, start, values_until)
-        waypoints = ([start_fix] if start_fix and start_fix not in inside else []) + inside
-        end_fix = waypoints[-1] if waypoints else None
-        km, kq, ksrc = _distance(s, start, values_until, waypoints)
-        temp = series.mean(series.between(s.series.get("outside_temperature", []), start, end))
-        out.append(Trip(
-            kind="trip", subject=s.subject.id, start=start, end=end,
-            quality=INCOMPLETE if crossed else MEASURED,
-            distance_km=km, distance_quality=kq, distance_source=ksrc,
-            start_position=series.fix_dict(start_fix), end_position=series.fix_dict(end_fix),
-            start_zone=start_fix.zone if start_fix else None,
-            end_zone=end_fix.zone if end_fix else None,
-            waypoints=[series.fix_dict(f) for f in waypoints],
-            outside_temperature_c=temp,
-            delta_soc_pct=_delta(s, "soc", start, values_until, settle),
-            delta_fuel_l=_delta(s, "fuel_level", start, values_until, settle),
-            refined_by=refined_by,
-            movements_while_plugged=_while_plugged(s, inside_moves),
-            version=__version__,
-        ))
+        out.append(_trip(s, start, end, max(end, last, key=clock.parse), crossed,
+                         refined_by, inside_moves, settle))
+    return out
+
+
+# --- vehicles that report once per driving cycle (ADR-0023) -----------------
+
+#: What says a leg has begun: the start markers of ADR-0012 and ADR-0021 —
+#: the trip counter's reset joins them below.
+DEPARTURE_MARKERS = {"lock": "unlocked", "engine": "running", "ignition": "on",
+                     "plug_state": "unplugged"}
+
+
+@dataclass(frozen=True)
+class Leg:
+    departure: str | None      # None: the leg's start is unknown
+    departed_by: str | None    # the role whose marker set it
+    arrival: str               # the arrival's first sample
+    last: str                  # its last sample: a slower role's late report
+    moves: tuple[Movement, ...]
+
+
+def _departure_markers(s: Stream) -> list[Marker]:
+    """Every departure marker, in time order: the start markers, and the
+    trip counter going down — its reset comes with a departure (FAH-04)."""
+    out = markers(s, DEPARTURE_MARKERS)
+    prev = None
+    for x in s.series.get("trip_distance", []):
+        if prev is not None and x.value < prev.value:
+            out.append(Marker(x.t, "trip_distance"))
+        prev = x
+    out.sort(key=lambda m: clock.parse(m.t))
+    return out
+
+
+def _after_before(t: str, lo: str | None, hi: str) -> bool:
+    tt = clock.parse(t)
+    return (lo is None or tt > clock.parse(lo)) and tt < clock.parse(hi)
+
+
+def _legs(s: Stream, exit_window_s: float) -> tuple[list[Leg], list[Marker], list[str]]:
+    """The legs of a per-cycle stream, the departure markers that are not
+    exits, and the first report of every span in use.
+
+    An arrival is a movement sample of odometer, trip counter or position;
+    every further one before the next departure marker belongs to it. An
+    unlock within ``exit_window_s`` of an arrival, either side, is the
+    driver getting out and separates nothing (ADR-0023, points 2 and 3)."""
+    moves = [m for m in movements(s) if m.role != "in_use"]
+    marks = _departure_markers(s)
+    window = timedelta(seconds=exit_window_s)
+
+    def near(t, a) -> bool:
+        return abs(clock.parse(t) - clock.parse(a)) <= window
+
+    # Arrivals: a movement sample opens one when a departure marker lies
+    # between it and the previous sample — an unlock only when it is not
+    # within the window of either.
+    clusters: list[list[Movement]] = []
+    for m in moves:
+        if clusters:
+            prev = clusters[-1]
+            separating = [k for k in marks
+                          if clock.parse(prev[-1].t) < clock.parse(k.t) <= clock.parse(m.t)
+                          and not (k.role == "lock" and (near(k.t, prev[0].t) or near(k.t, m.t)))]
+            if not separating:
+                prev.append(m)
+                continue
+        clusters.append([m])
+    arrivals = [c[0].t for c in clusters]
+    departures = [k for k in marks
+                  if not (k.role == "lock" and any(near(k.t, a) for a in arrivals))]
+    in_use_first = [first for first, _, _ in in_use_spans(s)]
+    legs: list[Leg] = []
+    previous = None
+    for c in clusters:
+        unlocks = [k for k in departures if k.role == "lock" and _after_before(k.t, previous, c[0].t)]
+        if unlocks:
+            dep, by = unlocks[-1].t, "lock"
+        else:
+            others = [(k.t, k.role) for k in departures
+                      if k.role != "lock" and _after_before(k.t, previous, c[0].t)]
+            others += [(t, "in_use") for t in in_use_first if _after_before(t, previous, c[0].t)]
+            dep, by = min(others, key=lambda x: clock.parse(x[0])) if others else (None, None)
+        legs.append(Leg(dep, by, c[0].t, c[-1].t, tuple(c)))
+        previous = c[0].t
+    return legs, departures, in_use_first
+
+
+def _derive_per_cycle(s: Stream, *, completed_only: bool) -> list[Trip]:
+    """Trips of a vehicle that reports once per driving cycle (ADR-0023):
+    legs from a departure to an arrival, one trip while the stops between
+    them — from an arrival to the next departure — are shorter than
+    T_still. Nothing is read across a capture gap: a gap between two legs
+    ends the trip, one inside a trip makes it incomplete."""
+    thr = s.thresholds()
+    still = timedelta(seconds=float(thr["t_still_s"]))
+    settle = float(thr["t_settle_s"])
+    legs, departures, in_use_first = _legs(s, float(thr["exit_window_s"]))
+    groups: list[list[Leg]] = []
+    for leg in legs:
+        if groups:
+            prev = groups[-1][-1]
+            begin = leg.departure or leg.arrival
+            if (clock.parse(begin) - clock.parse(prev.arrival) < still
+                    and not series.gap_between(s, prev.arrival, begin)):
+                groups[-1].append(leg)
+                continue
+        groups.append([leg])
+    if completed_only and groups and s.last_t:
+        last = groups[-1][-1].arrival
+        after = [k.t for k in departures if clock.parse(k.t) > clock.parse(last)]
+        after += [t for t in in_use_first if clock.parse(t) > clock.parse(last)]
+        nxt = min(after, key=clock.parse) if after else None
+        if (clock.parse(s.last_t) - clock.parse(last) < still or in_use_now(s)
+                or (nxt and clock.parse(nxt) - clock.parse(last) < still)):
+            groups = groups[:-1]
+    out = []
+    for g in groups:
+        first, final = g[0], g[-1]
+        start = first.departure or first.arrival
+        crossed = series.gap_between(s, start, final.last)
+        moves = [m for leg in g for m in leg.moves]
+        out.append(_trip(s, start, final.arrival, final.last, crossed,
+                         {"start": first.departed_by, "end": None}, moves, settle))
     return out
 
 

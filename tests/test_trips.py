@@ -451,3 +451,112 @@ def test_per_cycle_trips_line_by_line_equal_one_rebuild(tmp_path, capsys):
     found = trips.derive_from(tmp_path / "stream", V)
     assert [(t.start, t.end) for t in found] == [(at(5), at(52)), (at(150), at(165))]
     replay(tmp_path / "stream", tmp_path / "replay")
+
+
+# --- legs: a vehicle that reports once per driving cycle (ADR-0023) ---------
+
+PER_CYCLE = {"movement_reporting": "per_cycle"}
+
+
+def cycle_builder(path, capsys):
+    return Builder(path, capsys, roles=CYCLE_ROLES, parameters=PER_CYCLE)
+
+
+def upload(b, minute, km, odo):
+    """The stop's upload: trip counter and odometer, polled together."""
+    b.state(minute, "trip_distance", km, "km", before=minute - 2)
+    b.state(minute, "odometer", odo, "km", before=minute - 2)
+
+
+def test_legs_with_a_short_stop_are_one_trip_and_a_long_stop_splits(tmp_path, capsys):
+    b = cycle_builder(tmp_path, capsys)
+    b.heartbeat(0)
+    b.state(10, "lock", "unlocked", before=9).state(12, "lock", "locked", before=11)
+    upload(b, 40, 25.0, 1025)
+    b.state(41, "lock", "unlocked", before=40).state(42, "lock", "locked", before=41)   # getting out
+    b.state(47, "lock", "unlocked", before=46).state(48, "lock", "locked", before=47)   # 7 min stop
+    b.heartbeat(55)
+    upload(b, 70, 40.0, 1040)
+    b.heartbeat(120)
+    b.state(160, "lock", "unlocked", before=159)                                        # 90 min later
+    upload(b, 180, 50.0, 1050)
+    b.heartbeat(230)
+    first, second = trips.derive_from(tmp_path, V, completed_only=True)
+    assert (first.start, first.end) == (at(10), at(70)) and first.distance_km == 40
+    assert first.refined_by == {"start": "lock", "end": None}
+    assert (second.start, second.end) == (at(160), at(180)) and second.distance_km == 10
+
+
+def test_the_latest_unlock_departs_not_one_to_fetch_something(tmp_path, capsys):
+    b = cycle_builder(tmp_path, capsys)
+    b.heartbeat(0)
+    b.state(20, "lock", "unlocked", before=19).state(22, "lock", "locked", before=21)
+    b.heartbeat(60)
+    b.state(70, "lock", "unlocked", before=69).state(72, "lock", "locked", before=71)
+    upload(b, 95, 20.0, 1020)
+    b.heartbeat(150)
+    [t] = trips.derive_from(tmp_path, V)
+    assert t.start == at(70)
+
+
+def test_without_an_unlock_the_earliest_other_marker_departs(tmp_path, capsys):
+    """A reset of the trip counter comes with the departure; the engine
+    starts minutes into it; in use is reported later still."""
+    b = cycle_builder(tmp_path, capsys)
+    b.heartbeat(0)
+    b.state(5, "trip_distance", 12.0, "km", before=3)
+    b.heartbeat(50)
+    b.state(60, "trip_distance", 0.0, "km", before=58)
+    b.state(64, "engine", "on", before=62)
+    b.state(70, "in_use", "car_in_use", before=40)
+    upload(b, 85, 15.0, 1015)
+    b.state(100, "in_use", "available", before=70)
+    b.heartbeat(150)
+    [t] = trips.derive_from(tmp_path, V)
+    assert t.start == at(60) and t.refined_by["start"] == "trip_distance"
+
+
+def test_a_slower_roles_report_before_the_next_departure_joins_the_arrival(tmp_path, capsys):
+    b = cycle_builder(tmp_path, capsys)
+    b.heartbeat(0)
+    b.state(5, "trip_distance", 0.0, "km", before=3)
+    b.state(10, "lock", "unlocked", before=9)
+    b.state(40, "trip_distance", 25.0, "km", before=38)
+    b.state(52, "odometer", 1025, "km", before=40)          # the 15-minute poll, late
+    b.heartbeat(100)
+    [t] = trips.derive_from(tmp_path, V)
+    assert (t.start, t.end) == (at(10), at(40))
+    assert t.distance_km == 25 and t.distance_source == "odometer"
+
+
+def test_a_trip_is_complete_only_when_no_departure_follows_within_t_still(tmp_path, capsys):
+    b = cycle_builder(tmp_path, capsys)
+    b.heartbeat(0)
+    b.state(10, "lock", "unlocked", before=9).state(12, "lock", "locked", before=11)
+    upload(b, 40, 25.0, 1025)
+    b.heartbeat(60)
+    b.state(65, "lock", "unlocked", before=64)              # off again after 25 minutes
+    b.heartbeat(80)
+    assert trips.derive_from(tmp_path, V, completed_only=True) == []
+    upload(b, 90, 35.0, 1035)
+    b.heartbeat(130)
+    [t] = trips.derive_from(tmp_path, V, completed_only=True)
+    assert (t.start, t.end) == (at(10), at(90))
+
+
+def test_legs_line_by_line_equal_one_rebuild(tmp_path, capsys):
+    from test_fixtures import replay
+    b = cycle_builder(tmp_path / "stream", capsys)
+    b.heartbeat(0)
+    b.state(10, "lock", "unlocked", before=9).state(12, "lock", "locked", before=11)
+    upload(b, 40, 25.0, 1025)
+    b.state(41, "lock", "unlocked", before=40).state(42, "lock", "locked", before=41)
+    b.state(47, "lock", "unlocked", before=46).state(48, "lock", "locked", before=47)
+    b.heartbeat(55)
+    upload(b, 70, 40.0, 1040)
+    b.heartbeat(120)
+    b.state(160, "engine", "on", before=158)
+    upload(b, 180, 50.0, 1050)
+    b.heartbeat(230)
+    assert len(trips.derive_from(tmp_path / "stream", V)) == 2
+    replay(tmp_path / "stream", tmp_path / "replay")

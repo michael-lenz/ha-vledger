@@ -38,7 +38,8 @@ choose what to add.
    charging. **In use** is for an entity that reports the vehicle being
    used (a car connection saying *car in use*): it keeps a trip whole while
    the odometer and position only arrive at the stop; set T_still to twice
-   its update interval (60 minutes for one updated every 30). **Fuel flap**
+   its update interval (60 minutes for one updated every 30) — unless the
+   vehicle is set to report per driving cycle (below). **Fuel flap**
    dates a refuelling to the pump.
 3. **Mapping**, only when an enumerated role was assigned: tick the
    source's values that mean *charging*, *plugged in*, *ignition on*,
@@ -91,6 +92,17 @@ and the data directory. For a charge point: the meter, and
 entry, and a correction is a new entry under the same date. Saving any of
 them reloads the entry, which the stream records as stop, start and the
 new configuration.
+
+Among the remaining parameters, **How movement is reported** says whether
+the vehicle reports its odometer and position while driving (*sampled*,
+the default) or uploads them once per driving cycle, at the stop
+(*per driving cycle*) — a vehicle whose odometer never changes during a
+drive, only when it is parked. Set it to *per driving cycle* for such a
+vehicle: its trips are then read as legs from the departure (an unlock,
+the engine starting, the trip counter resetting) to the upload at the stop,
+and a stop is measured to the minute. The **exit window** (5 minutes) is
+how close to an arrival an unlock counts as getting out rather than
+setting off.
 
 If an assigned entity disappears, it is logged as `unavailable` and a
 repair issue names it. One that stays `unavailable` or `unknown` for longer
@@ -382,7 +394,10 @@ was plugged in or charging: a few at a trip's end are sample timing, many
 mean the plug or charging mapping is wrong. Where a slowly polled
 odometer reports a trip's last kilometres after a faster trip counter has
 stopped, the trip ends with the counter; the odometer's value still gives
-the distance. Every trip carries its distance with its source and quality (`odometer`
+the distance. A vehicle set to report per driving cycle is read as legs
+instead: each from its departure to the upload at its stop, and legs whose
+stops are shorter than T_still make one trip ([glossary](glossary.md),
+*Leg*). Every trip carries its distance with its source and quality (`odometer`
 measured, `trip_counter` measured, `waypoints` estimated), the positions
 and zones at both ends, every fix in between, the mean outside
 temperature, and ΔSoC and Δfuel as estimates. A trip that spans a capture

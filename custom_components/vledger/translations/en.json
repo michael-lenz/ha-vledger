@@ -135,7 +135,8 @@
           "eta_el": "Efficiency battery to wheel",
           "eta_ice": "Efficiency fuel to wheel",
           "charge_cycles_start": "Charge cycles before capture began",
-          "tank_fills_start": "Tank fills before capture began"
+          "tank_fills_start": "Tank fills before capture began",
+          "movement_reporting": "How movement is reported"
         }
       },
       "thresholds": {
@@ -153,7 +154,8 @@
           "consumption_error_pct": "Consumption error threshold",
           "heating_value_kwh_per_l": "Lower heating value",
           "beta_per_k": "Thermal expansion coefficient",
-          "temperature_tau_s": "Temperature low-pass time constant"
+          "temperature_tau_s": "Temperature low-pass time constant",
+          "exit_window_s": "Exit window around an arrival (per-cycle vehicles)"
         }
       },
       "meter": {
@@ -184,6 +186,9 @@
     }
   },
   "selector": {
+    "movement_reporting": {
+      "options": { "sampled": "Sampled while driving", "per_cycle": "Uploaded once per driving cycle, at the stop" }
+    },
     "fuel": {
       "options": { "petrol": "Petrol", "diesel": "Diesel" }
     },

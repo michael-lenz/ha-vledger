@@ -126,6 +126,35 @@ sensor pair), and `in_use`; markers `ignition`, `plug_state`,
 6. **Complete** once T_still has elapsed after the last movement, by the
    stream.
 
+**Per-cycle vehicles** (ADR-0023). A vehicle whose `movement_reporting`
+is `per_cycle` uploads odometer, trip counter and position once per
+driving cycle, at the stop, and is read as legs instead of steps 2 and 3:
+
+1. **Arrivals.** A movement event (step 1, in use aside) is an arrival;
+   every further one before the next departure marker belongs to it — a
+   role polled more slowly reporting the same upload — and the arrival's
+   time is its first, its values are read up to its last. (A slower
+   role's report after the next departure opens an arrival of its own:
+   ISSUE-0036.)
+2. **Departure markers.** The lock turning `unlocked`, the engine
+   `running`, the ignition `on`, the plug `unplugged`, and the trip
+   counter going down. An unlock within `exit_window_s` (300 s) of an
+   arrival, either side, is the driver getting out: it separates nothing
+   and departs nothing.
+3. **Legs.** A leg's departure is the latest departing unlock after the
+   previous arrival; without one, the earliest of the other markers and
+   the first in-use report after it; without any, the leg's start is
+   unknown and it starts at its arrival.
+4. **Trips.** Consecutive legs whose stops — from an arrival to the next
+   departure — are each shorter than T_still are one trip, from the first
+   departure to the last arrival; a capture gap in a stop ends the trip,
+   one inside it makes it `incomplete`. `refined_by.start` names the role
+   that departed, `refined_by.end` is `null`. Steps 4 and 5 above give the
+   values.
+5. **Complete** once the stream's last line is T_still past the last
+   arrival, no departure followed within T_still, and the vehicle is not
+   reported in use.
+
 **Limitations.**
 
 - **A stop shorter than the sampling interval merges into the trip**

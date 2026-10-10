@@ -71,6 +71,13 @@ zones, distance, waypoints and mean outside temperature.
 **Standstill.** A span of at least **T_still** in which no movement role
 changes and the vehicle is not reported in use.
 
+**Leg.** On a vehicle that reports once per driving cycle (ADR-0023): one
+drive from its **departure** — an unlock, an engine start, the trip
+counter's reset — to its **arrival**, the upload of odometer, trip counter
+and position at the stop. An unlock just before or after an arrival is the
+driver getting out. Legs whose stops are shorter than T_still are one
+trip; a stop is measured from the arrival to the next departure.
+
 **In use.** The vehicle's own report that it is being used — on the
 reference vehicle the integration's car connection, `car_in_use`. A span in
 use is movement from its first report to its last, however far apart they
@@ -209,7 +216,8 @@ reported together with the number of gaps.
 
 **Vehicle parameters.** Tank capacity, net battery capacity, fuel type, the
 two counters' starting values, the fuel level sensor's resolution, the
-charging loss factor, the efficiencies. Each is mandatory only when an
+charging loss factor, the efficiencies, and how the vehicle reports
+movement — sampled while driving, or once per driving cycle (ADR-0023). Each is mandatory only when an
 enabled derivation needs it.
 
 **Thresholds and time constants.** T_still, the refuelling threshold,
@@ -217,5 +225,6 @@ T_settle, the charging threshold (SoC fallback), the matching tolerance,
 the plausibility threshold receipt/sensor, the heartbeat interval, the
 outage threshold, the rolling period, the consumption error threshold, the
 heating values, the thermal expansion coefficients and the temperature
-low-pass time constant. All configurable per vehicle; each requirement
+low-pass time constant, and the exit window around an arrival. All
+configurable per vehicle; each requirement
 that uses one states its default.

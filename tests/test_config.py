@@ -86,3 +86,13 @@ def test_a_chargepoint_is_checked():
         config.chargepoint("Home", 48.1, 11.5, 0, [])
     with pytest.raises(ValueError):
         config.chargepoint("Home", 48.1, 11.5, 50, [{"from": "yesterday", "eur_per_kwh": 0.3}])
+
+
+def test_movement_reporting_is_sampled_or_per_cycle():
+    roles = {"odometer": {"entity": "sensor.o"}}
+    assert config.vehicle("V", roles)["parameters"]["movement_reporting"] == "sampled"
+    assert config.vehicle("V", roles, {"movement_reporting": "per_cycle"})["parameters"][
+        "movement_reporting"] == "per_cycle"
+    assert config.vehicle("V", roles)["thresholds"]["exit_window_s"] == 300
+    with pytest.raises(ValueError, match="movement_reporting"):
+        config.vehicle("V", roles, {"movement_reporting": "sometimes"})

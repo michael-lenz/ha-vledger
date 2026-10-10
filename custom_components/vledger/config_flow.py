@@ -52,7 +52,7 @@ _THRESHOLD_UNITS = {
     "charging_threshold_pct": "%", "matching_tolerance_s": "s", "plausibility_pct": "%",
     "heartbeat_s": "s", "outage_s": "s", "rolling_period_d": "d",
     "consumption_error_pct": "%", "heating_value_kwh_per_l": "kWh/L",
-    "beta_per_k": "1/K", "temperature_tau_s": "s",
+    "beta_per_k": "1/K", "temperature_tau_s": "s", "exit_window_s": "s",
 }
 
 
@@ -92,6 +92,8 @@ def _all_parameters_schema() -> vol.Schema:
         vol.Optional("eta_ice"): _number(),
         vol.Optional("charge_cycles_start"): _number(),
         vol.Optional("tank_fills_start"): _number(),
+        vol.Optional("movement_reporting"): selector.SelectSelector(selector.SelectSelectorConfig(
+            options=list(vconfig.MOVEMENT_REPORTING), translation_key="movement_reporting")),
     })
 
 
