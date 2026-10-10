@@ -21,6 +21,10 @@ from vledger.layout import Subject
 class Sample:
     t: str
     value: float
+    #: When the value this one replaced was last reported (ADR-0011); ``t``
+    #: minus it is this sample's own sampling interval. Not part of what the
+    #: sample is: a snapshot repeating it has none (ISSUE-0014).
+    reported_before: str | None = field(default=None, compare=False)
 
 
 @dataclass(frozen=True)
@@ -30,6 +34,7 @@ class Fix:
     longitude: float
     accuracy_m: float | None  # None: unknown
     zone: str | None          # the tracker's state: home, a zone, not_home
+    reported_before: str | None = field(default=None, compare=False)
 
 
 @dataclass(frozen=True)
@@ -37,6 +42,7 @@ class DomainSample:
     t: str
     state: str | None  # None: hold (unavailable, unknown)
     raw: str
+    reported_before: str | None = field(default=None, compare=False)
 
 
 @dataclass
@@ -82,7 +88,8 @@ def _position_from(line: dict) -> Fix | None:
         return None
     state = line.get("state")
     zone = state if state not in (None, "unavailable", "unknown") else None
-    return Fix(line["t"], lat, lon, geo.accuracy_m(attrs.get("gps_accuracy")), zone)
+    return Fix(line["t"], lat, lon, geo.accuracy_m(attrs.get("gps_accuracy")), zone,
+               line.get("reported_before"))
 
 
 def _seed_lines(base: Path, subject: Subject, since: str) -> list[dict]:
@@ -151,7 +158,7 @@ def load(base: Path, subject: Subject, *, since: str | None = None,
                 v = units.convert(n, line.get("unit"), q)
             except ValueError:
                 return
-            add(s.series.setdefault(role, []), Sample(t, v))
+            add(s.series.setdefault(role, []), Sample(t, v, line.get("reported_before")))
         elif role == "position":
             fix = _position_from(dict(line, t=t))
             if fix:
@@ -170,7 +177,8 @@ def load(base: Path, subject: Subject, *, since: str | None = None,
             state = vconfig.domain_state(role, raw, mapping)
             if vconfig.unlisted(role, raw, mapping):
                 s.unmapped.setdefault(role, set()).add(raw)
-            add(s.domain.setdefault(role, []), DomainSample(t, state, raw))
+            add(s.domain.setdefault(role, []),
+                DomainSample(t, state, raw, line.get("reported_before")))
 
     seeds = _seed_lines(base, subject, since) if since else []
     for line in seeds + [r.line for r in l0.read(base, subject, since=since, until=until)]:

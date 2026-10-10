@@ -27,7 +27,11 @@
           "plug_state": "Steckerstatus",
           "ignition": "Zündung",
           "outside_temperature": "Außentemperatur",
-          "fuel_price": "Kraftstoffpreis"
+          "fuel_price": "Kraftstoffpreis",
+          "engine": "Motor läuft",
+          "lock": "Schloss",
+          "in_use": "Fahrzeug in Benutzung",
+          "fuel_flap": "Tankklappe"
         }
       },
       "mapping": {
@@ -36,7 +40,11 @@
         "data": {
           "charging_state": "Werte, die „lädt“ bedeuten",
           "plug_state": "Werte, die „eingesteckt“ bedeuten",
-          "ignition": "Werte, die „Zündung an“ bedeuten"
+          "ignition": "Werte, die „Zündung an“ bedeuten",
+          "engine": "Werte, die „Motor läuft“ bedeuten",
+          "lock": "Werte, die „abgeschlossen“ bedeuten",
+          "in_use": "Werte, die „in Benutzung“ bedeuten",
+          "fuel_flap": "Werte, die „Tankklappe offen“ bedeuten"
         }
       },
       "parameters": {
@@ -97,7 +105,11 @@
           "plug_state": "Steckerstatus",
           "ignition": "Zündung",
           "outside_temperature": "Außentemperatur",
-          "fuel_price": "Kraftstoffpreis"
+          "fuel_price": "Kraftstoffpreis",
+          "engine": "Motor läuft",
+          "lock": "Schloss",
+          "in_use": "Fahrzeug in Benutzung",
+          "fuel_flap": "Tankklappe"
         }
       },
       "mapping": {
@@ -105,7 +117,11 @@
         "data": {
           "charging_state": "Werte, die „lädt“ bedeuten",
           "plug_state": "Werte, die „eingesteckt“ bedeuten",
-          "ignition": "Werte, die „Zündung an“ bedeuten"
+          "ignition": "Werte, die „Zündung an“ bedeuten",
+          "engine": "Werte, die „Motor läuft“ bedeuten",
+          "lock": "Werte, die „abgeschlossen“ bedeuten",
+          "in_use": "Werte, die „in Benutzung“ bedeuten",
+          "fuel_flap": "Werte, die „Tankklappe offen“ bedeuten"
         }
       },
       "parameters": {
@@ -313,6 +329,9 @@
           },
           "price_suggestion": {
             "name": "Vorgeschlagener Literpreis"
+          },
+          "flap_opened_at": {
+            "name": "Tankklappe geöffnet"
           },
           "quantity_l": {
             "name": "Menge (L)"

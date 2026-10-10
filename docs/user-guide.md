@@ -28,18 +28,24 @@ choose what to add.
    odometer, position, fuel level, state of charge, charging state and so
    on. Every role is optional; at least one movement role (odometer,
    position or trip counter) is required. What the ledger can do for the
-   vehicle follows from the roles it has. If the vehicle reports only its
-   combustion engine, not an ignition (a plug-in hybrid driving on the
-   battery says *not running*), assign that as the ignition: it refines a
-   trip's boundaries only when the engine ran, and never starts or ends a
-   trip on its own. A plug state and a charging state refine them too — a
-   vehicle that is plugged in or charging is not driving — so assign them
-   even if the ledger is not to account for charging.
-3. **Mapping**, only when a charging state, plug state or ignition was
-   assigned: tick the source's values that mean *charging*, *plugged in*
-   or *ignition on*. *unavailable* and *unknown* hold the last known
-   state; any other value means the opposite — not charging, unplugged,
-   off.
+   vehicle follows from the roles it has. An engine status (a plug-in
+   hybrid's *running* or *not running*) is assigned as **engine**, not as
+   the ignition: it can start a trip, never end one, since the engine stops
+   while the car drives on electrically. A **lock** likewise only starts
+   one — the car locks itself on driving off. A plug state and a charging
+   state refine trips too — a vehicle that is plugged in or charging is not
+   driving — so assign them even if the ledger is not to account for
+   charging. **In use** is for an entity that reports the vehicle being
+   used (a car connection saying *car in use*): it keeps a trip whole while
+   the odometer and position only arrive at the stop; set T_still to twice
+   its update interval (60 minutes for one updated every 30). **Fuel flap**
+   dates a refuelling to the pump.
+3. **Mapping**, only when an enumerated role was assigned: tick the
+   source's values that mean *charging*, *plugged in*, *ignition on*,
+   *engine running*, *locked*, *in use* or *fuel flap open*. *unavailable*
+   and *unknown* hold the last known state; any other value means the
+   opposite — not charging, unplugged, off, stopped, unlocked, not in
+   use, closed.
 4. **Parameters.** Fuel, tank capacity, net battery capacity — only what a
    derivation needs; the tank capacity is required when the fuel level is
    reported in percent. Everything else keeps its default.
@@ -72,10 +78,10 @@ entity's settings switch either to another unit (MiB, hours).
 the log gives: the measured sampling and change interval of every role
 (median and 95th percentile of each; [glossary](glossary.md)), the last
 value of every
-role, every capture gap, and the source values a charging state, plug
-state or ignition met that its mapping does not list — read as *not
-charging*, *unplugged* or *off*, and worth a tick in the mapping if that
-was wrong. Positions are redacted.
+role, every capture gap, and the source values an enumerated role met
+that its mapping does not list — read as the opposite (*not charging*,
+*unplugged*, *off*, *unlocked*, …), and worth a tick in the mapping if
+that was wrong. Positions are redacted.
 
 **Options** (the entry's *Configure*): a menu over the same steps,
 pre-filled, plus the thresholds and time constants, the remaining
@@ -362,16 +368,21 @@ vledger derive charging --vehicle a7c1 | jq '{start, chargepoint, delta_soc_pct,
 
 A trip is the span between two standstills: from the first sample that
 moved after at least T_still of nothing moving, to the last before the
-next such span. Ignition, plug state and charging state, where assigned,
-refine both ends: the start moves back to the latest *ignition on* or
-*unplugged* within T_still before the first moving sample, the end forward
+next such span. A vehicle reported in use is moving, from the first
+report to the last. Ignition, plug state and charging state, where
+assigned, refine both ends, lock and engine the start only: the start
+moves back to the latest *ignition on*, *unplugged*, *unlocked* or *engine
+running* within T_still before the first moving sample, the end forward
 to the earliest *ignition off*, *plugged in* or *charging* within T_still
 after the last — each a moment the vehicle was not driving, so the closest
 one is the best bound ([glossary](glossary.md), *Not-driving marker*).
 `refined_by` names the role that set each end, and
 `movements_while_plugged` counts moving samples taken while the vehicle
 was plugged in or charging: a few at a trip's end are sample timing, many
-mean the plug or charging mapping is wrong. Every trip carries its distance with its source and quality (`odometer`
+mean the plug or charging mapping is wrong. Where a slowly polled
+odometer reports a trip's last kilometres after a faster trip counter has
+stopped, the trip ends with the counter; the odometer's value still gives
+the distance. Every trip carries its distance with its source and quality (`odometer`
 measured, `trip_counter` measured, `waypoints` estimated), the positions
 and zones at both ends, every fix in between, the mean outside
 temperature, and ΔSoC and Δfuel as estimates. A trip that spans a capture
@@ -394,7 +405,13 @@ stood, `level_before_l`, `level_after_l` read once T_settle (6 min) has
 passed after `end` together with `settled_at`, the time of that reading,
 the `sensor_delta_l` between the two — always `estimated`, the receipt
 says what was bought — and, with a fuel price role assigned, its value at
-`start` as `price_suggestion`. No fuel flap is needed. A candidate still
+`start` as `price_suggestion`. No fuel flap is needed. A rise across a
+drive counts as well when the vehicle stopped and started again in
+between, or its fuel flap opened — a vehicle that reports its level only
+at each stop shows the refuelling at the next one; such a candidate runs
+from the reading at the pump to the next, and `flap_opened_at` dates it
+to the pump. Its `sensor_delta_l` is then off by what was burnt since and
+by the sensor's own error: the receipt says what was bought. A candidate still
 settling is printed with `level_after_l` empty and not yet written to L1;
 one whose settle time spans a capture gap is `incomplete`, without a level
 after. A fuel level in % is converted with the tank capacity; without

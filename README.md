@@ -94,7 +94,7 @@ configured in the UI; no YAML.
 | Document | What it is |
 |---|---|
 | [docs/user-guide.md](docs/user-guide.md) | What a participant types: the `vledger` command, verb by verb |
-| [docs/l0-format.md](docs/l0-format.md) | The raw log's layout, version 2 — the specification a reader of their own files needs |
+| [docs/l0-format.md](docs/l0-format.md) | The raw log's layout, version 3 — the specification a reader of their own files needs |
 | [docs/l1-format.md](docs/l1-format.md) | The derivation on disk: files, manifest, cursor, rebuilds, and the exports rendered from it |
 | [docs/derivations.md](docs/derivations.md) | How each detection works as built: algorithm, roles and parameters, quality flags, limitations |
 | [docs/receipts-format.md](docs/receipts-format.md) | Receipts on disk, corrections and cancellations, and how they meet events |

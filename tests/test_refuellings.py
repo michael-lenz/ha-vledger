@@ -182,3 +182,48 @@ def test_a_receipt_from_the_candidate_meets_it_in_l1(tmp_path, capsys):
     [e] = l1.read(tmp_path, V, "refuelling")
     assert e["receipt"] == receipt["id"] and e["confirmation"] == "receipt"
     assert e["quantity_l"] == 41.8 and e["sensor_delta_l"] == 41.5 and e["implausible"] is False
+
+
+# --- a rise across a stop and a start (ADR-0022) ----------------------------
+
+CYCLE = {"lock": {"entity": "lock.v", "map": {"locked": ["locked"]}},
+         "fuel_flap": {"entity": "binary_sensor.flap", "map": {"open": ["on"]}}}
+
+
+def per_cycle(b):
+    """Fuel and odometer reported once per driving cycle: at the pump (45),
+    and at home after another 21 km (70)."""
+    b.heartbeat(0)
+    b.state(45, "odometer", 1022, "km").state(45, "fuel_level", 5.2, "L").fix(45, *STATION, zone="fuel_station")
+    b.heartbeat(60)
+    b.state(70, "odometer", 1043, "km").state(70, "fuel_level", 23.2, "L")
+    b.heartbeat(80)
+
+
+def test_a_rise_across_a_stop_and_a_start_is_a_refuelling(tmp_path, capsys):
+    b = builder(tmp_path, capsys, roles=CYCLE)
+    b.state(47, "lock", "unlocked").state(48, "lock", "locked")
+    per_cycle(b)
+    [r] = refuellings.derive_from(tmp_path, V, completed_only=True)
+    assert (r.start, r.end) == (at(45), at(70))
+    assert r.level_before_l == 5.2 and r.level_after_l == 23.2 and r.settled_at == at(70)
+    assert r.sensor_delta_l == 18 and r.sensor_delta_quality == "estimated"
+    assert r.zone == "fuel_station"               # where the lower level was reported
+    assert r.flap_opened_at is None
+
+
+def test_the_fuel_flap_is_evidence_and_the_time(tmp_path, capsys):
+    b = builder(tmp_path, capsys, roles=CYCLE)
+    b.state(46, "fuel_flap", "on").state(47, "fuel_flap", "off")
+    per_cycle(b)
+    [r] = refuellings.derive_from(tmp_path, V, completed_only=True)
+    assert r.flap_opened_at == at(46)
+    from vledger import receipts
+    assert receipts.distance_s(at(46), refuellings.to_dict(r)) == 0
+    assert receipts.distance_s(at(45), refuellings.to_dict(r)) == 60
+
+
+def test_a_rise_across_movement_without_a_stop_is_none(tmp_path, capsys):
+    b = builder(tmp_path, capsys, roles=CYCLE)
+    per_cycle(b)
+    assert refuellings.derive_from(tmp_path, V) == []

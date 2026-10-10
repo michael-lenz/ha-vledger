@@ -5,8 +5,9 @@ A movement event is a change of a movement role that means the vehicle
 moved: an odometer or trip counter going up, a position fix that moved. A
 standstill is at least T_still without one. A trip runs from the first
 movement event after a standstill to the last before the next, refined by
-the not-driving markers of ignition, plug state and charging state where
-they are assigned (FAH-02, ADR-0012) — never defined by them.
+the markers of ignition, plug state, charging state, lock and engine where
+they are assigned (FAH-02, ADR-0012, ADR-0021) — never defined by them. A
+vehicle reported in use is moving (ADR-0021).
 
 What the sampling cannot show, the trip cannot show either: a stop shorter
 than the sampling interval merges into the trip (FAH-06), and a trip's
@@ -15,6 +16,7 @@ start is the first sample that moved, not the moment the wheels turned.
 
 from __future__ import annotations
 
+import statistics
 from bisect import bisect_right
 from dataclasses import asdict, dataclass
 from datetime import timedelta
@@ -32,6 +34,37 @@ MEASURED, ESTIMATED, INCOMPLETE = "measured", "estimated", "incomplete"
 class Movement:
     t: str
     role: str
+    #: The sample's own sampling interval, ``t`` minus its reported_before
+    #: (ADR-0011); ``None`` where the stream does not say.
+    interval_s: float | None = None
+
+
+def _interval(t: str, reported_before: str | None) -> float | None:
+    if reported_before is None:
+        return None
+    return (clock.parse(t) - clock.parse(reported_before)).total_seconds()
+
+
+def in_use_spans(s: Stream) -> list[tuple[str, str, float | None]]:
+    """(first report, last report, poll interval) of every span the vehicle
+    was reported in use (ADR-0021). The last report is the reported_before of
+    the line that leaves the state — the last poll that still saw it — or the
+    first report where the stream does not say."""
+    out: list[tuple[str, str, float | None]] = []
+    first = None
+    for x in s.domain.get("in_use", []):
+        positive = x.state == "in_use"
+        if positive and first is None:
+            first = x
+        elif not positive and first is not None:
+            last = x.reported_before
+            if last is None or clock.parse(last) < clock.parse(first.t):
+                last = first.t
+            out.append((first.t, last, _interval(x.t, x.reported_before)))
+            first = None
+    if first is not None:
+        out.append((first.t, first.t, _interval(first.t, first.reported_before)))
+    return out
 
 
 @dataclass
@@ -67,33 +100,43 @@ def movements(s: Stream, *, min_move_km: float = 0.05) -> list[Movement]:
     An odometer only counts going up; a trip counter going up counts, going
     down is a reset (FAH-04); a fix counts when it is at least
     ``min_move_km`` from the previous fix, so GPS jitter at rest is not a
-    trip.
+    trip; a span in use counts at its first and its last report (ADR-0021).
     """
     out: list[Movement] = []
     for role in ("odometer", "trip_distance"):
         prev: Sample | None = None
         for x in s.series.get(role, []):
             if prev is not None and x.value > prev.value:
-                out.append(Movement(x.t, role))
+                out.append(Movement(x.t, role, _interval(x.t, x.reported_before)))
             prev = x
     prev_fix: Fix | None = None
     for f in s.fixes:
         if prev_fix is not None and _moved(prev_fix, f, min_move_km):
-            out.append(Movement(f.t, "position"))
+            out.append(Movement(f.t, "position", _interval(f.t, f.reported_before)))
         prev_fix = f
+    for first, last, interval in in_use_spans(s):
+        out.append(Movement(first, "in_use", interval))
+        if last != first:
+            out.append(Movement(last, "in_use", interval))
     out.sort(key=lambda m: clock.parse(m.t))
     return out
 
 
-def _spans(moves: list[Movement], t_still_s: float, gaps: list[l0.Gap]) -> list[tuple[str, str, bool]]:
-    """(first movement, last movement, crosses a gap) per trip."""
+def _spans(moves: list[Movement], t_still_s: float, gaps: list[l0.Gap],
+           in_use: list[tuple[str, str, float | None]] = ()) -> list[tuple[str, str, bool]]:
+    """(first movement, last movement, crosses a gap) per trip. No standstill
+    lies inside a span the vehicle was reported in use (ADR-0021)."""
     if not moves:
         return []
     still = timedelta(seconds=t_still_s)
     gap_ranges = [(clock.parse(g.start), clock.parse(g.end)) for g in gaps]
+    use_ranges = [(clock.parse(a), clock.parse(b)) for a, b, _ in in_use]
 
     def gap_between(ta, tb) -> bool:
         return any(gs < tb and ge > ta for gs, ge in gap_ranges)
+
+    def in_use_throughout(ta, tb) -> bool:
+        return any(ua <= ta and tb <= ub for ua, ub in use_ranges)
 
     spans: list[tuple[str, str, bool]] = []
     start = last = moves[0].t
@@ -101,7 +144,7 @@ def _spans(moves: list[Movement], t_still_s: float, gaps: list[l0.Gap]) -> list[
     for m in moves[1:]:
         tl, tm = clock.parse(last), clock.parse(m.t)
         crossed = gap_between(tl, tm)
-        if tm - tl >= still or crossed:
+        if (tm - tl >= still and not in_use_throughout(tl, tm)) or crossed:
             spans.append((start, last, incomplete or gap_between(tl, min(tm, tl + still))))
             start, incomplete = m.t, crossed
         last = m.t
@@ -115,9 +158,12 @@ def _spans(moves: list[Movement], t_still_s: float, gaps: list[l0.Gap]) -> list[
 
 
 #: The not-driving markers (ADR-0012): a change into one of these domain
-#: states ends driving, a change into one of the start states begins it.
+#: states ends driving, a change into one of the start states begins it. The
+#: lock and the engine only ever start a trip: the car locks itself on
+#: driving off, and an engine stops while the car drives on (ADR-0021).
 END_MARKERS = {"ignition": "off", "plug_state": "plugged", "charging_state": "charging"}
-START_MARKERS = {"ignition": "on", "plug_state": "unplugged"}
+START_MARKERS = {"ignition": "on", "plug_state": "unplugged", "engine": "running",
+                 "lock": "unlocked"}
 
 #: The domain states in which the vehicle cannot drive.
 NOT_DRIVING = {"plug_state": "plugged", "charging_state": "charging"}
@@ -173,6 +219,60 @@ def _refine(start: str, end: str, t_still_s: float, starts: list[Marker],
             end, by["end"] = m.t, m.role
         break
     return start, end, by
+
+
+def _role_intervals(s: Stream, lo: str | None, hi: str) -> dict[str, float]:
+    """Per movement role, the median of the sampling intervals the stream
+    measures for it (ADR-0011) from ``lo`` (the previous trip's end, or the
+    stream's start) to ``hi``. The window is the same whether the stream is
+    derived at once or from the last trip on, so the answer is too."""
+    tlo, thi = (clock.parse(lo) if lo else None), clock.parse(hi)
+
+    def inside(t: str) -> bool:
+        tt = clock.parse(t)
+        return (tlo is None or tt >= tlo) and tt <= thi
+
+    found: dict[str, list[float]] = {}
+    for role in ("odometer", "trip_distance"):
+        for x in s.series.get(role, []):
+            if x.reported_before and inside(x.t):
+                found.setdefault(role, []).append(_interval(x.t, x.reported_before))
+    for f in s.fixes:
+        if f.reported_before and inside(f.t):
+            found.setdefault("position", []).append(_interval(f.t, f.reported_before))
+    for first, _, interval in in_use_spans(s):
+        if interval is not None and inside(first):
+            found.setdefault("in_use", []).append(interval)
+    return {role: statistics.median(v) for role, v in found.items()}
+
+
+def in_use_now(s: Stream) -> bool:
+    """Whether the stream ends with the vehicle reported in use: a span
+    with no line leaving it yet, so the movement it is goes on (ADR-0021)."""
+    known = [x.state for x in s.domain.get("in_use", []) if x.state is not None]
+    return bool(known) and known[-1] == "in_use"
+
+
+def _moving_until(moves: list[Movement], intervals: dict[str, float]) -> str:
+    """The time the vehicle stopped moving: the last movement, unless it is a
+    slower role's late report (ADR-0021, point 4). A role is slower when its
+    measured interval is longer; a report is late when it follows the last
+    movement of a faster role by no more than its own interval — the old
+    value was last heard no later than that movement (one second's grace for
+    lines of one poll). The faster role stopped changing first, so the
+    vehicle had stopped by then."""
+    ms = sorted(moves, key=lambda m: clock.parse(m.t))
+    i = len(ms) - 1
+    while i > 0:
+        m = ms[i]
+        if m.interval_s is None or m.role not in intervals:
+            break
+        faster = [f for f in ms[:i] if f.role != m.role
+                  and intervals.get(f.role, intervals[m.role]) < intervals[m.role]]
+        if not faster or (clock.parse(m.t) - clock.parse(faster[-1].t)).total_seconds() > m.interval_s + 1:
+            break
+        i -= 1
+    return ms[i].t
 
 
 def _while_plugged(s: Stream, moves: list[Movement]) -> int:
@@ -251,24 +351,33 @@ def derive(s: Stream, *, completed_only: bool = False) -> list[Trip]:
     settle = float(thr["t_settle_s"])
     out: list[Trip] = []
     moves = movements(s)
-    spans = _spans(moves, t_still, s.gaps)
+    use = in_use_spans(s)
+    if in_use_now(s) and use and s.last_t:
+        # Still in use as far as the stream knows: movement up to its end.
+        use[-1] = (use[-1][0], s.last_t, use[-1][2])
+    spans = _spans(moves, t_still, s.gaps, use)
     starts, ends = markers(s, START_MARKERS), markers(s, END_MARKERS)
     if completed_only and spans and s.last_t:
         first, last, crossed = spans[-1]
-        if clock.parse(s.last_t) - clock.parse(last) < timedelta(seconds=t_still):
+        if (clock.parse(s.last_t) - clock.parse(last) < timedelta(seconds=t_still)
+                or in_use_now(s)):
             spans = spans[:-1]
     floor = None
     for first, last, crossed in spans:
-        start, end, refined_by = _refine(first, last, t_still, starts, ends, floor)
-        floor = end
         inside_moves = [m for m in moves
                         if clock.parse(first) <= clock.parse(m.t) <= clock.parse(last)]
+        until = _moving_until(inside_moves, _role_intervals(s, floor, last))
+        start, end, refined_by = _refine(first, until, t_still, starts, ends, floor)
+        floor = end
+        # A late report still belongs to the trip: its values are read up to
+        # it, while the trip's time ends where the vehicle stopped.
+        values_until = max(end, last, key=clock.parse)
         # Where the vehicle was before it moved, then every fix while moving.
         start_fix = series.last_before(s.fixes, start) or series.last_at_or_before(s.fixes, start)
-        inside = series.between(s.fixes, start, end)
+        inside = series.between(s.fixes, start, values_until)
         waypoints = ([start_fix] if start_fix and start_fix not in inside else []) + inside
         end_fix = waypoints[-1] if waypoints else None
-        km, kq, ksrc = _distance(s, start, end, waypoints)
+        km, kq, ksrc = _distance(s, start, values_until, waypoints)
         temp = series.mean(series.between(s.series.get("outside_temperature", []), start, end))
         out.append(Trip(
             kind="trip", subject=s.subject.id, start=start, end=end,
@@ -279,8 +388,8 @@ def derive(s: Stream, *, completed_only: bool = False) -> list[Trip]:
             end_zone=end_fix.zone if end_fix else None,
             waypoints=[series.fix_dict(f) for f in waypoints],
             outside_temperature_c=temp,
-            delta_soc_pct=_delta(s, "soc", start, end, settle),
-            delta_fuel_l=_delta(s, "fuel_level", start, end, settle),
+            delta_soc_pct=_delta(s, "soc", start, values_until, settle),
+            delta_fuel_l=_delta(s, "fuel_level", start, values_until, settle),
             refined_by=refined_by,
             movements_while_plugged=_while_plugged(s, inside_moves),
             version=__version__,

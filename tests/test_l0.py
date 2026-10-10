@@ -104,7 +104,7 @@ def test_validate_passes_a_clean_stream_and_names_its_versions(tmp_path, capsys)
     b = build_stream(tmp_path, capsys)
     code, out, _ = run(capsys, "validate", *b, "--json")
     report = json.loads(out)
-    assert code == 0 and report["problems"] == [] and report["versions"] == [2]
+    assert code == 0 and report["problems"] == [] and report["versions"] == [3]
     assert report["by_kind"] == {"start": 3, "config": 1, "state": 3, "heartbeat": 1, "stop": 2}
 
 
@@ -165,11 +165,11 @@ def test_a_newer_schema_version_is_refused_on_reading(tmp_path, capsys):
     run(capsys, "start", *b, "--t", "2026-10-01T06:00:00Z", "--homeassistant", "2026.10.1")
     path = tmp_path / "vehicle-a7c1/l0/2026-10.jsonl"
     with open(path, "a") as f:
-        f.write('{"v":3,"t":"2026-10-01T06:01:00.000Z","kind":"stop","subject":"a7c1","reason":"shutdown"}\n')
+        f.write('{"v":4,"t":"2026-10-01T06:01:00.000Z","kind":"stop","subject":"a7c1","reason":"shutdown"}\n')
     with pytest.raises(ValueError, match="newer than this reader"):
         list(l0.read(tmp_path, V))
     code, out, _ = run(capsys, "validate", *b)
-    assert code == 1 and "schema version 3 is newer" in out
+    assert code == 1 and "schema version 4 is newer" in out
 
 
 def test_a_state_line_carries_when_the_old_value_was_last_reported(tmp_path, capsys):
@@ -179,7 +179,7 @@ def test_a_state_line_carries_when_the_old_value_was_last_reported(tmp_path, cap
                        "--reported-before", "2026-10-01T06:00:00.000Z")
     assert code == 0
     line = next(l0.read(tmp_path, V)).line
-    assert line["v"] == 2 and line["reported_before"] == "2026-10-01T06:00:00.000Z"
+    assert line["v"] == 3 and line["reported_before"] == "2026-10-01T06:00:00.000Z"
     with pytest.raises(ValueError, match="later than the line"):
         l0.state("2026-10-01T06:00:00.000Z", V, "odometer", "sensor.o", "102",
                   reported_before="2026-10-01T06:00:00.001Z")

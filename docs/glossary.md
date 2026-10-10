@@ -35,7 +35,8 @@ or charge point data. The system reads it and never asks it to refresh.
 
 **Role.** The domain meaning of a source entity: `odometer`, `position`,
 `trip_distance`, `fuel_level`, `soc`, `charging_state`, `plug_state`,
-`ignition`, `outside_temperature`, `fuel_price` for a vehicle;
+`ignition`, `engine`, `lock`, `in_use`, `fuel_flap`, `outside_temperature`,
+`fuel_price` for a vehicle;
 `energy_meter` for a charge point — and `power`, which nothing assigns
 yet (ISSUE-0023). Every role is optional; what a vehicle can do follows
 from the roles it has.
@@ -68,15 +69,24 @@ derivation finds in L0.
 zones, distance, waypoints and mean outside temperature.
 
 **Standstill.** A span of at least **T_still** in which no movement role
-changes.
+changes and the vehicle is not reported in use.
 
-**Not-driving marker.** A change of ignition, plug state or charging state
+**In use.** The vehicle's own report that it is being used — on the
+reference vehicle the integration's car connection, `car_in_use`. A span in
+use is movement from its first report to its last, however far apart they
+are (ADR-0021); it is no movement role, so it neither satisfies the
+mandatory one nor gives a distance. The T_still rule counts its interval:
+at 30 minutes, T_still has to be 60.
+
+**Not-driving marker.** A change of ignition, plug state, charging state, lock or engine
 that says when the vehicle was not driving: *ignition off*, *plugged in*
 and *charging* begin not driving and can end a trip; *ignition on* and
-*unplugged* end it and can start one. The end of charging is none — it
-comes when the battery is full, not when the driver leaves. A marker only
-moves the boundary of a trip the movement roles found, by at most T_still,
-never creates one (FAH-02, ADR-0012).
+*unplugged* end it and can start one, and so do *unlocked* and *engine
+running* — which never end a trip, since a car locks itself on driving off
+and an engine stops while a hybrid drives on (ADR-0021). The end of
+charging is none — it comes when the battery is full, not when the driver
+leaves. A marker only moves the boundary of a trip the movement roles
+found, by at most T_still, never creates one (FAH-02, ADR-0012).
 
 **Waypoint.** A position recorded during a trip, plus the one the vehicle
 stood at before it moved. A fix's `gps_accuracy` of 0 means unknown, not
@@ -93,7 +103,10 @@ odometer is assigned, while no other movement role moved. Rises that
 follow one another within **T_settle** at unchanged odometer are one
 refuelling. Its level after is read only once T_settle has elapsed after
 the last rise — the value in effect then, or the first after the sensor
-came back if it had dropped out. A fuel level in % is litres of the tank
+came back if it had dropped out. A rise across movement counts too when
+the vehicle stopped and started again in between, or its fuel flap opened
+(ADR-0022): a vehicle reporting its level once per driving cycle shows a
+refuelling only at its next stop. A fuel level in % is litres of the tank
 capacity; without one, no refuelling is detected.
 
 **Candidate.** An event the derivation detected that still waits for a

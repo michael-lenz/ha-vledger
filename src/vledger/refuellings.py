@@ -12,6 +12,12 @@ stream's last line, not by the clock (ABL-01), and a candidate is complete
 only then — which is what L1 holds (ADR-0009). No fuel flap is needed
 (TNK-03).
 
+A rise across movement counts too when the vehicle stopped and started
+again in between — a start marker lies between the two samples — or its
+fuel flap opened: a vehicle that reports its level once per driving cycle
+shows the refuelling only at the next stop (ADR-0022). Such a candidate
+spans the two samples and its level after is the later one.
+
 What the sampling cannot show, the candidate cannot show either: a rise
 between two odometer samples taken while driving looks like one at rest,
 and the threshold is what keeps a sloshing tank from being a refuelling.
@@ -46,6 +52,7 @@ class Refuelling:
     sensor_delta_l: float | None
     sensor_delta_quality: str          # estimated, always (TNK-02)
     price_suggestion: float | None     # the fuel_price role at start (TNK-05)
+    flap_opened_at: str | None         # the fuel flap's opening within it (ADR-0022)
     version: str
 
 
@@ -76,6 +83,30 @@ def _rises(s: Stream, threshold_l: float) -> list[tuple[Sample, Sample]]:
     fuel = s.series.get("fuel_level", [])
     return [(a, b) for a, b in pairwise(fuel)
             if b.value - a.value >= threshold_l and not _moved(s, a.t, b.t)]
+
+
+def _flap_openings(s: Stream) -> list[trips.Marker]:
+    return trips.markers(s, {"fuel_flap": "open"})
+
+
+def _rises_across_a_stop(s: Stream, threshold_l: float) -> list[tuple[Sample, Sample]]:
+    """Every step of at least the threshold across movement, with a start
+    marker or a fuel flap opening between the two samples (ADR-0022)."""
+    evidence = [clock.parse(m.t) for m in trips.markers(s, trips.START_MARKERS) + _flap_openings(s)]
+    fuel = s.series.get("fuel_level", [])
+    out = []
+    for a, b in pairwise(fuel):
+        if b.value - a.value < threshold_l or not _moved(s, a.t, b.t):
+            continue
+        ta, tb = clock.parse(a.t), clock.parse(b.t)
+        if any(ta < t < tb for t in evidence):
+            out.append((a, b))
+    return out
+
+
+def _flap_opened(s: Stream, a: str, b: str) -> str | None:
+    ta, tb = clock.parse(a), clock.parse(b)
+    return next((m.t for m in _flap_openings(s) if ta <= clock.parse(m.t) <= tb), None)
 
 
 def _settled(s: Stream, end: str, settle_s: float) -> tuple[Sample | None, bool, bool]:
@@ -122,6 +153,22 @@ def derive(s: Stream, *, completed_only: bool = False) -> list[Refuelling]:
                 continue
         groups.append([(a, b)])
     out: list[Refuelling] = []
+    for a, b in _rises_across_a_stop(s, threshold):
+        # The level after is the later reading itself: T_settle has long
+        # elapsed, and no reading falls inside it (ADR-0022, point 2).
+        fix = series.last_at_or_before(s.fixes, a.t)
+        price = series.in_effect(s, "fuel_price", a.t)
+        out.append(Refuelling(
+            kind="refuelling", subject=s.subject.id, start=a.t, end=b.t,
+            quality=INCOMPLETE if series.gap_between(s, a.t, b.t) else MEASURED,
+            position=series.fix_dict(fix), zone=fix.zone if fix else None,
+            level_before_l=round(a.value, 3), level_after_l=round(b.value, 3),
+            settled_at=b.t, sensor_delta_l=round(b.value - a.value, 3),
+            sensor_delta_quality=ESTIMATED,
+            price_suggestion=price.value if price else None,
+            flap_opened_at=_flap_opened(s, a.t, b.t),
+            version=__version__,
+        ))
     for steps in groups:
         before, start, end = steps[0][0], steps[0][1].t, steps[-1][1].t
         after, gap_after, waiting = _settled(s, end, settle)
@@ -140,8 +187,10 @@ def derive(s: Stream, *, completed_only: bool = False) -> list[Refuelling]:
             sensor_delta_l=round(after.value - before.value, 3) if after else None,
             sensor_delta_quality=ESTIMATED,
             price_suggestion=price.value if price else None,
+            flap_opened_at=_flap_opened(s, before.t, after.t if after else end),
             version=__version__,
         ))
+    out.sort(key=lambda r: clock.parse(r.start))
     return out
 
 

@@ -57,10 +57,13 @@ class Builder:
         self.capsys.readouterr()
         return self
 
-    def state(self, minutes, role, value, unit=None, **attrs):
+    def state(self, minutes, role, value, unit=None, before=None, **attrs):
+        """``before``: the minute the replaced value was last reported (ADR-0011)."""
         args = ["state", *self.b, "--t", at(minutes), "--role", role, "--entity", f"x.{role}", "--state", str(value)]
         if unit:
             args += ["--unit", unit]
+        if before is not None:
+            args += ["--reported-before", at(before)]
         for k, v in attrs.items():
             args += ["--attr", f"{k}={v}"]
         return self.run(*args)
@@ -319,3 +322,132 @@ def test_the_verbs(tmp_path, capsys):
     assert capsys.readouterr().out.strip().endswith("km")
     assert main(["calc", "convert", "5", "gal", "--quantity", "volume"]) == 0
     assert capsys.readouterr().out.strip() == "18.9271 L"
+
+
+# --- vehicles that report their movement once per driving cycle (ADR-0021) --
+
+CYCLE_ROLES = {
+    "trip_distance": {"entity": "sensor.trip"},
+    "in_use": {"entity": "sensor.connection", "map": {"in_use": ["car_in_use"]}},
+    "lock": {"entity": "lock.v", "map": {"locked": ["locked"]}},
+    "engine": {"entity": "binary_sensor.engine", "map": {"running": ["on"]}},
+}
+
+
+def test_in_use_is_movement_and_no_standstill_lies_inside_it(tmp_path, capsys):
+    """Odometer and trip counter arrive only at the stop, 50 minutes after
+    the departure; in use was reported at 10 and still at 40."""
+    b = Builder(tmp_path, capsys, roles=CYCLE_ROLES)
+    b.heartbeat(0)
+    b.state(5, "lock", "unlocked", before=4)
+    b.state(10, "in_use", "car_in_use", before=-20)
+    b.state(52, "trip_distance", 30.0, "km", before=50).state(52, "odometer", 1030, "km", before=50)
+    b.heartbeat(55)
+    b.state(70, "in_use", "available", before=40)
+    b.heartbeat(110)
+    [t] = trips.derive_from(tmp_path, V)
+    assert (t.start, t.end) == (at(5), at(52))          # from the unlock to the cycle's upload
+    assert t.refined_by == {"start": "lock", "end": None}
+    assert t.distance_km == 30 and t.distance_source == "odometer"
+
+
+def test_a_trip_in_use_is_not_complete(tmp_path, capsys):
+    b = Builder(tmp_path, capsys, roles=CYCLE_ROLES)
+    b.heartbeat(0)
+    b.state(10, "in_use", "car_in_use", before=-20)
+    b.heartbeat(60)                      # 50 minutes, nothing moved, still in use
+    assert trips.derive_from(tmp_path, V, completed_only=True) == []
+    b.state(70, "in_use", "available", before=40)
+    b.heartbeat(120)
+    [t] = trips.derive_from(tmp_path, V, completed_only=True)
+    assert (t.start, t.end) == (at(10), at(40))
+
+
+def test_without_in_use_the_same_drive_starts_at_its_upload(tmp_path, capsys):
+    b = Builder(tmp_path, capsys, roles=CYCLE_ROLES)
+    b.heartbeat(0)
+    b.state(5, "lock", "unlocked", before=4)
+    b.state(52, "trip_distance", 30.0, "km", before=50).state(52, "odometer", 1030, "km", before=50)
+    b.heartbeat(55)
+    b.heartbeat(110)
+    [t] = trips.derive_from(tmp_path, V)
+    assert t.start == at(52)        # the unlock is 47 minutes before: beyond T_still
+
+
+def test_lock_and_engine_only_ever_start_a_trip(tmp_path, capsys):
+    b = Builder(tmp_path, capsys, roles=CYCLE_ROLES)
+    b.heartbeat(0)
+    b.state(55, "lock", "unlocked").state(57, "engine", "on").state(58, "lock", "locked")
+    end = plain_drive(b, 60)                         # moves at 75, 90, 105
+    b.state(70, "engine", "off")                     # electric from here on: not an end
+    b.state(end + 2, "lock", "locked")               # nor is locking
+    b.state(end + 3, "engine", "off")
+    b.heartbeat(end + 60)
+    [t] = trips.derive_from(tmp_path, V)
+    assert t.start == at(57)                          # the latest start marker: the engine
+    assert t.end == at(105) and t.refined_by == {"start": "engine", "end": None}
+
+
+def test_a_slower_roles_late_report_does_not_extend_the_trip(tmp_path, capsys):
+    """The trip counter is polled every 2 minutes, the odometer every 15:
+    the counter's last rise at 44 ends the trip, the odometer's change seen
+    at 56 — its old value last heard at 44 — is a late report of it."""
+    b = Builder(tmp_path, capsys, roles={"trip_distance": {"entity": "sensor.trip"}})
+    b.heartbeat(0)
+    b.state(11, "odometer", 1004, "km", before=-4)
+    b.state(14, "trip_distance", 4.0, "km", before=12).state(26, "odometer", 1012, "km", before=11)
+    b.state(30, "trip_distance", 12.0, "km", before=28)
+    b.state(44, "trip_distance", 20.0, "km", before=42)
+    b.state(56, "odometer", 1020, "km", before=44)
+    b.heartbeat(60).heartbeat(120)
+    [t] = trips.derive_from(tmp_path, V)
+    assert t.end == at(44)
+    assert t.distance_km == 20 and t.distance_source == "odometer"   # the late value still counts
+
+
+def test_a_slower_role_reporting_later_than_its_interval_still_ends_the_trip(tmp_path, capsys):
+    b = Builder(tmp_path, capsys, roles={"trip_distance": {"entity": "sensor.trip"}})
+    b.heartbeat(0)
+    b.state(11, "odometer", 1004, "km", before=-4)
+    b.state(14, "trip_distance", 4.0, "km", before=12).state(26, "odometer", 1012, "km", before=11)
+    b.state(30, "trip_distance", 12.0, "km", before=28)
+    # Its old value was still heard at 33, after the counter's last rise at 30:
+    # the change follows that rise by more than its own interval.
+    b.state(41, "odometer", 1020, "km", before=33)
+    b.heartbeat(60).heartbeat(120)
+    [t] = trips.derive_from(tmp_path, V)
+    assert t.end == at(41)
+
+
+def test_a_version_2_line_cannot_carry_a_role_of_version_3(tmp_path, capsys):
+    path = tmp_path / "vehicle-a7c1/l0/2026-10.jsonl"
+    path.parent.mkdir(parents=True)
+    path.write_text('{"v":2,"t":"2026-10-01T06:00:00.000Z","kind":"state","subject":"a7c1",'
+                    '"role":"lock","entity":"lock.v","state":"locked"}\n')
+    assert main(["l0", "validate", "--base", str(tmp_path), "--vehicle", "a7c1"]) == 1
+    assert "role 'lock' in a version 2 line" in capsys.readouterr().out
+
+
+def test_per_cycle_trips_line_by_line_equal_one_rebuild(tmp_path, capsys):
+    """In-use spans and the late-report rule read the stream around a trip,
+    never beyond the previous trip's end: the live path yields what one
+    rebuild does (ADR-0009, point 6)."""
+    from test_fixtures import replay
+    roles = dict(CYCLE_ROLES, fuel_level={"entity": "sensor.f"})
+    b = Builder(tmp_path / "stream", capsys, roles=roles)
+    b.heartbeat(0)
+    b.state(5, "lock", "unlocked", before=4).state(6, "trip_distance", 0.0, "km", before=4)
+    b.state(10, "in_use", "car_in_use", before=-20)
+    b.heartbeat(45)        # in use since 10 and no line since: not a completed trip
+    b.state(52, "trip_distance", 30.0, "km", before=50).state(52, "fuel_level", 18.0, "L", before=50)
+    b.heartbeat(55)
+    b.state(63, "odometer", 1030, "km", before=52)      # the slow poll, late
+    b.state(70, "in_use", "available", before=40)
+    b.heartbeat(110)
+    b.state(150, "engine", "on", before=148)
+    b.state(165, "trip_distance", 40.0, "km", before=163).heartbeat(170)
+    b.state(178, "odometer", 1040, "km", before=165)
+    b.heartbeat(260)
+    found = trips.derive_from(tmp_path / "stream", V)
+    assert [(t.start, t.end) for t in found] == [(at(5), at(52)), (at(150), at(165))]
+    replay(tmp_path / "stream", tmp_path / "replay")

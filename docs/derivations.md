@@ -27,7 +27,8 @@ and never parses a line itself:
 - **Positions** become fixes: latitude, longitude, accuracy (an accuracy
   of 0 is unknown) and the tracker's zone, from the `position` role or the
   sensor pair `position_latitude` and `position_longitude`.
-- **Enumerated roles** (`ignition`, `plug_state`, `charging_state`) become
+- **Enumerated roles** (`ignition`, `plug_state`, `charging_state`,
+  `engine`, `lock`, `in_use`, `fuel_flap`) become
   domain states through the configured map (ADR-0008): a mapped value is
   the positive state, `unavailable` and `unknown` hold the last known
   state, anything else is the negative state.
@@ -64,31 +65,49 @@ from several carries the weakest of them.
 ## Trips
 
 **Reads:** movement roles `odometer`, `trip_distance`, `position` (or the
-sensor pair); markers `ignition`, `plug_state`, `charging_state`;
+sensor pair), and `in_use`; markers `ignition`, `plug_state`,
+`charging_state`, `engine`, `lock`;
 `soc`, `fuel_level`, `outside_temperature`. **Thresholds:** `t_still_s`
 (T_still, 1800 s), `t_settle_s` (360 s).
 
 1. **Movement events.** An odometer sample higher than the previous one;
    a trip counter sample higher than the previous one (going down is a
    reset, not a movement); a fix at least 50 m from the previous fix, so
-   GPS jitter at rest is not a trip.
+   GPS jitter at rest is not a trip; the first and the last report of a
+   span the vehicle was reported in use (ADR-0021) — the last being the
+   `reported_before` of the line that leaves it.
 2. **Spans.** A trip runs from the first movement event after a
    standstill to the last before the next; a standstill is at least
-   T_still without a movement event. A capture gap between two movements
+   T_still without a movement event, and none lies inside a span in use,
+   however far apart its reports are. A span still open at the stream's
+   end is movement up to its last line, and the trip it belongs to is not
+   complete. A capture gap between two movements
    always ends the span before it and starts a new one. The trip after a
    gap is `incomplete`, since it may have begun inside it; the trip before
    it too when the gap begins within T_still of its last movement, since
    its end is then unknown. That answer is fixed the moment the trip
    completes, whatever the stream holds later (ISSUE-0014).
-3. **Refining by markers** (ADR-0012). A start marker — ignition turning
-   `on`, the plug turning `unplugged` — within T_still before the first
+3. **Refining by markers** (ADR-0012, ADR-0021). A start marker —
+   ignition turning `on`, the plug turning `unplugged`, the lock turning
+   `unlocked`, the engine turning `running` — within T_still before the first
    movement moves the start back to it, the latest such marker winning; an
    end marker — ignition `off`, plug `plugged`, charging state `charging`
    — within T_still after the last movement moves the end forward to it,
    the earliest winning. Each is a time the vehicle was not driving, so
    each bounds the true boundary; none ever crosses the previous trip's
-   end, and none makes a trip without movement. `refined_by` names the
-   role that moved each end, or `null`.
+   end, and none makes a trip without movement. Lock and engine are never
+   end markers: the car locks itself on driving off, and an engine stops
+   while a hybrid drives on. `refined_by` names the role that moved each
+   end, or `null`.
+   The last movement is the trip's, except a slower role's late report
+   (ADR-0021, point 4): a sample later than a faster role's last movement
+   by no more than its own measured interval — its old value was last
+   heard no later than that movement — does not move the end; the faster
+   role had stopped changing, so the vehicle had stopped. Roles are ranked
+   by the median interval the stream measures for them (ADR-0011) between
+   the previous trip's end and this trip's last movement, a window the
+   live path and a rebuild see alike. The late value still counts: the
+   distance, the waypoints and the deltas read up to it.
 4. **Distance** (FAH-04), the first that works: the odometer at the end
    minus the odometer before the first movement — `measured`, source
    `odometer`; else a trip counter that only rose over the trip —
@@ -145,6 +164,15 @@ sensor pair); markers `ignition`, `plug_state`, `charging_state`;
    receipt and nothing more.
 5. **Complete** once the level after has been read, by the stream. No
    fuel flap is needed (TNK-03).
+6. **Across a stop** (ADR-0022). A rise of at least the threshold between
+   two consecutive samples across movement is a candidate too when a
+   start marker (step 3 of trips) or an opening of the `fuel_flap` lies
+   between them — the vehicle stopped and started again, as at a pump on a
+   vehicle that reports its level once per driving cycle. It spans the two
+   samples, its level after is the later one (`settled_at` its time),
+   `position` is the fix at the earlier one. `flap_opened_at` is the
+   flap's opening between them, on any candidate; a receipt is matched to
+   that moment rather than to the span.
 
 **Limitations.** A rise between two odometer samples taken while driving
 looks like one at rest; the threshold is what keeps a sloshing tank from

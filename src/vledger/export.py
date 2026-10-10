@@ -52,7 +52,7 @@ COLUMNS: dict[str, tuple[str, ...]] = {
         "refined_by", "movements_while_plugged"),
     "refuelling": ENVELOPE + (
         "position", "zone", "level_before_l", "level_after_l", "settled_at",
-        "sensor_delta_l", "sensor_delta_quality", "price_suggestion",
+        "sensor_delta_l", "sensor_delta_quality", "price_suggestion", "flap_opened_at",
         *_CONFIRMATION,
         "quantity_l", "quantity_quality", "price", "unit_price", "price_quality",
         "full", "place", "fuel", "note", *_PLAUSIBILITY),

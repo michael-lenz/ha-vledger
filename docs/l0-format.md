@@ -1,7 +1,7 @@
 # The L0 record format
 
-*Design document — the layout of the raw log, version 2, as decided in
-ADR-0004 and ADR-0011 of the project's register. This page is the
+*Design document — the layout of the raw log, version 3, as decided in
+ADR-0004, ADR-0011, ADR-0021 and ADR-0022 of the project's register. This page is the
 specification a reader of their own files needs; the reasoning is in the
 decisions.*
 
@@ -15,12 +15,12 @@ L0 is JSON Lines, UTF-8, one JSON object per line. Every line has four
 fixed keys, then the keys of its kind:
 
 ```json
-{"v": 2, "t": "2026-10-09T07:12:03.412Z", "kind": "state", "subject": "a7c1…", …}
+{"v": 3, "t": "2026-10-09T07:12:03.412Z", "kind": "state", "subject": "a7c1…", …}
 ```
 
 | key | meaning |
 |---|---|
-| `v` | schema version, integer; this page defines 2, and what 1 lacks ([Versioning](#versioning)) |
+| `v` | schema version, integer; this page defines 3, and what earlier ones lack ([Versioning](#versioning)) |
 | `t` | the Home Assistant time of the event: UTC, ISO 8601, milliseconds, `Z` |
 | `kind` | `state`, `start`, `stop`, `heartbeat` or `config` |
 | `subject` | the vehicle or charge point this line belongs to |
@@ -39,13 +39,13 @@ One line per change of the state, or of a role-relevant attribute, of an
 assigned entity:
 
 ```json
-{"v":2,"t":"2026-10-09T07:12:03.412Z","kind":"state","subject":"a7c1…",
+{"v":3,"t":"2026-10-09T07:12:03.412Z","kind":"state","subject":"a7c1…",
  "role":"odometer","entity":"sensor.volvo_odometer","state":"123456","unit":"km",
  "reported_before":"2026-10-09T06:57:03.120Z"}
-{"v":2,"t":"2026-10-09T07:12:03.418Z","kind":"state","subject":"a7c1…",
+{"v":3,"t":"2026-10-09T07:12:03.418Z","kind":"state","subject":"a7c1…",
  "role":"position","entity":"device_tracker.volvo","state":"not_home",
  "attrs":{"latitude":48.1371,"longitude":11.5754,"gps_accuracy":12,"source_type":"gps"}}
-{"v":2,"t":"2026-10-09T07:14:00.001Z","kind":"state","subject":"a7c1…",
+{"v":3,"t":"2026-10-09T07:14:00.001Z","kind":"state","subject":"a7c1…",
  "role":"charging_state","entity":"sensor.volvo_charging","state":"unavailable"}
 ```
 
@@ -79,7 +79,7 @@ Written when capture for a subject begins, with a snapshot of every
 assigned role as it stands:
 
 ```json
-{"v":2,"t":"2026-10-09T06:00:00.000Z","kind":"start","subject":"a7c1…",
+{"v":3,"t":"2026-10-09T06:00:00.000Z","kind":"start","subject":"a7c1…",
  "vledger":"0.1.0","homeassistant":"2026.10.1",
  "snapshot":[{"role":"odometer","entity":"sensor.volvo_odometer","state":"123456",
               "unit":"km","since":"2026-10-08T22:41:10.000Z"}]}
@@ -107,7 +107,7 @@ The complete configuration of the subject, written at start (after the
 start line) and on every change:
 
 ```json
-{"v":2,"t":"2026-10-09T06:00:00.050Z","kind":"config","subject":"a7c1…",
+{"v":3,"t":"2026-10-09T06:00:00.050Z","kind":"config","subject":"a7c1…",
  "config":{"name":"Volvo",
    "roles":{"odometer":{"entity":"sensor.volvo_odometer"},
             "charging_state":{"entity":"sensor.volvo_charging",
@@ -182,3 +182,4 @@ versions a stream holds.
 |---|---|
 | 1 | the format as first decided (ADR-0004) |
 | 2 | `reported_before` on `state` lines (ADR-0011); a version 1 stream has no sampling interval to measure |
+| 3 | the roles `engine`, `lock`, `in_use` (ADR-0021) and `fuel_flap` (ADR-0022) |

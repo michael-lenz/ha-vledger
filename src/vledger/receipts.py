@@ -242,9 +242,12 @@ def append(base: Path, subject: Subject, line: dict) -> Path:
 # --- matching (ADR-0013, 4) --------------------------------------------
 
 def distance_s(anchor: str, event: dict) -> float:
-    """0 inside ``[start, end]``, else the distance to the nearer end."""
+    """0 inside ``[start, end]``, else the distance to the nearer end. A
+    refuelling whose fuel flap was seen open is that moment (ADR-0022)."""
     a = clock.parse(anchor)
     start, end = clock.parse(event["start"]), clock.parse(event["end"])
+    if event.get("flap_opened_at"):
+        start = end = clock.parse(event["flap_opened_at"])
     if a < start:
         return (start - a).total_seconds()
     if a > end:

@@ -23,8 +23,11 @@ MOVEMENT_ROLES = ("odometer", "position", "position_latitude",
 
 #: The enumerated roles and the one positive domain state each maps to
 #: (FZG-05). unavailable and unknown hold the last known domain state; any
-#: other value not mapped means the negative state (ADR-0008).
-DOMAIN_STATES = {"charging_state": "charging", "plug_state": "plugged", "ignition": "on"}
+#: other value not mapped means the negative state (ADR-0008). engine, lock
+#: and in_use bound trips (ADR-0021), fuel_flap refuellings (ADR-0022).
+DOMAIN_STATES = {"charging_state": "charging", "plug_state": "plugged", "ignition": "on",
+                 "engine": "running", "lock": "locked", "in_use": "in_use",
+                 "fuel_flap": "open"}
 
 FUELS = ("petrol", "diesel")
 
@@ -182,7 +185,9 @@ def tariff_at(tariffs: list[dict], t: str) -> dict | None:
 
 
 #: The negative domain state per enumerated role (ADR-0008).
-NEGATIVE_STATES = {"charging_state": "not_charging", "plug_state": "unplugged", "ignition": "off"}
+NEGATIVE_STATES = {"charging_state": "not_charging", "plug_state": "unplugged", "ignition": "off",
+                   "engine": "stopped", "lock": "unlocked", "in_use": "not_in_use",
+                   "fuel_flap": "closed"}
 
 
 def domain_state(role: str, value: str, mapping: dict) -> str | None:

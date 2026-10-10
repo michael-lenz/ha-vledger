@@ -42,7 +42,9 @@ _ROLE_DOMAINS: dict[str, list[str]] = {
     "trip_distance": ["sensor"], "fuel_level": ["sensor"], "soc": ["sensor"],
     "charging_state": ["sensor", "binary_sensor"], "plug_state": ["sensor", "binary_sensor"],
     "ignition": ["sensor", "binary_sensor"], "outside_temperature": ["sensor"],
-    "fuel_price": ["sensor"],
+    "fuel_price": ["sensor"], "engine": ["sensor", "binary_sensor"],
+    "lock": ["lock", "sensor", "binary_sensor"], "in_use": ["sensor", "binary_sensor"],
+    "fuel_flap": ["sensor", "binary_sensor"],
 }
 
 _THRESHOLD_UNITS = {
@@ -119,6 +121,8 @@ def _mapping_options(hass, entity_id: str) -> list[str]:
         return []
     if entity_id.startswith("binary_sensor."):
         return ["on", "off"]
+    if entity_id.startswith("lock."):
+        return ["locked", "unlocked", "locking", "unlocking", "open", "opening", "jammed"]
     options = state.attributes.get("options")
     if options:
         return [str(o) for o in options]

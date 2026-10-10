@@ -19,8 +19,9 @@ from vledger import clock, layout
 from vledger.layout import Subject
 
 #: The schema version this module writes, and the highest it reads. Version
-#: 2 adds ``reported_before`` to the state line (ADR-0011).
-VERSION = 2
+#: 2 adds ``reported_before`` to the state line (ADR-0011), version 3 the
+#: roles of :data:`ROLES_SINCE_3` (ADR-0021, ADR-0022).
+VERSION = 3
 
 KINDS = ("state", "start", "stop", "heartbeat", "config")
 STOP_REASONS = ("shutdown", "unload", "reload")
@@ -31,7 +32,10 @@ VEHICLE_ROLES = (
     "odometer", "position", "position_latitude", "position_longitude",
     "trip_distance", "fuel_level", "soc", "charging_state", "plug_state",
     "ignition", "outside_temperature", "fuel_price",
+    "engine", "lock", "in_use", "fuel_flap",
 )
+#: The roles schema version 3 added; an earlier line cannot carry them.
+ROLES_SINCE_3 = ("engine", "lock", "in_use", "fuel_flap")
 CHARGEPOINT_ROLES = ("energy_meter", "power")
 ROLES = VEHICLE_ROLES + CHARGEPOINT_ROLES
 
@@ -300,6 +304,9 @@ def _check(line: Line, where: str, subject: Subject, month: str, report: Report)
             report.problem("error", where, f"attrs not relevant to the role: {sorted(extra)}")
         if "reported_before" in line:
             _check_reported_before(line, where, report)
+        if (line.get("role") in ROLES_SINCE_3 and isinstance(line["v"], int)
+                and line["v"] < 3):
+            report.problem("error", where, f"role {line['role']!r} in a version {line['v']} line")
     elif kind == "stop" and line.get("reason") not in STOP_REASONS:
         report.problem("error", where, f"unknown stop reason {line.get('reason')!r}")
     elif kind == "config" and not isinstance(line.get("config"), dict):

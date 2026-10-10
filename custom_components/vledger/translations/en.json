@@ -27,7 +27,11 @@
           "plug_state": "Plug state",
           "ignition": "Ignition",
           "outside_temperature": "Outside temperature",
-          "fuel_price": "Fuel price"
+          "fuel_price": "Fuel price",
+          "engine": "Engine running",
+          "lock": "Lock",
+          "in_use": "Vehicle in use",
+          "fuel_flap": "Fuel flap"
         }
       },
       "mapping": {
@@ -36,7 +40,11 @@
         "data": {
           "charging_state": "Values that mean charging",
           "plug_state": "Values that mean plugged in",
-          "ignition": "Values that mean ignition on"
+          "ignition": "Values that mean ignition on",
+          "engine": "Values that mean the engine is running",
+          "lock": "Values that mean locked",
+          "in_use": "Values that mean in use",
+          "fuel_flap": "Values that mean the fuel flap is open"
         }
       },
       "parameters": {
@@ -97,7 +105,11 @@
           "plug_state": "Plug state",
           "ignition": "Ignition",
           "outside_temperature": "Outside temperature",
-          "fuel_price": "Fuel price"
+          "fuel_price": "Fuel price",
+          "engine": "Engine running",
+          "lock": "Lock",
+          "in_use": "Vehicle in use",
+          "fuel_flap": "Fuel flap"
         }
       },
       "mapping": {
@@ -105,7 +117,11 @@
         "data": {
           "charging_state": "Values that mean charging",
           "plug_state": "Values that mean plugged in",
-          "ignition": "Values that mean ignition on"
+          "ignition": "Values that mean ignition on",
+          "engine": "Values that mean the engine is running",
+          "lock": "Values that mean locked",
+          "in_use": "Values that mean in use",
+          "fuel_flap": "Values that mean the fuel flap is open"
         }
       },
       "parameters": {
@@ -313,6 +329,9 @@
           },
           "price_suggestion": {
             "name": "Suggested unit price"
+          },
+          "flap_opened_at": {
+            "name": "Fuel flap opened"
           },
           "quantity_l": {
             "name": "Quantity (L)"
