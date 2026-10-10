@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="26 0 512 512">
+  <!-- Vehicle Ledger: the front-left corner of a black estate car, cut by the
+       frame on the top, the right and the bottom. Source of the brand PNGs. -->
+  <defs>
+    <linearGradient id="hood" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#555b64"/>
+      <stop offset="0.4" stop-color="#1e2126"/>
+      <stop offset="1" stop-color="#07080a"/>
+    </linearGradient>
+    <radialGradient id="gloss" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6b7a8a"/>
+      <stop offset="0.55" stop-color="#1c2430"/>
+      <stop offset="1" stop-color="#0b0e12"/>
+    </linearGradient>
+    <linearGradient id="side" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#23272d"/>
+      <stop offset="1" stop-color="#0c0e11"/>
+    </linearGradient>
+    <linearGradient id="bumper" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1c1f24"/>
+      <stop offset="1" stop-color="#050506"/>
+    </linearGradient>
+    <linearGradient id="chrome" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#eef1f4"/>
+      <stop offset="0.5" stop-color="#8d959e"/>
+      <stop offset="1" stop-color="#dde2e7"/>
+    </linearGradient>
+    <radialGradient id="rim" cx="0.38" cy="0.32" r="0.72">
+      <stop offset="0" stop-color="#d9dde1"/>
+      <stop offset="0.65" stop-color="#6f767e"/>
+      <stop offset="1" stop-color="#3a3f45"/>
+    </radialGradient>
+    <linearGradient id="lamp" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#3a414a"/>
+      <stop offset="1" stop-color="#101317"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-300%" width="140%" height="700%">
+      <feGaussianBlur stdDeviation="8"/>
+    </filter>
+  </defs>
+  <g>
+    <!-- the wheel, under the body -->
+    <ellipse cx="128" cy="486" rx="92" ry="108" fill="#0a0b0c"/>
+    <ellipse cx="128" cy="486" rx="56" ry="66" fill="url(#rim)"/>
+    <ellipse cx="128" cy="486" rx="15" ry="18" fill="#2b2f35"/>
+    <g stroke="#2b2f35" stroke-width="8" stroke-linecap="round">
+      <path d="M 128 426 L 128 466"/><path d="M 182 474 L 143 480"/><path d="M 74 474 L 113 480"/>
+      <path d="M 160 540 L 136 500"/><path d="M 96 540 L 120 500"/>
+    </g>
+
+    <!-- windshield, A-pillar and mirror, cut at the top and right -->
+    <path d="M 236 0 L 540 0 L 540 92 C 420 86 330 92 266 104 Z" fill="url(#glass)"/>
+    <ellipse cx="430" cy="30" rx="150" ry="40" fill="url(#gloss)"/>
+    <path d="M 236 0 L 266 104" stroke="#2c3138" stroke-width="12" fill="none"/>
+
+    <!-- fender side, down over the wheel -->
+    <path d="M 266 104 C 204 140 154 200 122 262 C 96 300 82 350 80 400 C 80 430 90 440 110 440 C 130 400 170 380 220 380 L 220 350 C 180 340 150 300 122 262 Z"
+          fill="url(#side)"/>
+    <!-- wheel arch -->
+    <path d="M 80 418 C 86 380 108 362 136 362" stroke="#8c949c" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.8"/>
+
+    <!-- hood -->
+    <path d="M 266 104 C 330 92 420 86 540 92 L 540 222 C 380 214 230 230 122 262 C 154 200 204 140 266 104 Z"
+          fill="url(#hood)"/>
+    <ellipse cx="420" cy="135" rx="190" ry="42" fill="url(#gloss)"/>
+    <!-- fender crest -->
+    <path d="M 266 104 C 204 140 154 200 122 262" stroke="#c3cad1" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <!-- hood front edge -->
+    <path d="M 122 262 C 230 230 380 214 540 222" stroke="#5c636c" stroke-width="3" fill="none"/>
+
+    <!-- bumper face, over the wheel -->
+    <path d="M 122 262 C 230 230 380 214 540 222 L 540 540 L 230 540 C 220 490 200 470 170 456 C 150 440 136 400 130 350 C 128 320 124 290 122 262 Z"
+          fill="url(#bumper)"/>
+    <path d="M 170 456 C 200 470 220 490 230 512" stroke="#2a2e34" stroke-width="3" fill="none"/>
+
+    <!-- grille, cut at the right -->
+    <path d="M 348 236 C 400 230 460 228 540 228 L 540 332 C 460 334 400 338 352 344 Z"
+          fill="#06070a" stroke="url(#chrome)" stroke-width="8" stroke-linejoin="round"/>
+    <g stroke="#2f343a" stroke-width="7">
+      <path d="M 356 262 C 410 256 460 254 540 254"/>
+      <path d="M 358 290 C 410 284 460 282 540 282"/>
+      <path d="M 360 318 C 410 312 460 310 540 310"/>
+    </g>
+
+    <!-- headlight: a wedge along the hood edge, with its running light -->
+    <path d="M 130 270 C 194 251 262 241 322 239 L 326 270 C 266 274 200 284 146 304 Z"
+          fill="url(#lamp)" stroke="#555c66" stroke-width="2"/>
+    <path d="M 146 290 C 200 272 264 262 322 258" stroke="#dff1ff" stroke-width="18" fill="none"
+          stroke-linecap="round" filter="url(#glow)" opacity="0.9"/>
+    <path d="M 146 290 C 200 272 264 262 322 258" stroke="#ffffff" stroke-width="8" fill="none" stroke-linecap="round"/>
+
+    <!-- lower air intake -->
+    <path d="M 230 376 C 310 366 410 360 540 360 L 540 440 C 410 442 310 450 240 460 Z" fill="#040405"/>
+    <g stroke="#1f2327" stroke-width="4">
+      <path d="M 234 399 C 310 390 410 384 540 384"/>
+      <path d="M 236 422 C 310 414 410 408 540 408"/>
+    </g>
+  </g>
+</svg>
