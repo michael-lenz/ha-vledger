@@ -23,6 +23,7 @@ from homeassistant.helpers.typing import ConfigType
 
 from vledger.layout import Subject
 
+from .announce import Announcer
 from .capture import Capture
 from .const import (
     DATA_KIND,
@@ -30,6 +31,7 @@ from .const import (
     DOMAIN,
     KIND_VEHICLE,
     OPT_BASE_PATH,
+    OPT_NOTIFY_TARGET,
     SERVICE_RECOMPUTE,
 )
 from .l1view import L1View
@@ -48,13 +50,14 @@ RECOMPUTE_SCHEMA = vol.Schema({vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string})
 @dataclass
 class Vledger:
     """What one config entry runs: the raw log and the derivation on disk,
-    and for a vehicle the receipt desk (ADR-0015) and what its event
-    entities display (ADR-0016)."""
+    and for a vehicle the receipt desk (ADR-0015), what its event
+    entities display (ADR-0016) and what announces new events (ADR-0020)."""
 
     capture: Capture
     l1: L1Writer
     desk: ReceiptDesk | None
     view: L1View | None = None
+    announcer: Announcer | None = None
 
 
 type VledgerConfigEntry = ConfigEntry[Vledger]
@@ -62,10 +65,11 @@ type VledgerConfigEntry = ConfigEntry[Vledger]
 
 def config_of(hass: HomeAssistant, entry: ConfigEntry) -> dict:
     """The configuration object the ``config`` line records: the options
-    minus where they are stored, and for a vehicle Home Assistant's time
+    minus where they are stored and where notifications go (ADR-0020,
+    point 3), and for a vehicle Home Assistant's time
     zone, where its calendar months and years begin (ADR-0014, point 2) —
     Home Assistant's setting, not an option, so it is taken at every start."""
-    config = {k: v for k, v in entry.options.items() if k != OPT_BASE_PATH}
+    config = {k: v for k, v in entry.options.items() if k not in (OPT_BASE_PATH, OPT_NOTIFY_TARGET)}
     if entry.data[DATA_KIND] == KIND_VEHICLE:
         config["time_zone"] = hass.config.time_zone
     return config
@@ -99,13 +103,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: VledgerConfigEntry) -> b
     vehicle = subject.kind == KIND_VEHICLE
     desk = ReceiptDesk(hass, capture, writer) if vehicle else None
     view = L1View(hass, capture, writer) if vehicle else None
-    entry.runtime_data = Vledger(capture, writer, desk, view)
+    announcer = Announcer(hass, entry, capture, writer) if vehicle else None
+    entry.runtime_data = Vledger(capture, writer, desk, view, announcer)
     await capture.async_start()
     await writer.async_start()
     if desk:
         desk.async_start()
     if view:
         view.async_start()
+    if announcer:
+        announcer.async_start()
 
     async def on_hass_stop(_: Event) -> None:
         await writer.async_stop()
@@ -130,6 +137,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: VledgerConfigEntry) -> 
         entry.runtime_data.desk.async_stop()
     if entry.runtime_data.view:
         entry.runtime_data.view.async_stop()
+    if entry.runtime_data.announcer:
+        entry.runtime_data.announcer.async_stop()
     await entry.runtime_data.l1.async_stop()
     capture = entry.runtime_data.capture
     await capture.async_stop(capture.stop_reason or "unload")

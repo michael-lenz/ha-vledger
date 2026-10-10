@@ -178,6 +178,13 @@ def last(base: Path, subject: Subject, kind: str, n: int = 1) -> list[dict]:
 WAITING = ("unconfirmed", "ambiguous")
 
 
+def is_waiting(event: dict) -> bool:
+    """Whether an event waits for a person to enter or settle a receipt —
+    the one test behind the count and the ``vledger_candidate`` event
+    (ADR-0020, point 6)."""
+    return event.get("kind") in receipts.EVENT_KINDS and event.get("confirmation") in WAITING
+
+
 def waiting(base: Path, subject: Subject) -> dict[str, dict[str, int]]:
     """Per event kind that takes a receipt, how many events L1 holds that
     wait for one: ``{"refuelling": {"unconfirmed": 2, "ambiguous": 0}, …}``."""
@@ -185,7 +192,7 @@ def waiting(base: Path, subject: Subject) -> dict[str, dict[str, int]]:
     for kind in receipts.EVENT_KINDS:
         counts = dict.fromkeys(WAITING, 0)
         for e in read(base, subject, kind):
-            if e.get("confirmation") in counts:
+            if is_waiting(e):
                 counts[e["confirmation"]] += 1
         out[kind] = counts
     return out
@@ -332,7 +339,10 @@ def rebuild(base: Path, subject: Subject) -> dict:
 def incremental(base: Path, subject: Subject) -> dict[str, list[dict]]:
     """What the live path does: rebuild if due, else derive from each
     kind's cursor and append only the events that start after it
-    (ADR-0009, 3). Returns the events appended, per kind."""
+    (ADR-0009, 3). Returns the events new to L1, per kind: those whose
+    kind and ``start`` it did not hold before. After a fallback to a
+    rebuild that is not every line that differs — an event a receipt
+    has since confirmed is changed, not new (ADR-0020, point 2)."""
     if rebuild_due(base, subject):
         return _rebuild_and_diff(base, subject)
     manifest = read_manifest(base, subject) or {}
@@ -379,9 +389,9 @@ def write_periods(base: Path, subject: Subject) -> Path | None:
 
 
 def _rebuild_and_diff(base: Path, subject: Subject) -> dict[str, list[dict]]:
-    before = {k: list(read(base, subject, k)) for k in FILES}
+    before = {k: {e["start"] for e in read(base, subject, k)} for k in kinds(base, subject)}
     rebuild(base, subject)
-    return {k: [e for e in read(base, subject, k) if e not in before.get(k, [])]
+    return {k: [e for e in read(base, subject, k) if e["start"] not in before.get(k, set())]
             for k in kinds(base, subject)}
 
 

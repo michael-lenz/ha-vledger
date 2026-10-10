@@ -55,6 +55,7 @@ class L1Writer:
         self._stopped = False
         self._last_run: datetime | None = None
         self._after_run: list[Callable[[], None]] = []
+        self._after_append: list[Callable[[dict[str, list[dict]]], None]] = []
 
         # For diagnostics: what the writer last did.
         self.last_run_at: str | None = None
@@ -97,6 +98,17 @@ class L1Writer:
 
         def remove() -> None:
             self._after_run.remove(cb)
+
+        return remove
+
+    def listen_appends(self, cb: Callable[[dict[str, list[dict]]], None]) -> CALLBACK_TYPE:
+        """Call ``cb`` after every incremental run with the events new to L1,
+        per kind — never after a rebuild, which re-derives history already
+        reported (ADR-0020, point 2)."""
+        self._after_append.append(cb)
+
+        def remove() -> None:
+            self._after_append.remove(cb)
 
         return remove
 
@@ -160,6 +172,7 @@ class L1Writer:
 
     async def _run(self, *, rebuild: str | None = None) -> None:
         base, subject = self.capture.base, self.capture.subject
+        added: dict[str, list[dict]] = {}
         async with self._lock:
             if self._stopped:
                 return
@@ -171,11 +184,14 @@ class L1Writer:
                 if reason:
                     await self._rebuild(reason)
                 else:
-                    await self.hass.async_add_executor_job(l1.incremental, base, subject)
+                    added = await self.hass.async_add_executor_job(l1.incremental, base, subject)
             except Exception:
                 _LOGGER.exception("vledger: could not derive L1 for %s", subject.id)
         for cb in list(self._after_run):
             cb()
+        if any(added.values()):
+            for cb in list(self._after_append):
+                cb(added)
         if self._pending:
             self._request(at_once=False)
 

@@ -11,7 +11,8 @@ verbs, and the integration keeps it live; receipts are entered,
 corrected, cancelled and matched with the `receipt` verbs and `derive
 match`, and in Home Assistant with actions and a dashboard form; the
 last trip, refuelling and charging session and what waits for a receipt
-are entities; L1 is exported as CSV, JSON and GPX with the `export`
+are entities, and new events fire Home Assistant events and, for a
+receipt to enter, notifications; L1 is exported as CSV, JSON and GPX with the `export`
 verbs and the `vledger.export` action, and `report metrics` gives the
 metrics of any span. Metric entities in Home Assistant are planned.
 
@@ -78,7 +79,8 @@ was wrong. Positions are redacted.
 
 **Options** (the entry's *Configure*): a menu over the same steps,
 pre-filled, plus the thresholds and time constants, the remaining
-parameters, and the data directory. For a charge point: the meter, and
+parameters, where notifications go ([below](#events-and-notifications)),
+and the data directory. For a charge point: the meter, and
 *add a tariff from a date* — tariffs are never edited; a new price is a new
 entry, and a correction is a new entry under the same date. Saving any of
 them reloads the entry, which the stream records as stop, start and the
@@ -184,6 +186,54 @@ Assistant they are actions only: `vledger.cancel_receipt` with
 `config_entry_id` and `receipt`. Times are the instance's local time.
 Every receipt changes the receipts file, so L1 is rebuilt right after it,
 as at startup.
+
+### Events and notifications
+
+Every event the ledger completes — a trip, a refuelling, a charging
+session — fires the Home Assistant event **`vledger_event`** the moment it
+is written to L1. One that waits for a receipt (*unconfirmed* or
+*ambiguous*: every refuelling and a charging session away from a
+configured charge point) fires **`vledger_candidate`** right after it.
+Both carry `config_entry_id`, `vehicle` (the entry's name), `subject` and
+`kind`, then the event's line from L1 as the event entities show it —
+the same keys, without positions, which Home Assistant would otherwise
+keep in its history:
+
+```yaml
+triggers:
+  - trigger: event
+    event_type: vledger_candidate
+    event_data:
+      vehicle: Volvo
+      kind: refuelling
+actions:
+  - action: notify.persistent_notification
+    data:
+      message: >
+        Refuelled {{ trigger.event.data.sensor_delta_l }} L —
+        enter the receipt.
+```
+
+Only what is new fires. A rebuild of L1 — at startup after an update, or
+after a changed configuration, a receipt or `vledger.recompute` — fires
+nothing, since it re-derives what was already reported, and a receipt that
+confirms a candidate changes that event rather than making a new one. An
+event completed while Home Assistant was down fires at the next start. One
+completed while a rebuild is due becomes part of that rebuild and does not
+fire.
+
+**Notifications.** *Configure → Notifications* picks a notify action for
+the vehicle — `notify.mobile_app_<phone>`, a group, or any other. Left
+empty, the default, nothing is sent. Changing it reloads the entry but
+never rebuilds L1. Each new candidate then gets one notification: the
+vehicle, *refuelling detected* or *charging away from home*, the local
+start time and the quantity the sensor saw, and for a refuelling the
+price the fuel price role suggests. A run that finds more than three at
+once — after a long outage, say — sends one notification with their
+number instead. On the Companion app the notification has the action
+**Enter receipt**, which opens the vehicle's device page with the receipt
+form, the newest candidate first in its event list. If the target refuses
+a notification, it is logged and nothing else changes.
 
 ## Where the data is
 
@@ -459,6 +509,7 @@ vledger derive all --vehicle a7c1 --write        # rebuild all of l1/ from scrat
 vledger l1 status --vehicle a7c1                 # the manifest, what waits for a receipt, and whether a rebuild is due and why
 vledger l1 read --vehicle a7c1 --kind trip       # the events, as l0 read prints lines
 vledger l1 read --vehicle a7c1 --kind trip --last 1   # only the last one, read from the end of the file
+vledger l1 update --vehicle a7c1                 # what the integration runs live: append what completed, print what is new
 vledger l1 clean --vehicle a7c1                  # delete l1/ — it is regenerable
 ```
 
@@ -468,7 +519,9 @@ ended, judged by the stream's last line rather than the clock, so the
 same stream always yields the same files. `l1 status` exits 1 when a
 rebuild is due — no manifest, a different library version, a changed
 configuration or changed receipts — which is what the integration checks
-at startup.
+at startup. `l1 update` rebuilds if one is due, else appends from the
+cursor, and prints the events new to L1 in order of start — exactly those
+that fire `vledger_event` in Home Assistant.
 
 ## Exports: `vledger export`
 

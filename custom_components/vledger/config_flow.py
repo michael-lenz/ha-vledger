@@ -32,6 +32,7 @@ from .const import (
     KIND_CHARGEPOINT,
     KIND_VEHICLE,
     OPT_BASE_PATH,
+    OPT_NOTIFY_TARGET,
 )
 
 # Which Home Assistant domains fit each role's entity selector.
@@ -247,7 +248,7 @@ class VledgerOptionsFlow(OptionsFlow):
 
     async def async_step_init(self, user_input=None) -> ConfigFlowResult:
         if self.config_entry.data[DATA_KIND] == KIND_VEHICLE:
-            menu = ["roles", "mapping", "parameters", "thresholds", "storage"]
+            menu = ["roles", "mapping", "parameters", "thresholds", "notifications", "storage"]
         else:
             menu = ["meter", "add_tariff", "storage"]
         return self.async_show_menu(step_id="init", menu_options=menu)
@@ -296,6 +297,27 @@ class VledgerOptionsFlow(OptionsFlow):
             return self._finish(opts)
         schema = self.add_suggested_values_to_schema(_thresholds_schema(), opts["thresholds"])
         return self.async_show_form(step_id="thresholds", data_schema=schema)
+
+    async def async_step_notifications(self, user_input=None) -> ConfigFlowResult:
+        """Where a vehicle's notifications go: one ``notify.*`` action, or
+        none. An option outside the ``config`` line (ADR-0020, point 3)."""
+        opts = self._opts
+        if user_input is not None:
+            target = _clean(user_input).get(OPT_NOTIFY_TARGET)
+            if target:
+                opts[OPT_NOTIFY_TARGET] = target
+            else:
+                opts.pop(OPT_NOTIFY_TARGET, None)
+            return self._finish(opts)
+        # notify.send_message addresses notify entities and takes no title
+        # or data; every other notify action takes title, message and data.
+        targets = sorted(f"notify.{name}" for name in self.hass.services.async_services_for_domain("notify")
+                         if name != "send_message")
+        schema = self.add_suggested_values_to_schema(
+            vol.Schema({vol.Optional(OPT_NOTIFY_TARGET): selector.SelectSelector(
+                selector.SelectSelectorConfig(options=targets, mode=selector.SelectSelectorMode.DROPDOWN))}),
+            {OPT_NOTIFY_TARGET: opts.get(OPT_NOTIFY_TARGET)})
+        return self.async_show_form(step_id="notifications", data_schema=schema)
 
     async def async_step_meter(self, user_input=None) -> ConfigFlowResult:
         opts = self._opts

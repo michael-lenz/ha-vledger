@@ -87,6 +87,8 @@ A refuelling or charging session whose `confirmation` is `unconfirmed` or
 written, and Home Assistant's **Waiting for a receipt** shows the same
 count (ADR-0016). Between a receipt being entered and the next run of
 the writer, the count can still include the event it was entered for.
+`l1.is_waiting` is that test for one event, and the count and the
+`vledger_candidate` event both use it (ADR-0020).
 
 ## Periods
 
@@ -204,6 +206,15 @@ and appends only events whose `start` is later than that kind's `through`.
 An event open at the time (a trip under way) is detected again from L0
 on the next run; there is no state outside L0, receipts, configuration
 and L1.
+
+`vledger l1 update` (`l1.incremental`) is that run, and it answers with
+the events **new to L1**: those whose kind and `start` L1 did not hold
+before. When the run has to rebuild instead — a rebuild was due, or a new
+event lies near enough to a receipt to change a match — the answer is
+still only what is new, not every line that differs: an event a receipt
+confirmed keeps its `start` and is changed, not new. This is what Home
+Assistant announces (ADR-0020); a rebuild the writer runs on its own
+answers nothing.
 
 ## When L1 is rebuilt
 

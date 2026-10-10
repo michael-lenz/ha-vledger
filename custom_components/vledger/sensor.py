@@ -34,7 +34,7 @@ from . import VledgerConfigEntry
 from .capture import Capture
 from .const import STATUS_RECOMPUTING, STATUS_RUNNING, STATUS_STOPPED
 from .entity import device_info
-from .l1view import TRIP, L1View
+from .l1view import NOT_ATTRIBUTES, POSITIONS, TRIP, L1View
 from .l1writer import L1Writer
 
 
@@ -130,14 +130,6 @@ EVENT_SENSORS: tuple[EventSensorDescription, ...] = (
         suggested_display_precision=2,
         values=(("grid_kwh", "grid_kwh_quality"),)),
 )
-
-#: Keys of an event that are not attributes: the entity already says them,
-#: or, for the waypoints, they are unbounded and the GPX export's (point 3).
-NOT_ATTRIBUTES = frozenset({"kind", "subject", "version", "waypoints"})
-
-#: Where the vehicle was stays in L1 and out of the recorder (point 3).
-POSITIONS = frozenset({"start_position", "end_position", "position"})
-
 
 async def async_setup_entry(hass: HomeAssistant, entry: VledgerConfigEntry,
                             add_entities: AddEntitiesCallback) -> None:

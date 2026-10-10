@@ -369,3 +369,30 @@ def test_what_waits_for_a_receipt_is_counted_from_l1(entry, detected):
     out = entry.capsys.readouterr()
     assert "refuelling: waiting for a receipt: 1 unconfirmed, 2 ambiguous" in out.out
     assert "charging: waiting for a receipt: 1 unconfirmed, 0 ambiguous" in out.out
+
+
+def test_l1_update_prints_what_is_new_to_l1_and_not_what_a_receipt_changed(entry, detected):
+    """ADR-0020, point 2: new means a kind and start L1 did not hold; an
+    event a receipt confirmed is changed, not new — even when the run had
+    to fall back to a rebuild to write it."""
+    detected.events["refuelling"] = [refuelling(0)]
+    detected.events["charging"] = [charging(100), charging(300, chargepoint="home")]
+
+    def update():
+        out = entry.run("l1", "update", *entry.b)
+        assert out.err.strip().endswith("new event(s)")
+        return [json.loads(line) for line in out.out.splitlines()]
+
+    first = update()                                          # no L1 yet: everything is new
+    assert [(e["kind"], e["start"]) for e in first] == [
+        ("refuelling", at(0)), ("charging", at(100)), ("charging", at(300))]
+    assert [l1.is_waiting(e) for e in first] == [True, True, False]
+    assert update() == []                                     # nothing completed since
+    entry.refuel(cand=at(0))                                  # the receipts changed: a rebuild
+    assert update() == []
+    (e,) = l1.read(entry.base, V, "refuelling")
+    assert e["confirmation"] == "receipt" and not l1.is_waiting(e)
+    detected.events["refuelling"].append(refuelling(60 * 24 * 5))
+    (new,) = update()
+    assert new["start"] == at(60 * 24 * 5) and l1.is_waiting(new)
+    assert not l1.is_waiting({"kind": "trip", "confirmation": "unconfirmed"})

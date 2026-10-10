@@ -28,6 +28,15 @@ _LOGGER = logging.getLogger(__name__)
 
 TRIP = "trip"
 
+#: Keys of an event that are not attributes: the entity already says them,
+#: or, for the waypoints, they are unbounded and the GPX export's (ADR-0016,
+#: point 3). The bus events leave them out alike (ADR-0020, point 1).
+NOT_ATTRIBUTES = frozenset({"kind", "subject", "version", "waypoints"})
+
+#: Where the vehicle was stays in L1 and out of the recorder (ADR-0016,
+#: point 3), which keeps bus events as it keeps attributes (ADR-0020).
+POSITIONS = frozenset({"start_position", "end_position", "position"})
+
 
 def kinds_of(config: dict) -> tuple[str, ...]:
     """The event kinds a vehicle shows: trips always, refuellings and

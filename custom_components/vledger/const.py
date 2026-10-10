@@ -7,8 +7,11 @@ DOMAIN = "vledger"
 DATA_KIND = "kind"
 DATA_SUBJECT = "subject"
 
-#: Config entry ``options``: the configuration object, plus where it is stored.
+#: Config entry ``options``: the configuration object, plus where it is
+#: stored and where a vehicle's notifications go — neither of which is part
+#: of the ``config`` line (ADR-0020, point 3).
 OPT_BASE_PATH = "base_path"
+OPT_NOTIFY_TARGET = "notify_target"
 
 KIND_VEHICLE = "vehicle"
 KIND_CHARGEPOINT = "chargepoint"
@@ -39,3 +42,13 @@ EVENT_MANUAL = "manual"
 
 #: At most this many candidates in the form's event select, newest first.
 FORM_CANDIDATES = 10
+
+#: The events fired on Home Assistant's bus (ADR-0020, point 1).
+EVENT_EVENT = "vledger_event"
+EVENT_CANDIDATE = "vledger_candidate"
+
+#: A run appending more candidates than this sends one summary instead.
+NOTIFY_SUMMARY_ABOVE = 3
+
+#: A notify action of the Companion app, which takes an action (point 5).
+NOTIFY_COMPANION_PREFIX = "mobile_app_"

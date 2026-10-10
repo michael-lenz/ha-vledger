@@ -431,6 +431,18 @@ def cmd_l1_status(args) -> int:
     return 1 if due else 0
 
 
+def cmd_l1_update(args) -> int:
+    """The live writer's run: rebuild if due, else append what completed
+    since the cursor; print every event new to L1, in order of start
+    (ADR-0020, point 2)."""
+    added = l1.incremental(_base(args), _subject(args))
+    events = sorted((e for new in added.values() for e in new), key=lambda e: e["start"])
+    for event in events:
+        print(l1.encode(event))
+    print(f"{len(events)} new event(s)", file=sys.stderr)
+    return 0
+
+
 def cmd_l1_clean(args) -> int:
     gone = l1.clean(_base(args), _subject(args))
     print("deleted" if gone else "nothing to delete")
@@ -687,7 +699,7 @@ def build_parser() -> argparse.ArgumentParser:
                     help="every line in file order, corrected and cancelled ones too")
     sp.set_defaults(func=cmd_receipt_list)
 
-    p_l1 = nouns.add_parser("l1", help="the derivation on disk: read, status, clean")
+    p_l1 = nouns.add_parser("l1", help="the derivation on disk: read, status, update, clean")
     lverbs = p_l1.add_subparsers(dest="verb", metavar="<verb>", required=True)
     sp = lverbs.add_parser("read", help="print one kind's events as JSON Lines")
     _add_stream_args(sp)
@@ -698,6 +710,10 @@ def build_parser() -> argparse.ArgumentParser:
     sp = lverbs.add_parser("status", help="the manifest, and whether a rebuild is due")
     _add_stream_args(sp)
     sp.set_defaults(func=cmd_l1_status)
+    sp = lverbs.add_parser("update", help="the live writer's run: append what completed, "
+                                          "print the events new to L1")
+    _add_stream_args(sp)
+    sp.set_defaults(func=cmd_l1_update)
     sp = lverbs.add_parser("clean", help="delete L1; it is regenerable")
     _add_stream_args(sp)
     sp.set_defaults(func=cmd_l1_clean)

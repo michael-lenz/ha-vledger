@@ -27,7 +27,8 @@ point's meter and tariff; L1 — the derivation on disk, with its manifest
 and cursor — is written and read by the `l1` verbs, and the integration
 keeps it live, with a `vledger.recompute` action to rebuild it; receipts
 are entered and matched by the `receipt` verbs, and in Home Assistant by
-three actions and a dashboard form; the metrics come per month, year,
+three actions and a dashboard form, and every new event fires a Home
+Assistant event and, where a receipt is due, a notification; the metrics come per month, year,
 rolling period and lifetime in L1, and for any span from `vledger report
 metrics`; L1 is exported as CSV, JSON and GPX, from the shell and by a
 Home Assistant action into the media folder. In Home Assistant the
@@ -50,8 +51,9 @@ does not exist yet is marked *(planned)*.
   carries a quality flag: `measured`, `receipt`, `estimated` or
   `incomplete`.
 - **Takes receipts.** Price and exact quantity come from you: a refuelling
-  or charging receipt, entered from a dashboard or an action — or from a
-  notification *(planned)* — matched to the detected event by time. Receipt values beat sensor
+  or charging receipt, entered from a dashboard or an action — a
+  notification of the new candidate opens the form — matched to the
+  detected event by time. Receipt values beat sensor
   values; a detected event without a receipt stays visible as unconfirmed.
 - **Knows your charge points.** Home, work, anywhere fixed: position,
   radius, tariff, optionally a meter. A charge point with a tariff but no

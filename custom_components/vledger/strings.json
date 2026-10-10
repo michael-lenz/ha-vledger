@@ -78,6 +78,7 @@
           "thresholds": "Thresholds and time constants",
           "meter": "Energy meter",
           "add_tariff": "Add a tariff from a date",
+          "notifications": "Notifications",
           "storage": "Storage"
         }
       },
@@ -150,6 +151,12 @@
           "eur_per_kwh": "Tariff",
           "from": "Valid from"
         }
+      },
+      "notifications": {
+        "title": "Notifications",
+        "description": "Where notifications about refuellings and charging away from home go. Left empty, none are sent.",
+        "data": { "notify_target": "Notify action" },
+        "data_description": { "notify_target": "A Companion app target also gets an action that opens the receipt form." }
       },
       "storage": {
         "title": "Storage",
@@ -697,6 +704,18 @@
         }
       }
     }
+  },
+  "common": {
+    "refuelling_title": "{vehicle}: refuelling detected",
+    "refuelling_message": "Started {time}, about {quantity} L.",
+    "refuelling_message_bare": "Started {time}.",
+    "price_suggestion": "Suggested price: {price} per litre.",
+    "charging_title": "{vehicle}: charging away from home",
+    "charging_message": "Started {time}, {quantity} kWh from the grid.",
+    "charging_message_bare": "Started {time}.",
+    "summary_title": "{vehicle}: {count} events wait for a receipt",
+    "summary_message": "The entity Waiting for a receipt lists them.",
+    "action_enter_receipt": "Enter receipt"
   },
   "exceptions": {
     "refused": { "message": "Receipt refused: {reason}" },

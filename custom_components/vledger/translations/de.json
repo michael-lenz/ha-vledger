@@ -78,6 +78,7 @@
           "thresholds": "Schwellwerte und Zeitkonstanten",
           "meter": "Energiezähler",
           "add_tariff": "Tarif ab Datum hinzufügen",
+          "notifications": "Benachrichtigungen",
           "storage": "Ablage"
         }
       },
@@ -150,6 +151,12 @@
           "eur_per_kwh": "Tarif",
           "from": "Gültig ab"
         }
+      },
+      "notifications": {
+        "title": "Benachrichtigungen",
+        "description": "Wohin Benachrichtigungen über Tankvorgänge und auswärtiges Laden gehen. Leer gelassen wird keine gesendet.",
+        "data": { "notify_target": "Benachrichtigungsaktion" },
+        "data_description": { "notify_target": "Ein Ziel der Companion-App erhält zusätzlich eine Aktion, die das Belegformular öffnet." }
       },
       "storage": {
         "title": "Ablage",
@@ -697,6 +704,18 @@
         }
       }
     }
+  },
+  "common": {
+    "refuelling_title": "{vehicle}: Tankvorgang erkannt",
+    "refuelling_message": "Begonnen {time}, etwa {quantity} L.",
+    "refuelling_message_bare": "Begonnen {time}.",
+    "price_suggestion": "Preisvorschlag: {price} pro Liter.",
+    "charging_title": "{vehicle}: Laden auswärts",
+    "charging_message": "Begonnen {time}, {quantity} kWh aus dem Netz.",
+    "charging_message_bare": "Begonnen {time}.",
+    "summary_title": "{vehicle}: {count} Ereignisse warten auf einen Beleg",
+    "summary_message": "Die Entität Wartet auf einen Beleg listet sie.",
+    "action_enter_receipt": "Beleg erfassen"
   },
   "exceptions": {
     "refused": { "message": "Beleg abgelehnt: {reason}" },
