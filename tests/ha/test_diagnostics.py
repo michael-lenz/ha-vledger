@@ -49,7 +49,10 @@ async def _set_up(hass, entry):
     await _settle(hass, entry)
 
 
-async def test_the_raw_log_as_diagnostic_entities(hass, vehicle_entry, tmp_path):
+async def test_the_raw_log_as_diagnostic_entities(hass, vehicle_entry, tmp_path, freezer):
+    # Mid-morning: the heartbeat provoked below must not cross local
+    # midnight, which resets the day's count (ISSUE-0018).
+    freezer.move_to("2026-10-09T17:00:00Z")
     hass.states.async_set("sensor.volvo_odometer", "100", {"unit_of_measurement": "km"})
     await _set_up(hass, vehicle_entry)
     hass.states.async_set("sensor.volvo_odometer", "101", {"unit_of_measurement": "km"})
