@@ -36,8 +36,9 @@ or charge point data. The system reads it and never asks it to refresh.
 **Role.** The domain meaning of a source entity: `odometer`, `position`,
 `trip_distance`, `fuel_level`, `soc`, `charging_state`, `plug_state`,
 `ignition`, `outside_temperature`, `fuel_price` for a vehicle;
-`energy_meter`, `power` for a charge point. Every role is optional; what a
-vehicle can do follows from the roles it has.
+`energy_meter` for a charge point — and `power`, which nothing assigns
+yet (ISSUE-0023). Every role is optional; what a vehicle can do follows
+from the roles it has.
 
 **Movement role.** `odometer`, `position` or `trip_distance` — a role whose
 change means the vehicle moved. At least one is mandatory.

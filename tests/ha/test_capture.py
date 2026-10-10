@@ -161,7 +161,10 @@ async def test_a_line_carries_when_the_old_value_was_last_reported(
     assert first["reported_before"] == "2026-10-09T06:01:00.000Z"
     # Heard once, then changed: still one sampling interval (ADR-0011).
     assert second["reported_before"] == "2026-10-09T06:02:00.000Z"
-    assert removed["state"] == "unavailable" and "reported_before" not in removed
+    # A removal has an old state and carries when it was last heard, like
+    # any line that begins an outage; the re-added entity has none.
+    assert removed["state"] == "unavailable"
+    assert removed["reported_before"] == "2026-10-09T06:03:00.000Z"
     assert "reported_before" not in readded
     assert l0.validate(tmp_path, V).problems == []
 

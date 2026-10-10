@@ -250,8 +250,10 @@ class Capture:
         old, new = event.data["old_state"], event.data["new_state"]
         t = clock.to_text(event.time_fired)
         if new is None:
-            # Removed from the registry: what Home Assistant itself shows for it.
-            self._put(l0.state(t, self.subject, role, entity_id, "unavailable"))
+            # Removed from the registry: what Home Assistant itself shows for
+            # it, and the old state's last report like any other line (ADR-0011).
+            self._put(l0.state(t, self.subject, role, entity_id, "unavailable",
+                               reported_before=_reported_before(old, t)))
             self._removed.add(entity_id)
             self._raise_issue(ISSUE_ENTITY_REMOVED, entity_id, role)
             return

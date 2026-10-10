@@ -9,7 +9,7 @@ the fuel level and SoC at the span's bounds, its gaps and its temperature;
 never from ``periods.jsonl``, whose lines are the calendar's. So any span
 works, and a span that is a calendar month gives that month's line, the
 ``period`` key aside. ``vledger report metrics`` prints it, as a table and
-as JSON; the integration will write it to a file one day.
+as JSON.
 """
 
 from __future__ import annotations

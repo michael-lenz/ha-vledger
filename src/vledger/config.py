@@ -74,7 +74,9 @@ def vehicle(name: str, roles: dict, parameters: dict | None = None,
 
     ``roles`` maps a role to ``{"entity": ..., "map"?: ..., "measured_at"?: ...}``.
     Fuel-dependent defaults follow the fuel given; an explicit value always
-    wins. Refuses what the requirements refuse (FZG-02, FZG-05).
+    wins, and a parameter given as ``None`` is one not set — it takes its
+    default, as the options flow hands over a field left empty (ADR-0008,
+    point 1). Refuses what the requirements refuse (FZG-02, FZG-05).
     ``time_zone`` is where calendar periods begin (ADR-0014, point 2): an
     IANA name, left out when not given — which reads as UTC.
     """
@@ -95,7 +97,7 @@ def vehicle(name: str, roles: dict, parameters: dict | None = None,
     if not any(r in MOVEMENT_ROLES for r in roles):
         raise ValueError(f"a vehicle needs a movement role: one of {MOVEMENT_ROLES}")
     params = dict(DEFAULT_PARAMETERS)
-    given = parameters or {}
+    given = {k: v for k, v in (parameters or {}).items() if v is not None}
     fuel = given.get("fuel", params["fuel"])
     if fuel is not None and fuel not in FUELS:
         raise ValueError(f"fuel must be one of {FUELS}, not {fuel!r}")

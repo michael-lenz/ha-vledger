@@ -1,12 +1,12 @@
 # ha-vledger
 
-> **Pre-alpha. Do not install this.** It captures a raw log and nothing
-> else yet: no trips, no charging sessions, no consumption, no cost. The
-> log format is decided and will be read by every later version, but the
-> integration has run on exactly one vehicle, the options may change
-> between releases, and there is no support. It is public so that the
-> author can test it through HACS and so that the design can be read.
-> When it is ready for other people, this notice goes away.
+> **Pre-alpha. Do not install this.** The integration has run on exactly
+> one vehicle, no derivation has been checked against a real stream yet,
+> the options may change between releases, and there is no support. The
+> log format is decided and will be read by every later version. It is
+> public so that the author can test it through HACS and so that the
+> design can be read. When it is ready for other people, this notice goes
+> away.
 
 A vehicle ledger for Home Assistant. It keeps a raw log of the handful of
 vehicle states that matter to a ledger — odometer, position, fuel level,
@@ -32,10 +32,10 @@ rolling period and lifetime in L1, and for any span from `vledger report
 metrics`; L1 is exported as CSV, JSON and GPX, from the shell and by a
 Home Assistant action into the media folder. In Home Assistant the
 metrics are not shown yet. Every behaviour described below is the design,
-held as requirements in the project's register (`ha-vledger-pm`); a
-section is marked *(planned)* until it exists.
+held as requirements in the project's register (`ha-vledger-pm`); what
+does not exist yet is marked *(planned)*.
 
-## What it does *(planned)*
+## What it does
 
 - **Captures, losslessly.** Every change of a source entity you assign to
   a role becomes one record in a raw log (L0): JSON Lines, append-only, one
@@ -50,8 +50,8 @@ section is marked *(planned)* until it exists.
   carries a quality flag: `measured`, `receipt`, `estimated` or
   `incomplete`.
 - **Takes receipts.** Price and exact quantity come from you: a refuelling
-  or charging receipt, entered from a notification, a dashboard or an
-  action, matched to the detected event by time. Receipt values beat sensor
+  or charging receipt, entered from a dashboard or an action — or from a
+  notification *(planned)* — matched to the detected event by time. Receipt values beat sensor
   values; a detected event without a receipt stays visible as unconfirmed.
 - **Knows your charge points.** Home, work, anywhere fixed: position,
   radius, tariff, optionally a meter. A charge point with a tariff but no

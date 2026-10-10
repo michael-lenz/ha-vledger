@@ -8,13 +8,15 @@ assigned gets sessions from its SoC instead: a rise at standstill above the
 charging threshold (LAD-04).
 
 A session is placed at the charge point whose radius holds its position, or
-at ``foreign``. Its grid-side energy comes, in this order, from a receipt
-(not yet: the receipts task), the charge point's meter where exactly one
-vehicle charged there (LAD-07), battery-side energy times the charging loss
-factor, or nowhere (LAD-06); its cost from the tariff valid at its start
-(LAD-08, VER-07). The meter and the tariffs are read from the charge
-point's own stream and config line (ERF-06, ADR-0009), and the other
-vehicles' streams say whether anyone else charged there meanwhile.
+at ``foreign``. Its grid-side energy comes, in this order, from the charge
+point's meter where exactly one vehicle charged there (LAD-07),
+battery-side energy times the charging loss factor, or nowhere (LAD-06);
+its cost from the tariff valid at its start (LAD-08, VER-07). A receipt
+that meets the session comes before both, and :mod:`vledger.receipts`
+puts it there when L1 is derived (ADR-0013). The meter and the tariffs
+are read from the charge point's own stream and config line (ERF-06,
+ADR-0009), and the other vehicles' streams say whether anyone else
+charged there meanwhile.
 """
 
 from __future__ import annotations
@@ -59,8 +61,8 @@ class Session:
     chargepoint_name: str | None
     battery_kwh: float | None          # estimated: ΔSoC × net capacity (LAD-05)
     grid_kwh: float | None
-    grid_kwh_quality: str | None       # measured or estimated (receipt: the receipts task)
-    grid_kwh_source: str | None        # meter or loss_factor
+    grid_kwh_quality: str | None       # measured or estimated; receipt once one meets it
+    grid_kwh_source: str | None        # meter or loss_factor; receipt likewise
     meter_attributable: bool | None    # None: no meter to attribute (LAD-07)
     tariff_eur_per_kwh: float | None
     cost_eur: float | None

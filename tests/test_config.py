@@ -24,6 +24,16 @@ def test_an_explicit_value_beats_a_fuel_default():
     assert v["thresholds"]["heating_value_kwh_per_l"] == 10
 
 
+def test_a_parameter_given_as_none_is_not_set_and_takes_its_default():
+    # What the options flow hands over for a field left empty (ISSUE-0022).
+    v = config.vehicle("V", {"odometer": {"entity": "sensor.o"}},
+                       {k: None for k in config.DEFAULT_PARAMETERS} | {"fuel": "diesel"})
+    assert v["parameters"]["charging_loss_factor"] == 1.12
+    assert v["parameters"]["eta_ice"] == 0.33
+    assert v["parameters"]["charge_cycles_start"] == 0
+    assert v["parameters"]["tank_capacity_l"] is None
+
+
 def test_what_is_refused():
     with pytest.raises(ValueError, match="movement role"):
         config.vehicle("V", {"soc": {"entity": "sensor.s"}})
