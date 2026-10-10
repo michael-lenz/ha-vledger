@@ -9,7 +9,7 @@ derivation parses a line itself.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field, is_dataclass, replace
 from pathlib import Path
 
 from vledger import clock, geo, l0, layout, units
@@ -63,6 +63,9 @@ class Stream:
     gaps: list[l0.Gap] = field(default_factory=list)
     first_t: str | None = None
     last_t: str | None = None
+    #: The kind of the last line: a ``stop`` says the stream will not move
+    #: until it starts again (ADR-0027, point 2).
+    last_kind: str | None = None
     #: The cursor the stream was read from, when it was: what came before is
     #: only seeded.
     since: str | None = None
@@ -162,17 +165,22 @@ def _seed_lines(base: Path, subject: Subject, since: str) -> tuple[list[dict], s
 
 def _repeats(latest, item) -> bool:
     """Whether a snapshot entry repeats the latest sample of its role: the
-    same value, whenever it was set (ISSUE-0014)."""
+    same value, whenever it was set (ISSUE-0014). A dropout is a time, and
+    repeats only itself."""
+    if not is_dataclass(item):
+        return latest == item
     return replace(latest, t=item.t) == item
 
 
 def load(base: Path, subject: Subject, *, since: str | None = None,
-         until: str | None = None) -> Stream:
+         until: str | None = None, now: str | None = None) -> Stream:
     """Read a stream into series. The latest config line in range wins; the
     snapshot of a start line seeds every series with the value before the
     first change, at the snapshot's ``since`` time but no earlier than the
     line before the start (:func:`snapshot_time`); a ``since`` is seeded
-    with the last value of every role before it."""
+    with the last value of every role before it. The gaps are judged
+    against ``now``, by default the stream's own last line — a stream read
+    beside another is judged against that one's (ADR-0027, point 2)."""
     s = Stream(subject, since=since)
     pending_lat: dict[str, float] = {}
     fuel_pct: list[Sample] = []
@@ -226,10 +234,10 @@ def load(base: Path, subject: Subject, *, since: str | None = None,
     for line in seeds + [r.line for r in l0.read(base, subject, since=since, until=until)]:
         t = line["t"]
         seed = line in seeds
+        kind = line["kind"]
         if not seed:
             s.first_t = s.first_t or t
-            s.last_t = t
-        kind = line["kind"]
+            s.last_t, s.last_kind = t, kind
         if kind == "config":
             s.config = line["config"]
         elif kind == "start":
@@ -252,8 +260,20 @@ def load(base: Path, subject: Subject, *, since: str | None = None,
         s.domain[role].sort(key=lambda x: clock.parse(x.t))
     for role in s.dropouts:
         s.dropouts[role].sort(key=clock.parse)
-    s.gaps = l0.gaps(base, subject, now=s.last_t) if s.last_t else []
+    s.gaps = l0.gaps(base, subject, now=now or s.last_t) if s.last_t else []
     return s
+
+
+def reached(s: Stream, t: str) -> bool:
+    """Whether a stream has reached time ``t`` (ADR-0027, point 2): it
+    holds a line at or after ``t``; or it ends in a ``stop``, so nothing
+    comes until it starts again; or it had fallen silent — an ``open`` gap,
+    judged against the ``now`` it was loaded with — so what it would have
+    said will never come. A stream with no line at all has nothing to
+    wait for."""
+    if s.last_t is None or clock.parse(s.last_t) >= clock.parse(t):
+        return True
+    return s.last_kind == "stop" or any(g.reason == "open" for g in s.gaps)
 
 
 def _fuel_from_percent(s: Stream, samples: list[Sample]) -> None:

@@ -107,6 +107,8 @@ def test_a_home_charge_with_a_meter(tmp_path, capsys):
     v = vehicle(tmp_path, capsys)
     end = charge(v, 0, 40, 80, meter=home, reading=5000.0, kwh=6.5)
     v.heartbeat(end + 30)
+    assert charging.derive_from(tmp_path, V) == []      # the meter's stream has not reached the end yet (ADR-0027)
+    home.heartbeat(end + 30)
     s, = charging.derive_from(tmp_path, V)
     assert (s.start, s.end, s.source, s.quality) == (at(0), at(61), "charging_state", "measured")
     assert (s.soc_start_pct, s.soc_end_pct, s.delta_soc_pct) == (40, 80, 40)
@@ -163,6 +165,7 @@ def test_two_vehicles_at_one_meter_make_it_unattributable(tmp_path, capsys):
     end = charge(v, 0, 40, 80, meter=home, reading=5000.0, kwh=9.0)
     v.heartbeat(end + 30)
     w.heartbeat(end + 30)
+    home.heartbeat(end + 30)
     s, = charging.derive_from(tmp_path, V)
     assert s.meter_attributable is False
     assert (s.grid_kwh, s.grid_kwh_source, s.grid_kwh_quality) == (6.586, "loss_factor", "estimated")
@@ -176,6 +179,8 @@ def test_another_vehicle_still_charging_counts_too(tmp_path, capsys):
     w.state(30, "charging_state", "Charging")         # and never done
     end = charge(v, 0, 40, 80, meter=home, reading=5000.0, kwh=9.0)
     v.heartbeat(end + 30)
+    w.heartbeat(end + 30)
+    home.heartbeat(end + 30)
     s, = charging.derive_from(tmp_path, V)
     assert s.meter_attributable is False
 
@@ -193,6 +198,7 @@ def test_a_sensor_dropout_mid_charge_holds(tmp_path, capsys):
     home.state(30, "energy_meter", 5004.4, "kWh")
     v.state(31, "charging_state", "Done")
     v.heartbeat(60)
+    home.heartbeat(60)
     s, = charging.derive_from(tmp_path, V)
     assert (s.start, s.end, s.delta_soc_pct, s.grid_kwh) == (at(0), at(31), 30, 4.4)
 
@@ -256,6 +262,7 @@ def test_the_tariff_of_the_sessions_time(tmp_path, capsys):
     charge(v, 0, 40, 50, minutes=10, meter=home, reading=5000.0, kwh=2.0)            # 9 October
     end = charge(v, 24 * 60, 50, 60, minutes=10, meter=home, reading=5002.0, kwh=2.0)  # 10 October
     v.heartbeat(end + 30)
+    home.heartbeat(end + 30)
     assert [s.cost_eur for s in charging.derive_from(tmp_path, V)] == [0.6, 0.4]
 
 
@@ -268,6 +275,7 @@ def test_incremental_line_by_line_equals_one_rebuild(tmp_path, capsys):
     end = charge(v, 0, 40, 60, meter=home, reading=5000.0, kwh=3.0)
     end = charge(v, end + 120, 60, 90, meter=home, reading=5003.0, kwh=4.5)
     v.heartbeat(end + 30)
+    home.heartbeat(end + 30)
 
     replay = tmp_path / "replay"
     cp_src = live / "chargepoint-home" / "l0" / "2026-10.jsonl"
@@ -294,6 +302,7 @@ def test_the_verb(tmp_path, capsys):
     v = vehicle(tmp_path, capsys)
     end = charge(v, 0, 40, 80, meter=home, reading=5000.0, kwh=6.5)
     v.heartbeat(end + 30)
+    home.heartbeat(end + 30)
     assert main(["derive", "charging", *v.b]) == 0
     out, err = capsys.readouterr()
     assert json.loads(out)["cost_eur"] == 1.95 and err.strip() == "1 charging session(s)"
@@ -302,3 +311,64 @@ def test_the_verb(tmp_path, capsys):
     assert [e["kind"] for e in l1.read(tmp_path, V, "charging")] == ["charging"]
     assert l1.read_manifest(tmp_path, V)["through"] == {"charging": at(61)}
     assert main(["derive", "charging", *home.b]) == 2      # a charge point has no sessions
+
+
+def test_a_session_waits_for_the_streams_it_reads_to_reach_its_end(tmp_path, capsys):
+    """ADR-0027, point 2 (ISSUE-0013): a session at a metered charge point
+    is complete only once that charge point's stream and every other
+    vehicle's have reached its end — a line at or after it, a stop, or a
+    silence long enough to be an open gap — judged against the vehicle's
+    own last line, never the clock."""
+    home = chargepoint(tmp_path, capsys, "home", HOME, HOME_TARIFFS)
+    v = vehicle(tmp_path, capsys)
+    w = vehicle(tmp_path, capsys, sid="b2d4", where=AWAY)
+    end = charge(v, 0, 40, 80, meter=home, reading=5000.0, kwh=6.5)   # the meter's last line at 60, the end at 61
+    w.heartbeat(end - 1)                                               # a minute short of the end
+    v.heartbeat(end + 30)
+    assert charging.derive_from(tmp_path, V) == []                     # home and b2d4 both lag
+    home.heartbeat(end + 30)
+    assert charging.derive_from(tmp_path, V) == []                     # b2d4 still lags, by less than an hour
+    w.run("stop", *w.b, "--t", at(end + 5), "--reason", "unload")      # stopped: nothing comes until it starts
+    s, = charging.derive_from(tmp_path, V)
+    assert (s.end, s.grid_kwh, s.grid_kwh_source) == (at(61), 6.5, "meter")
+
+    # A charge point whose capture died — silent for longer than its
+    # heartbeat allows, judged against the vehicle's stream — holds
+    # nothing up, and its meter is not read across the open gap.
+    base = tmp_path / "dead"
+    home = chargepoint(base, capsys, "home", HOME, HOME_TARIFFS)
+    v = vehicle(base, capsys)
+    end = charge(v, 0, 40, 80, meter=home, reading=5000.0, kwh=6.5)
+    v.heartbeat(end + 60)
+    assert charging.derive_from(base, V) == []                         # 61 min after the meter's last line: not yet
+    v.heartbeat(end + 70)                                              # 71 min: longer than 3600 s + 300 s
+    s, = charging.derive_from(base, V)
+    assert (s.grid_kwh, s.grid_kwh_source, s.quality) == (6.586, "loss_factor", "measured")
+
+
+def test_a_charge_points_configuration_is_in_the_vehicles_manifest(tmp_path, capsys):
+    """ADR-0027, point 1 (ISSUE-0013): a tariff corrected under an earlier
+    date, or any change to a charge point's config line, makes a rebuild
+    of the vehicle's L1 due; a charge point's own manifest knows nothing
+    of it."""
+    home = chargepoint(tmp_path, capsys, "home", HOME, HOME_TARIFFS)
+    v = vehicle(tmp_path, capsys)
+    end = charge(v, 0, 40, 80, meter=home, reading=5000.0, kwh=6.5)
+    v.heartbeat(end + 30)
+    home.heartbeat(end + 30)
+    manifest = l1.rebuild(tmp_path, V)
+    assert list(manifest["chargepoints"]) == ["home"] and manifest["chargepoints"]["home"].startswith("sha256:")
+    assert l1.rebuild_due(tmp_path, V) is None
+    assert [e["cost_eur"] for e in l1.read(tmp_path, V, "charging")] == [1.95]
+    corrected = {"name": "Home", "latitude": HOME[0], "longitude": HOME[1], "radius_m": 50,
+                 "meter": {"entity": "sensor.meter"},
+                 "tariffs": HOME_TARIFFS + [{"from": "2026-01-01", "eur_per_kwh": 0.20}]}
+    home.run("config", *home.b, "--t", at(end + 40), "--config", json.dumps(corrected))
+    assert l1.rebuild_due(tmp_path, V) == "a charge point's configuration changed"
+    l1.rebuild(tmp_path, V)
+    assert l1.rebuild_due(tmp_path, V) is None
+    assert [e["cost_eur"] for e in l1.read(tmp_path, V, "charging")] == [1.3]
+    cp = Subject("chargepoint", "home")
+    l1.rebuild(tmp_path, cp)
+    assert "chargepoints" not in l1.read_manifest(tmp_path, cp)
+    assert main(["l1", "status", *v.b]) == 0

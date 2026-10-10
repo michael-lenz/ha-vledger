@@ -17,6 +17,13 @@ puts it there when L1 is derived (ADR-0013). The meter and the tariffs
 are read from the charge point's own stream and config line (ERF-06,
 ADR-0009), and the other vehicles' streams say whether anyone else
 charged there meanwhile.
+
+A session is complete only once every stream it reads has reached its
+end (ADR-0027, point 2) — the charge point's where it has a meter, and
+every other vehicle's — each judged by the streams, never by the clock:
+a line at or after the end, a stop, or a silence an open gap names. Those
+streams are read against the vehicle's own last line, so the live path
+and a rebuild judge them alike.
 """
 
 from __future__ import annotations
@@ -169,16 +176,24 @@ class ChargePoint:
     stream: Stream
 
 
-def chargepoints(base: Path) -> list[ChargePoint]:
-    """Every charge point under ``base`` with a config line, its stream read."""
+def chargepoints(base: Path, *, now: str | None = None) -> list[ChargePoint]:
+    """Every charge point under ``base`` with a config line, its stream read
+    and its gaps judged against ``now``, the vehicle's last line."""
     out = []
     for subject in layout.subjects(base):
         if subject.kind != "chargepoint":
             continue
-        s = series.load(base, subject)
+        s = series.load(base, subject, now=now)
         if s.config and vconfig.is_chargepoint(s.config):
             out.append(ChargePoint(subject.id, s.config, s))
     return out
+
+
+def other_vehicles(base: Path, subject: Subject, *, now: str | None = None) -> list[Stream]:
+    """Every other vehicle's stream under ``base``, its gaps judged against
+    ``now``, the vehicle's last line (ADR-0027, point 2)."""
+    return [series.load(base, other, now=now) for other in layout.subjects(base)
+            if other.kind == "vehicle" and other != subject]
 
 
 def place(position: dict | None, points: list[ChargePoint]) -> ChargePoint | None:
@@ -228,15 +243,12 @@ def _meter_kwh(cp: ChargePoint, span: Span) -> float | None:
     return round(b.value - a.value, 3)
 
 
-def occupancy(base: Path, subject: Subject, points: list[ChargePoint]) -> list[tuple[str, str, str | None]]:
+def occupancy(others: list[Stream], points: list[ChargePoint]) -> list[tuple[str, str, str | None]]:
     """(charge point, start, end) of every other vehicle's session at a
     configured charge point — ``end`` ``None`` while it is still charging.
     What LAD-07 asks: did anyone else charge there meanwhile?"""
     out: list[tuple[str, str, str | None]] = []
-    for other in layout.subjects(base):
-        if other.kind != "vehicle" or other == subject:
-            continue
-        s = series.load(base, other)
+    for s in others:
         if has_charging_state(s):
             found, open_start = _by_charging_state(s)
             if open_start is not None:
@@ -262,8 +274,9 @@ def _alone(cp: ChargePoint, span: Span, others: list[tuple[str, str, str | None]
 
 # --- the session -------------------------------------------------------------
 
-def _session(s: Stream, span: Span, points: list[ChargePoint],
+def _session(s: Stream, span: Span, cp: ChargePoint | None, position: dict | None,
              others: list[tuple[str, str, str | None]], moves: list[trips.Movement]) -> Session:
+    """One session at its boundaries, placed at ``cp`` by ``position``."""
     p = s.parameters()
     soc = s.series.get("soc", [])
     if span.source == "soc":
@@ -277,9 +290,6 @@ def _session(s: Stream, span: Span, points: list[ChargePoint],
     delta = round(soc_end - soc_start, 3) if soc_start is not None and soc_end is not None else None
     capacity = p.get("battery_net_kwh")
     battery = round(delta / 100 * capacity, 3) if delta is not None and capacity else None
-
-    position = _position(s, span)
-    cp = place(position, points)
 
     grid, grid_q, grid_src, attributable = None, None, None, None
     if cp is not None and cp.config.get("meter"):
@@ -324,24 +334,33 @@ def _session(s: Stream, span: Span, points: list[ChargePoint],
     )
 
 
-def derive(s: Stream, points: list[ChargePoint],
-           others: list[tuple[str, str, str | None]]) -> list[Session]:
+def derive(s: Stream, points: list[ChargePoint], others: list[Stream]) -> list[Session]:
     """Every completed charging session in the stream, in order of start.
 
     A session is completed when the charging state went away, or, by SoC,
-    when its run was broken by the stream's last line — never by the clock
-    (ABL-01). ``points`` are the configured charge points, ``others`` the
-    other vehicles' sessions there (:func:`occupancy`).
+    when its run was broken by the stream's last line — and once every
+    stream it reads has reached its end (ADR-0027, point 2): the charge
+    point's where it has a meter, and every other vehicle's. Never by the
+    clock (ABL-01). ``points`` are the configured charge points, ``others``
+    the other vehicles' streams, both read against this stream's last line.
     """
     moves = trips.movements(s)
-    return [_session(s, span, points, others, moves) for span in spans(s)]
+    taken = occupancy(others, points)
+    out: list[Session] = []
+    for span in spans(s):
+        position = _position(s, span)
+        cp = place(position, points)
+        waits = ([cp.stream] if cp is not None and cp.config.get("meter") else []) + others
+        if not all(series.reached(x, span.end) for x in waits):
+            break       # a stream reaches a later end no sooner: the rest wait too
+        out.append(_session(s, span, cp, position, taken, moves))
+    return out
 
 
 def derive_from(base: Path, subject: Subject, *, since: str | None = None,
                 until: str | None = None) -> list[Session]:
-    points = chargepoints(base)
-    return derive(series.load(base, subject, since=since, until=until), points,
-                  occupancy(base, subject, points))
+    s = series.load(base, subject, since=since, until=until)
+    return derive(s, chargepoints(base, now=s.last_t), other_vehicles(base, subject, now=s.last_t))
 
 
 def to_dict(session: Session) -> dict:

@@ -531,7 +531,9 @@ no charging state assigned gets its sessions from its SoC instead: a run
 of rises at standstill whose total exceeds the charging threshold, broken
 by a sample that does not rise, a movement, a capture gap, or T_still
 without a rise (`source` says `charging_state` or `soc`). Only finished
-sessions are printed — one still charging appears once it ends.
+sessions are printed — one still charging appears once it ends and the
+charge point's and the other vehicles' streams have reached that moment,
+a heartbeat at the latest ([derivations.md](derivations.md#charging-sessions)).
 
 Every session carries SoC at both ends, the position, and the charge
 point whose radius holds that position — its subject id, or `foreign`.
@@ -643,7 +645,8 @@ elapsed, a refuelling once it has settled, a charging session once it has
 ended, judged by the stream's last line rather than the clock, so the
 same stream always yields the same files. `l1 status` exits 1 when a
 rebuild is due — no manifest, a different library version, a changed
-configuration or changed receipts — which is what the integration checks
+configuration of the vehicle or of a charge point, or changed receipts —
+which is what the integration checks
 at startup. `l1 update` rebuilds if one is due, else appends from the
 cursor, and prints the events new to L1 in order of start — exactly those
 that fire `vledger_event` in Home Assistant.

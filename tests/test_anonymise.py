@@ -35,6 +35,7 @@ def real(tmp_path, capsys):
                                              longitude=HOME[1], gps_accuracy=12)
     end = charge(v, 90, 40, 80, meter=home, reading=5000.0, kwh=6.5)
     v.heartbeat(end + 60)
+    home.heartbeat(end + 60)
     assert main(["receipt", "add", "charging", *v.b, "--anchor", at(90), "--energy-kwh", "6.6",
                  "--total-price", "1.98", "--place", "Garage, 12 Elm Street",
                  "--provider", "Smith Energy", "--t", at(400)]) == 0

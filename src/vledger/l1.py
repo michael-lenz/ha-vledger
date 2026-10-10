@@ -76,6 +76,19 @@ def receipts_hash(base: Path, subject: Subject) -> str:
     return _sha(p.read_bytes() if p.is_file() else b"")
 
 
+def chargepoint_hashes(base: Path) -> dict[str, str]:
+    """Per charge point under ``base`` with a config line, the hash of its
+    latest config line's object: what a vehicle's charging sessions read
+    besides the vehicle's own stream (ADR-0027, point 1)."""
+    out = {}
+    for subject in layout.subjects(base):
+        if subject.kind == "chargepoint":
+            h = config_hash(base, subject)
+            if h is not None:
+                out[subject.id] = h
+    return out
+
+
 def l0_through(base: Path, subject: Subject) -> str | None:
     """The ``t`` of the stream's last line: the newest month file's last
     line, since a line lands in the file its own ``t`` names."""
@@ -101,15 +114,19 @@ def _write_atomic(path: Path, text: str) -> None:
 def manifest_of(base: Path, subject: Subject, through: dict[str, str]) -> dict:
     """What L1 was derived from, and by what (ADR-0009, point 2): the
     library's version, the hashes of the latest config line and of the
-    receipts, the cursor per kind, and how far L0 was read."""
-    return {
+    receipts — and, for a vehicle, of every charge point's latest config
+    line (ADR-0027, point 1) — the cursor per kind, and how far L0 was read."""
+    manifest = {
         "vledger": __version__,
         "derived_at": clock.to_text(clock.now()),
         "config": config_hash(base, subject),
         "receipts": receipts_hash(base, subject),
-        "through": dict(sorted(through.items())),
-        "l0_through": l0_through(base, subject),
     }
+    if subject.kind == "vehicle":
+        manifest["chargepoints"] = chargepoint_hashes(base)
+    manifest["through"] = dict(sorted(through.items()))
+    manifest["l0_through"] = l0_through(base, subject)
+    return manifest
 
 
 def write_manifest(base: Path, subject: Subject, through: dict[str, str]) -> dict:
@@ -132,6 +149,8 @@ def rebuild_due(base: Path, subject: Subject) -> str | None:
         return "the configuration changed"
     if m.get("receipts") != receipts_hash(base, subject):
         return "the receipts changed"
+    if subject.kind == "vehicle" and m.get("chargepoints") != chargepoint_hashes(base):
+        return "a charge point's configuration changed"
     return None
 
 

@@ -23,7 +23,9 @@ exports exist.
 Event files hold **completed** events only — a trip once its standstill
 has elapsed, a refuelling once T_settle has elapsed after its last rise,
 a session once the charging state went away (by SoC, once its run of
-rises was broken) — one JSON object per line, in order of `start`. Every event carries `kind` (`trip`,
+rises was broken) and every stream it reads has reached its end
+([derivations.md](derivations.md#charging-sessions)) — one JSON object
+per line, in order of `start`. Every event carries `kind` (`trip`,
 `charging`, `refuelling`, `period`), `subject`, `start`, `end`, `quality`
 (`measured`, `receipt`, `estimated`, `incomplete`) and `version`, then the
 keys of its kind, exactly as `vledger derive …` prints them. A derived
@@ -47,16 +49,20 @@ to know whether one of them charged at the same meter meanwhile (LAD-07).
 ## The manifest
 
 ```json
-{"vledger": "0.1.0", "derived_at": "2026-10-10T06:00:00.000Z",
+{"vledger": "0.6.0", "derived_at": "2026-10-10T06:00:00.000Z",
  "config": "sha256:…", "receipts": "sha256:…",
+ "chargepoints": {"c9e3…": "sha256:…"},
  "through": {"trip": "2026-10-09T15:12:00.000Z"},
  "l0_through": "2026-10-10T05:59:30.000Z"}
 ```
 
 `config` is the hash of the latest `config` line's object, `receipts` the
-hash of `receipts.jsonl`; `through` is, per kind, the `end` of the last
-detected event written — the cursor, which an event made from a receipt
-alone does not move; `l0_through` the `t` of the last L0 line read.
+hash of `receipts.jsonl`; `chargepoints`, on a vehicle's manifest only,
+the hash of every charge point's latest `config` line under the base —
+what the vehicle's charging sessions read besides its own stream
+(ADR-0027); `through` is, per kind, the `end` of the last detected event
+written — the cursor, which an event made from a receipt alone does not
+move; `l0_through` the `t` of the last L0 line read.
 
 ## Receipts in events
 
@@ -233,13 +239,16 @@ answers nothing.
 
 No manifest; a manifest from another library version; a `config` hash
 that is not the latest config line's; a `receipts` hash that is not the
-file's. `vledger l1 status` says which, and exits 1.
+file's; on a vehicle, a `chargepoints` entry that is not the charge
+points' latest config lines' — a tariff corrected under an earlier date,
+a moved radius, a meter assigned later (ADR-0027). `vledger l1 status`
+says which, and exits 1.
 
-The hashes cover the vehicle's own configuration and receipts only. A
-charging session also depends on the charge points' configuration and
-streams and on the other vehicles' streams, and a change there — a
-corrected tariff, above all — does not make a rebuild due; `derive all
---write` brings it in by hand (ISSUE-0013).
+The charge points' and the other vehicles' streams are not hashed: they
+grow with every line. What keeps a session's values the same in the live
+derivation and in a rebuild is that a session is complete only once
+those streams have reached its end
+([derivations.md](derivations.md#charging-sessions)).
 
 ## Exports
 

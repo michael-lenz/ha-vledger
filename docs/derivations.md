@@ -267,7 +267,8 @@ vehicles' streams. **Parameters:** `battery_net_kwh`,
 1. **Boundaries** (LAD-03). From the charging state turning to `charging`
    to the next change away from it; `unavailable` and `unknown` hold, so
    a dropout mid-charge does not end it. A session still charging at the
-   stream's last line is not complete.
+   stream's last line is not complete, and neither is one whose end a
+   stream it reads has not reached yet (step 8).
 2. **Without a charging state** (LAD-04): a run of SoC rises at standstill
    whose total exceeds `charging_threshold_pct`. A run is broken by a
    sample that does not rise, a movement, a capture gap, or T_still
@@ -294,11 +295,21 @@ vehicles' streams. **Parameters:** `battery_net_kwh`,
    `charging_loss_kwh` follow (LAD-09).
 7. `movements_while_charging` counts movement events inside the session:
    reported, never corrected (ADR-0012, point 5).
+8. **Complete** once the session's own boundary has passed (steps 1 and
+   2) and every stream it reads has reached its end (ADR-0027, point 2):
+   the charge point's where it has a meter, and every other vehicle's. A
+   stream has reached a time when it holds a line at or after it, or
+   ends in a `stop` before it, or had fallen silent by then — an `open`
+   gap, its last line further behind than its heartbeat interval plus
+   tolerance, judged against the vehicle's own last line, never the
+   clock. Those streams are read against that last line, so the live path
+   and a rebuild judge them alike; a meter is not read across the open gap
+   of a charge point whose capture died. In Home Assistant that is a
+   heartbeat at the latest. A change to a charge point's configuration
+   makes a rebuild of every vehicle's L1 due ([l1-format.md](l1-format.md#when-l1-is-rebuilt)).
 
-**Limitations.** A session's cost depends on the charge points'
-configuration and the other vehicles' streams, and a change there does not
-make a rebuild due (ISSUE-0013). A position fix taken before the vehicle
-arrived places the session where that fix was. By SoC, a session ends
+**Limitations.** A position fix taken before the vehicle arrived places
+the session where that fix was. By SoC, a session ends
 with the last rise, so a charge that stopped short of a sample ends early,
 and a rise below the threshold is not a session.
 
