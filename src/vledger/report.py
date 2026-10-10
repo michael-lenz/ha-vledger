@@ -42,7 +42,7 @@ def intervals(s: Stream, refuellings: list[dict], since: str, until: str) -> lis
 
 
 def build(s: Stream, events: dict[str, list[dict]], since: str | None = None,
-          until: str | None = None) -> dict:
+          until: str | None = None, under_way: list[str] = ()) -> dict:
     """``{"report": line, "intervals": [...]}``: the metrics of the span as
     a period line with ``period`` ``report``, plus the consumption chosen
     among the span's intervals as the lifetime line chooses among all
@@ -54,7 +54,7 @@ def build(s: Stream, events: dict[str, list[dict]], since: str | None = None,
     until = clock.to_text(clock.parse(until)) if until else s.last_t
     if clock.parse(until) < clock.parse(since):
         raise ValueError(f"--until {until} lies before --since {since}")
-    line = periods.metrics(s, events, periods.REPORT, since, until)
+    line = periods.metrics(s, events, periods.REPORT, since, until, under_way)
     found = intervals(s, events.get("refuelling", []), since, until)
     line.update(periods.chosen(found, float(s.thresholds()["consumption_error_pct"])))
     return {"report": line, "intervals": found}
@@ -64,7 +64,8 @@ def from_l1(base: Path, subject: Subject, since: str | None = None,
             until: str | None = None) -> dict:
     """The report of a vehicle from the L1 on disk, as it is."""
     events = {kind: list(l1.read(base, subject, kind)) for kind in KINDS}
-    return build(series.load(base, subject), events, since, until)
+    return build(series.load(base, subject), events, since, until,
+                 periods.under_way(base, subject, events))
 
 
 # --- the table ---------------------------------------------------------------

@@ -333,8 +333,8 @@ what the events carry [l1-format.md](l1-format.md#receipts-in-events).
 The periods are computed from the event files after every derivation
 (ADR-0014): every event in the one period its start falls in, the fuel
 level and SoC read at the boundaries for the stock correction, never
-across a gap, and each metric flagged with the weakest of what it rests
-on. Fuel consumption is tank to tank between receipts, corrected by the
+across a gap and never inside an event not yet complete (ADR-0033), and
+each metric flagged with the weakest of what it rests on. Fuel consumption is tank to tank between receipts, corrected by the
 level sensor, with its error bound beside it. The definitions are
 [l1-format.md](l1-format.md#periods). The same arithmetic over a span
 chosen freely is the report, `vledger report metrics`, computed from the

@@ -17,12 +17,13 @@ V = Subject("vehicle", "a7c1")
 BERLIN = vconfig.zone_of({"time_zone": "Europe/Berlin"})
 
 
-def vehicle(base, capsys, parameters=None, time_zone=None):
+def vehicle(base, capsys, parameters=None, time_zone=None, charging_state=True):
     """Odometer, position, SoC, fuel level and charging state: a plug-in
     hybrid with a 10 kWh battery and a 40 L tank, standing at home."""
     roles = {"odometer": {"entity": "sensor.o"}, "position": {"entity": "device_tracker.v"},
-             "soc": {"entity": "sensor.s"}, "fuel_level": {"entity": "sensor.f"},
-             "charging_state": {"entity": "sensor.c", "map": {"charging": ["Charging"]}}}
+             "soc": {"entity": "sensor.s"}, "fuel_level": {"entity": "sensor.f"}}
+    if charging_state:
+        roles["charging_state"] = {"entity": "sensor.c", "map": {"charging": ["Charging"]}}
     cfg = vconfig.vehicle("V", roles, dict({
         "fuel": "petrol", "battery_net_kwh": 10, "tank_capacity_l": 40,
         "charging_loss_factor": 1.0, "charge_cycles_start": 100, "tank_fills_start": 10,
@@ -34,8 +35,9 @@ def vehicle(base, capsys, parameters=None, time_zone=None):
          "attrs": {"latitude": HOME[0], "longitude": HOME[1], "gps_accuracy": 0}},
         {"role": "soc", "entity": "sensor.s", "state": "50", "unit": "%", "since": at(-120)},
         {"role": "fuel_level", "entity": "sensor.f", "state": "20", "unit": "L", "since": at(-120)},
-        {"role": "charging_state", "entity": "sensor.c", "state": "Idle", "since": at(-120)},
     ]
+    if charging_state:
+        snapshot.append({"role": "charging_state", "entity": "sensor.c", "state": "Idle", "since": at(-120)})
     return Stream(base, capsys, "vehicle", "a7c1", cfg, snapshot)
 
 
@@ -163,6 +165,129 @@ def test_a_straddling_trip_moves_the_stock_reading_to_its_end():
     # Kept within the stream at both ends.
     assert periods.reading_time("2026-09-01T00:00:00.000Z", [], first, last) == first
     assert periods.reading_time("2026-12-01T00:00:00.000Z", [], first, last) == last
+
+
+def test_an_event_not_yet_in_l1_moves_the_stock_reading_back_to_its_start():
+    spanning = [{"start": "2026-10-31T22:50:00.000Z", "end": "2026-10-31T23:40:00.000Z"}]
+    first, last = "2026-10-01T00:00:00.000Z", "2026-11-30T00:00:00.000Z"
+    # Begun before the boundary and not an event: read at its start (ADR-0033).
+    assert periods.reading_time("2026-11-30T00:00:00.000Z", [], first, last,
+                                ["2026-11-29T23:00:00.000Z"]) == "2026-11-29T23:00:00.000Z"
+    # Begun after the boundary: nothing to move.
+    assert periods.reading_time("2026-11-01T00:00:00.000Z", [], first, last,
+                                ["2026-11-29T23:00:00.000Z"]) == "2026-11-01T00:00:00.000Z"
+    # Moved forward past a completed event first, then back to the earliest
+    # incomplete one begun by then.
+    assert periods.reading_time("2026-10-31T23:00:00.000Z", spanning, first, last,
+                                ["2026-10-31T23:50:00.000Z"]) == spanning[0]["end"]
+    assert periods.reading_time("2026-10-31T23:00:00.000Z", spanning, first, last,
+                                ["2026-10-31T23:45:00.000Z", "2026-10-31T23:42:00.000Z"]) \
+        == "2026-10-31T23:40:00.000Z"
+    assert periods.reading_time("2026-10-31T23:50:00.000Z", spanning, first, last,
+                                ["2026-10-31T23:45:00.000Z"]) == "2026-10-31T23:45:00.000Z"
+
+
+def charged_then_driven(base, capsys, charging_state=True):
+    """A metered charge at home, SoC 50 → 60 % at 0.30 (1.25 kWh, cost
+    0.38 as the session rounds it), then a 30 km trip back to 50 %."""
+    v = vehicle(base, capsys, charging_state=charging_state)
+    home = chargepoint(base, capsys, "home", HOME, HOME_TARIFFS)
+    if charging_state:
+        charge(v, 0, 50, 60, minutes=60, meter=home, reading=5000.0, kwh=1.25)
+    else:
+        for i in range(1, 7):
+            v.state(10 * i, "soc", round(50 + 10 * i / 6, 1), "%")
+            home.state(10 * i, "energy_meter", round(5000 + 1.25 * i / 6, 3), "kWh")
+    trip(v, 100, 1000, 30, soc=50)
+    return v, home
+
+
+def month(base):
+    return by_period(periods.derive_from(base, V))["month"]
+
+
+def test_a_charge_under_way_at_the_last_line_is_not_read_into_the_stock(tmp_path, capsys):
+    v, home = charged_then_driven(tmp_path, capsys)
+    v.state(200, "charging_state", "Charging")
+    for i in range(1, 7):
+        v.state(200 + 10 * i, "soc", 50 + 5 * i, "%")
+        home.state(200 + 10 * i, "energy_meter", 5001.25 + 0.5 * i, "kWh")
+    v.heartbeat(265)
+    home.heartbeat(265)
+    m = month(tmp_path)
+    # SoC read at the charge's start, 50 % as at capture's: 1 kWh for 30 km,
+    # not 1 kWh − 3 kWh of a charge nothing counts yet (ISSUE-0046).
+    assert m["battery_kwh"] == 1 and m["soc_corrected"] is True
+    assert m["electricity_eur_per_100km"] == pytest.approx(m["electricity_cost_eur"] / 30 * 100, abs=1e-3)
+    assert m["eur_per_100km"] > 0
+    # Done, and the meter's stream past its end: the charge and its stock
+    # change enter together, and the battery side stays what was used.
+    v.state(271, "charging_state", "Done")
+    v.heartbeat(300)
+    home.heartbeat(300)
+    m = month(tmp_path)
+    assert m["grid_kwh"] == 4.25 and m["battery_kwh"] == 1
+
+
+def test_a_charge_waiting_for_the_meter_is_not_read_into_the_stock(tmp_path, capsys):
+    v, home = charged_then_driven(tmp_path, capsys)
+    v.state(200, "charging_state", "Charging")
+    v.state(230, "soc", 80, "%")
+    v.state(261, "charging_state", "Done")
+    home.heartbeat(250)     # the meter's stream short of the end, and not silent:
+    v.heartbeat(300)        # the session waits for it (ADR-0027)
+    assert len(list(l1.derive(tmp_path, V, "charging"))) == 1
+    assert month(tmp_path)["battery_kwh"] == 1
+
+
+def test_a_trip_not_yet_complete_is_not_read_into_the_stock(tmp_path, capsys):
+    v, home = charged_then_driven(tmp_path, capsys)
+    trip(v, 200, 1030, 10, soc=30)          # stops at +245; complete at +275
+    v.heartbeat(255)
+    home.heartbeat(255)
+    m = month(tmp_path)
+    assert m["distance_km"] == 30 and m["battery_kwh"] == 1
+    v.heartbeat(300)
+    m = month(tmp_path)
+    assert m["distance_km"] == 40 and m["battery_kwh"] == 3
+
+
+def test_a_soc_run_not_yet_over_is_not_read_into_the_stock(tmp_path, capsys):
+    v, home = charged_then_driven(tmp_path, capsys, charging_state=False)
+    for i in range(1, 4):
+        v.state(200 + 10 * i, "soc", 50 + 5 * i, "%")
+    v.heartbeat(235)
+    home.heartbeat(235)
+    assert month(tmp_path)["battery_kwh"] == 1
+
+
+def test_line_by_line_the_periods_equal_a_fresh_derivation_across_completions(tmp_path, capsys):
+    """Each line appended and the live writer run equals deriving the same
+    prefix afresh — while the charge and the trip are under way, and at the
+    moment each becomes an event."""
+    live = tmp_path / "live"
+    v, home = charged_then_driven(live, capsys)
+    v.state(200, "charging_state", "Charging")
+    for i in range(1, 4):
+        v.state(200 + 10 * i, "soc", 50 + 10 * i, "%")
+    v.state(231, "charging_state", "Done")
+    trip(v, 300, 1030, 10, soc=70)
+    v.heartbeat(400)
+    home.heartbeat(400)
+    replay = tmp_path / "replay"
+    shutil.copytree(live / "chargepoint-home", replay / "chargepoint-home")
+    src = live / "vehicle-a7c1" / "l0" / "2026-10.jsonl"
+    dst = replay / "vehicle-a7c1" / "l0" / "2026-10.jsonl"
+    dst.parent.mkdir(parents=True)
+    with open(dst, "a") as f:
+        for line in src.read_text().splitlines(keepends=True):
+            f.write(line)
+            f.flush()
+            l1.incremental(replay, V)
+            assert list(l1.read(replay, V, "period")) == periods.derive_from(replay, V)
+    assert len(list(l1.read(replay, V, "charging"))) == 2 and len(list(l1.read(replay, V, "trip"))) == 2
+    # 1 kWh each trip: 1 + 3 charged, less the SoC risen from 50 to 70 %.
+    assert month(replay)["battery_kwh"] == 2
 
 
 def partial_fills(base, capsys, resolution):

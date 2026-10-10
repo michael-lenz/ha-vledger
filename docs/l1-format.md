@@ -125,9 +125,13 @@ period's end lies after the stream's last line. A line is named by
 in — a receipt that met nothing, by its anchor — and to no other; nothing
 is split. The fuel level and SoC are read at the period's boundaries:
 the value in effect there, the reading moved forward to the end of any
-trip or charging session under way across the boundary, and kept within
-the stream — a month that began before capture is read from capture's
-start, one still running at the last line. Nothing is read across a
+trip or charging session under way across the boundary, then back to the
+start of any that had begun by then and is not yet an event — still
+charging, a trip whose standstill has not elapsed, a session waiting for
+another stream — so that an event counts nowhere until it is complete,
+and then its distance, energy and stock change all at once (ADR-0033). It
+is kept within the stream — a month that began before capture is read
+from capture's start, one still running at the last line. Nothing is read across a
 capture gap; without both readings there is no correction, and
 `fuel_level_corrected` or `soc_corrected` says so.
 

@@ -112,19 +112,25 @@ def by_charging_state(s: Stream) -> list[Span]:
 
 def by_soc(s: Stream) -> list[Span]:
     """Without a charging state: every run of SoC rises at standstill whose
-    total exceeds the charging threshold (LAD-04).
+    total exceeds the charging threshold (LAD-04)."""
+    threshold = float(s.thresholds()["charging_threshold_pct"])
+    return [Span(r[0].t, r[-1].t, "soc", False)
+            for b, r, over in _soc_runs(s) if over and r[-1].value - b.value > threshold]
+
+
+def _soc_runs(s: Stream) -> list[tuple]:
+    """Every run of SoC rises at standstill: (the sample before the first
+    rise, the rises, whether it is over).
 
     A run is broken by a sample that does not rise, a movement, a capture
     gap, or T_still without a rise — the last because L0 logs only changes,
     so a run that simply stopped rising has no sample to say so. A run is
-    over, and returned, once one of these has happened by the stream's last
-    line; the same stream therefore yields the same sessions however late
-    it is asked (ABL-01). A run never crosses a gap: nothing is read across
+    over once one of these has happened by the stream's last line, and only
+    then a session; the same stream therefore yields the same sessions
+    however late it is asked (ABL-01). A run never crosses a gap: nothing is read across
     one (ABL-04).
     """
-    thr = s.thresholds()
-    still = timedelta(seconds=float(thr["t_still_s"]))
-    threshold = float(thr["charging_threshold_pct"])
+    still = timedelta(seconds=float(s.thresholds()["t_still_s"]))
     moves = [clock.parse(m.t) for m in trips.movements(s)]
     soc = s.series.get("soc", [])
 
@@ -157,14 +163,28 @@ def by_soc(s: Stream) -> list[Span]:
             or any(tm > clock.parse(last) for tm in moves) \
             or any(clock.parse(g.start) >= clock.parse(last) for g in s.gaps)
         runs.append((base, rises, over))
-    return [Span(r[0].t, r[-1].t, "soc", False)
-            for b, r, closed in runs if closed and r[-1].value - b.value > threshold]
+    return runs
 
 
 def spans(s: Stream) -> list[Span]:
     """The vehicle's completed sessions, by charging state where one is
     assigned, else by SoC."""
     return by_charging_state(s) if has_charging_state(s) else by_soc(s)
+
+
+def begun(s: Stream) -> list[str]:
+    """The start of every session that has begun by the stream's last line,
+    in order: the completed spans, and one still under way — still
+    charging, or a run of SoC rises not yet over, whatever it has risen so
+    far (ADR-0033, point 2). A run of SoC rises starts at its first rise,
+    so here it is the sample before, which a stock read at it does not yet
+    include. Which of them L1 holds is the caller's to tell: a completed
+    span can still wait for another stream (ADR-0027)."""
+    if has_charging_state(s):
+        done, open_start = _by_charging_state(s)
+        return [x.start for x in done] + ([open_start] if open_start is not None else [])
+    return [b.t for b, r, over in _soc_runs(s)
+            if not over or r[-1].value - b.value > float(s.thresholds()["charging_threshold_pct"])]
 
 
 # --- where, and what was read at its ends --------------------------------
