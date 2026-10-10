@@ -132,28 +132,28 @@ be loaded ([releasing.md](releasing.md)).
 `custom_components/vledger/brand/` holds the icon and logo Home Assistant
 shows for the integration since 2026.3 — an instance older than that shows
 none, since the domain is not in the `home-assistant/brands` repository —
-and what HACS's validation looks for (`brand/icon.png`; ISSUE-0002).
-`icon.svg` beside them is the source: the front-left corner of a black
-estate car, cut by the frame. The PNGs are renderings of it, transparent,
-optimised, nothing else:
+and what HACS's validation looks for (`brand/icon.png`; ISSUE-0002). The
+drawing is the owner's: the front of a black estate car, generated as an
+image and kept outside the repository. The files are cuts of it, the
+background made transparent, reduced to 256 colours, nothing else:
 
 | file | what | size |
 |---|---|---|
-| `icon.png`, `icon@2x.png` | the drawing whole | 256 × 256, 512 × 512 |
-| `logo.png`, `logo@2x.png` | its band from the hood's crest to the bumper, `viewBox` `66 90 472 236` | 256 × 128, 512 × 256 |
+| `icon.png`, `icon@2x.png` | the front from the headlight to the cut, padded to a square | 256 × 256, 512 × 512 |
+| `logo.png`, `logo@2x.png` | the car beside the wordmark, `vledger` in dark grey for light backgrounds | 702 × 256, 1402 × 512 |
+| `dark_logo.png`, `dark_logo@2x.png` | the same with the wordmark in light grey, served on dark backgrounds | 702 × 256, 1402 × 512 |
 
-They were rendered with headless Chromium (`--screenshot` with a
-transparent default background, then cropped to the drawing), which
-honours the Gaussian blur behind the running light; a renderer that drops
-SVG filters loses the glow and nothing else. A change to the drawing
-re-renders all four.
+The icon needs no dark variant: its silver grille and running light read on
+both. The Home Assistant logo is not part of any of them and may not be —
+the Home Assistant brand guidelines keep it out of other projects' logos.
+A new drawing replaces all six.
 
 ## Where things are
 
 ```
 src/vledger/               the library and CLI — all derivation logic, no Home Assistant
 custom_components/vledger/ the integration: flows, capture, entities, translations;
-                           brand/ the icon and logo it is shown with, and their source
+                           brand/ the icon and logo it is shown with
 tests/                     the library's tests; tests/ha/ the integration's;
                            tests/fixtures/ real streams, anonymised
 docs/                      design documents, operating manuals, the user guide
