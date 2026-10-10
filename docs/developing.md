@@ -43,7 +43,8 @@ python3 -m venv .venv
 ```
 
 Installing `.[dev,ha]` takes a few minutes: Home Assistant is large. For
-work on the library alone, `.[dev]` is enough and installs in seconds.
+work on the library alone, `.[dev]` is enough and installs in seconds —
+except under Termux, [below](#under-termux).
 
 If the `ha` extra fails to build `PyRIC` even inside the venv, the
 environment's pip is not isolating builds (a `PIP_NO_BUILD_ISOLATION` in
@@ -51,6 +52,27 @@ the environment, or a pip configuration that sets it). Unset it, or
 upgrade setuptools inside the venv first; the package itself is only a
 transitive dependency of Home Assistant's Bluetooth support and is never
 imported by anything here.
+
+## Under Termux
+
+On Android, PyPI has no ruff wheel, and pip then builds ruff from source,
+which needs a Rust toolchain. Termux packages ruff as a binary instead,
+and the `test` extra is `dev` without ruff:
+
+```bash
+pkg install ruff
+python3 -m venv .venv
+.venv/bin/pip install -e ".[test]"
+.venv/bin/python -m pytest -q                     # the library only
+ruff check src tests custom_components            # Termux's binary
+```
+
+`scripts/release.sh` takes the `ruff` on `PATH` when the interpreter has
+no ruff module ([releasing.md](releasing.md)). The `ha` extra is not
+attempted there: Home Assistant brings compiled dependencies of its own,
+and CI runs `tests/ha` on every push to `main`. Termux's ruff may lag
+behind the one CI installs; a finding only one of them reports is a
+version difference, not a broken tree.
 
 ## Running the checks
 

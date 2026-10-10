@@ -18,7 +18,8 @@
 #
 # The Python used is $PYTHON, else .venv/bin/python, else python3; it
 # needs the ".[dev]" extra (pytest, ruff), and ".[dev,ha]" to run the
-# integration's tests as well (docs/developing.md).
+# integration's tests as well (docs/developing.md). Where ruff has no wheel
+# (Termux), ".[test]" and a ruff binary on PATH do instead.
 
 set -euo pipefail
 
@@ -59,8 +60,16 @@ elif [[ -x .venv/bin/python ]]; then
 else
     py=python3
 fi
-"$py" -c "import pytest, ruff" 2>/dev/null \
-    || die "$py lacks pytest or ruff: pip install -e '.[dev]' (docs/developing.md)"
+"$py" -c "import pytest" 2>/dev/null \
+    || die "$py lacks pytest: pip install -e '.[dev]' (docs/developing.md)"
+# ruff from the interpreter's own install, else the binary on PATH.
+if "$py" -c "import ruff" 2>/dev/null; then
+    ruff=("$py" -m ruff)
+elif command -v ruff >/dev/null; then
+    ruff=(ruff)
+else
+    die "no ruff: pip install -e '.[dev]', or a ruff binary on PATH (docs/developing.md)"
+fi
 
 # The files that carry the version, and nothing else may be touched.
 files=(pyproject.toml src/vledger/__init__.py custom_components/vledger/manifest.json)
@@ -132,7 +141,7 @@ EOF
 
 # This tree's library, whatever checkout the interpreter's install points at.
 export PYTHONPATH="$PWD/src${PYTHONPATH:+:$PYTHONPATH}"
-if ! "$py" -m pytest -q || ! "$py" -m ruff check src tests custom_components; then
+if ! "$py" -m pytest -q || ! "${ruff[@]}" check src tests custom_components; then
     restore
     die "tests or ruff failed; the files are put back"
 fi

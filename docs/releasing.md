@@ -50,7 +50,8 @@ repository, and nothing else.
    back if either fails. Otherwise it shows the diff, asks (`--yes`
    skips that), commits `Release X.Y.Z`, tags `vX.Y.Z` and pushes both.
    The Python it uses is `$PYTHON`, else `.venv/bin/python`, else
-   `python3`.
+   `python3`; ruff is that interpreter's module, else the `ruff` on `PATH`
+   — under Termux, the packaged binary ([developing.md](developing.md#under-termux)).
 
 2. Without the script, the same by hand: bump the three places, run the
    checks, then commit, tag and push — the tag is the release:

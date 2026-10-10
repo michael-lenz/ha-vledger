@@ -30,10 +30,12 @@ Repository = "https://github.com/michael-lenz/ha-vledger"
 vledger = "vledger.cli:main"
 
 [project.optional-dependencies]
-# Two extras on purpose: the library's own loop needs no Home Assistant
-# (ARC-03), and the HA test stack is heavy. Integration tests (QUA-02)
-# install both.
-dev = ["pytest", "pytest-asyncio", "ruff"]
+# Separate extras on purpose: the library's own loop needs no Home
+# Assistant (ARC-03), and the HA test stack is heavy. Integration tests
+# (QUA-02) install dev and ha. test is dev without ruff, for a platform
+# with no ruff wheel that brings its own binary (Termux; ISSUE-0053).
+test = ["pytest", "pytest-asyncio"]
+dev = ["vledger[test]", "ruff"]
 ha = ["pytest-homeassistant-custom-component"]
 
 [tool.setuptools.packages.find]
