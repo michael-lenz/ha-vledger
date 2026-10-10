@@ -52,6 +52,7 @@ class L1Writer:
         self._timer: CALLBACK_TYPE | None = None
         self._unlisten: CALLBACK_TYPE | None = None
         self._pending = False
+        self._pending_at_once = False
         self._stopped = False
         self._last_run: datetime | None = None
         self._after_run: list[Callable[[], None]] = []
@@ -119,9 +120,12 @@ class L1Writer:
     async def async_read(self, job: Callable[[], object]) -> object:
         """Run ``job`` in the executor while no run is under way, so a reader
         of ``l1/`` never meets a directory about to be swapped (ADR-0017,
-        point 4). A run requested meanwhile follows it."""
-        async with self._lock:
-            return await self.hass.async_add_executor_job(job)
+        point 4). A run requested meanwhile follows it (ISSUE-0052)."""
+        try:
+            async with self._lock:
+                return await self.hass.async_add_executor_job(job)
+        finally:
+            self._follow_up()
 
     # --- when to run -------------------------------------------------------
 
@@ -141,9 +145,10 @@ class L1Writer:
         if self._stopped:
             return
         if self._lock.locked():
-            # The run under way may have read L0 before this line: one more
-            # after it catches what it missed.
+            # What holds the lock may have read L0 before this line: one
+            # more run after it catches what it missed (_follow_up).
             self._pending = True
+            self._pending_at_once |= at_once
             return
         if not at_once and self._last_run is not None:
             wait = DEBOUNCE_S - (dt_util.utcnow() - self._last_run).total_seconds()
@@ -153,6 +158,14 @@ class L1Writer:
                 return
         self._cancel_timer()
         self._spawn(self._run())
+
+    @callback
+    def _follow_up(self) -> None:
+        """Once the lock is released: the run a line asked for while it was
+        held, which may have read L0 too early or not at all — at once if
+        any of those lines asked for that (ISSUE-0049)."""
+        if self._pending:
+            self._request(at_once=self._pending_at_once)
 
     @callback
     def _on_timer(self, _now: datetime) -> None:
@@ -176,7 +189,7 @@ class L1Writer:
         async with self._lock:
             if self._stopped:
                 return
-            self._pending = False
+            self._pending = self._pending_at_once = False
             self._last_run = dt_util.utcnow()
             self.last_run_at = self._last_run.isoformat()
             try:
@@ -192,8 +205,7 @@ class L1Writer:
         if any(added.values()):
             for cb in list(self._after_append):
                 cb(added)
-        if self._pending:
-            self._request(at_once=False)
+        self._follow_up()
 
     async def _rebuild(self, reason: str) -> None:
         _LOGGER.info("vledger: rebuilding L1 for %s: %s", self.capture.subject.id, reason)

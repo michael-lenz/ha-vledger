@@ -15,6 +15,7 @@ from custom_components.vledger.const import (
     DOMAIN,
     OPT_BASE_PATH,
 )
+from custom_components.vledger.l1writer import L1Writer
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import (
@@ -83,14 +84,23 @@ def _live_trips(base) -> bytes:
     return (l1.l1_dir(base, V) / "trips.jsonl").read_bytes()
 
 
-async def test_setup_without_l1_rebuilds_while_capture_runs(hass, vehicle_entry, tmp_path, freezer):
+async def test_setup_without_l1_rebuilds_while_capture_runs(hass, vehicle_entry, tmp_path, freezer,
+                                                            monkeypatch):
     freezer.move_to(T0)
     hass.states.async_set("sensor.volvo_odometer", "1000", KM)
     vehicle_entry.add_to_hass(hass)
     seen = []
+    start = L1Writer.async_start
+
+    async def listened_start(writer):
+        # Listening before the writer starts, not after setup returns: the
+        # rebuild may begin and settle within setup (ISSUE-0045).
+        writer.capture.listen(lambda: seen.append((writer.capture.status, writer.available)))
+        await start(writer)
+
+    monkeypatch.setattr(L1Writer, "async_start", listened_start)
     assert await hass.config_entries.async_setup(vehicle_entry.entry_id)
     data = vehicle_entry.runtime_data
-    data.capture.listen(lambda: seen.append((data.capture.status, data.l1.available)))
     await _settle(hass, vehicle_entry)
 
     assert ("recomputing", False) in seen
@@ -189,29 +199,71 @@ async def test_a_charge_points_l1_is_a_manifest(hass, tmp_path):
 
 
 
-async def test_a_line_during_a_run_is_caught_by_the_next(hass, vehicle_entry, tmp_path, freezer):
-    freezer.move_to(T0)
-    await _setup(hass, vehicle_entry)
-    gate = threading.Event()
+async def _during_a_run(hass, entry, emit) -> None:
+    """Call ``emit`` once a requested rebuild has read L0 and before it
+    ends, so that only a run after it can catch the line ``emit`` causes."""
+    gate, read = threading.Event(), threading.Event()
     rebuild = l1.rebuild
 
     def slow_rebuild(base, subject):
-        manifest = rebuild(base, subject)      # L0 read before the line below
+        manifest = rebuild(base, subject)
+        read.set()
         gate.wait(5)
         return manifest
 
-    freezer.move_to(T0 + timedelta(minutes=5))
     with patch.object(l1, "rebuild", slow_rebuild):
         call = hass.async_create_task(hass.services.async_call(DOMAIN, "recompute", {}, blocking=True))
-        while not vehicle_entry.runtime_data.capture.recomputing:   # the rebuild has begun
+        while not read.is_set():                         # L0 read, the line not in it
             await asyncio.sleep(0)
-        hass.states.async_set("sensor.volvo_odometer", "1001", KM)
-        while not vehicle_entry.runtime_data.l1._pending:          # written, and asked for a run
+        emit()
+        while not entry.runtime_data.l1._pending:       # written, and asked for a run
             await asyncio.sleep(0)
         gate.set()
         await call
-        await _settle(hass, vehicle_entry)
+        await _settle(hass, entry)
+
+
+async def test_a_line_during_a_run_is_caught_by_the_next(hass, vehicle_entry, tmp_path, freezer):
+    freezer.move_to(T0)
+    await _setup(hass, vehicle_entry)
+    freezer.move_to(T0 + timedelta(minutes=5))
+    await _during_a_run(hass, vehicle_entry,
+                        lambda: hass.states.async_set("sensor.volvo_odometer", "1001", KM))
+    # A state line's run waits out the minute, counted from the run it missed.
+    assert l1.read_manifest(tmp_path, V)["l0_through"] == "2026-10-09T10:00:00.000Z"
+    freezer.move_to(T0 + timedelta(minutes=6, seconds=1))
+    async_fire_time_changed(hass, dt_util.utcnow())
+    await _settle(hass, vehicle_entry)
     assert l1.read_manifest(tmp_path, V)["l0_through"] == "2026-10-09T10:05:00.000Z"
+
+
+async def test_a_heartbeat_during_a_run_is_caught_at_once(hass, vehicle_entry, tmp_path, freezer):
+    """The run and the heartbeat start in the same instant, as the debounce
+    timer and the heartbeat do when nothing moves (ISSUE-0049)."""
+    freezer.move_to(T0)
+    await _setup(hass, vehicle_entry)
+    freezer.move_to(T0 + timedelta(seconds=vehicle_entry.runtime_data.capture.heartbeat_s))
+    await _during_a_run(hass, vehicle_entry, lambda: async_fire_time_changed(hass, dt_util.utcnow()))
+    assert l1.read_manifest(tmp_path, V)["l0_through"] == "2026-10-09T10:10:00.000Z"
+
+
+async def test_a_line_during_a_read_is_caught_after_it(hass, vehicle_entry, tmp_path, freezer):
+    """A reader holds the lock as a run does: what it kept from running
+    follows it (ISSUE-0052)."""
+    freezer.move_to(T0)
+    await _setup(hass, vehicle_entry)
+    writer, gate = vehicle_entry.runtime_data.l1, threading.Event()
+    freezer.move_to(T0 + timedelta(seconds=vehicle_entry.runtime_data.capture.heartbeat_s))
+    read = hass.async_create_task(writer.async_read(lambda: gate.wait(5)))
+    while not writer._lock.locked():
+        await asyncio.sleep(0)
+    async_fire_time_changed(hass, dt_util.utcnow())       # the heartbeat
+    while not writer._pending:
+        await asyncio.sleep(0)
+    gate.set()
+    await read
+    await _settle(hass, vehicle_entry)
+    assert l1.read_manifest(tmp_path, V)["l0_through"] == "2026-10-09T10:10:00.000Z"
 
 
 def test_the_writer_derives_what_the_library_derives():

@@ -43,6 +43,15 @@ def _value(hass, name):
     return hass.states.get(f"sensor.volvo_{name}")
 
 
+def _on_whole_seconds(freezer) -> None:
+    """Freeze the clock on the next whole second, to be moved in whole
+    seconds. Diagnostics hold timestamps, and a running clock writes a
+    redacted coordinate into one by chance: ':48.264Z' holds '48.2'
+    (ISSUE-0045). Forward, never back: the test client's token is valid
+    from the moment it was issued."""
+    freezer.move_to(dt_util.utcnow().replace(microsecond=0) + timedelta(seconds=1))
+
+
 async def _set_up(hass, entry):
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
@@ -147,7 +156,8 @@ async def test_lines_today_restart_at_local_midnight(hass, vehicle_entry):
 
 
 async def test_diagnostics_count_the_stream_and_redact_positions(
-        hass, hass_client, vehicle_entry, tmp_path):
+        hass, hass_client, vehicle_entry, tmp_path, freezer):
+    _on_whole_seconds(freezer)
     # Heard a minute before capture starts: in the same millisecond as the
     # start line, the first report would count as seen within the run.
     before = dt_util.utcnow().timestamp() - 60
@@ -157,8 +167,10 @@ async def test_diagnostics_count_the_stream_and_redact_positions(
                           {"latitude": 48.1, "longitude": 11.5, "gps_accuracy": 10}, timestamp=before)
     await _set_up(hass, vehicle_entry)
     for km in ("101", "102", "103"):
+        freezer.tick(timedelta(seconds=1))
         hass.states.async_set("sensor.volvo_odometer", km, {"unit_of_measurement": "km"})
         await _settle(hass, vehicle_entry)
+    freezer.tick(timedelta(seconds=1))
     hass.states.async_set("device_tracker.volvo", "home",
                           {"latitude": 48.2, "longitude": 11.6, "gps_accuracy": 8})
     hass.states.async_set("sensor.volvo_charging", "Charging")
@@ -183,7 +195,7 @@ async def test_diagnostics_count_the_stream_and_redact_positions(
     assert "48.2" not in str(d) and "11.6" not in str(d)
 
 
-async def test_diagnostics_redact_a_charge_point_s_place(hass, hass_client, tmp_path):
+async def test_diagnostics_redact_a_charge_point_s_place(hass, hass_client, tmp_path, freezer):
     from custom_components.vledger.const import (
         DATA_KIND,
         DATA_SUBJECT,
@@ -194,6 +206,7 @@ async def test_diagnostics_redact_a_charge_point_s_place(hass, hass_client, tmp_
 
     from vledger import config as vconfig
 
+    _on_whole_seconds(freezer)
     options = vconfig.chargepoint("Home", 48.1371, 11.5754, 50,
                                   [{"from": "2026-01-01", "eur_per_kwh": 0.30}])
     options[OPT_BASE_PATH] = str(tmp_path)
