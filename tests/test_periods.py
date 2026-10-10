@@ -267,3 +267,26 @@ def test_an_empty_stream_has_no_periods(tmp_path):
     assert periods.derive_from(tmp_path, V) == []
     assert clock.parse(periods.spans("2026-10-09T10:00:00Z", "2026-10-09T10:00:00Z",
                                      BERLIN, 30)[-1][1]) == clock.parse("2026-10-09T10:00:00Z")
+
+
+def test_the_current_lines_are_the_last_of_each_period(tmp_path, capsys):
+    v = a_day(tmp_path, capsys)
+    # Into November, by the stream: the month line holding its last line is current.
+    v.beat = 23 * 1440
+    v.heartbeat(23 * 1440)
+    vb = ["--base", str(tmp_path), "--vehicle", "a7c1"]
+    assert l1.current_periods(tmp_path, V) == dict.fromkeys(l1.CURRENT)    # no L1 yet
+    assert main(["derive", "all", *vb, "--write"]) == 0
+    capsys.readouterr()
+    lines = list(l1.read(tmp_path, V, "period"))
+    assert [x["period"] for x in lines] == ["month", "month", "year", "rolling", "lifetime"]
+    current = l1.current_periods(tmp_path, V)
+    assert current == {"month": lines[1], "year": lines[2], "rolling": lines[3], "lifetime": lines[4]}
+    assert current["month"]["start"] == "2026-11-01T00:00:00.000Z" and current["month"]["open"]
+
+    assert main(["l1", "read", *vb, "--kind", "period", "--current"]) == 0
+    out = capsys.readouterr()
+    assert [json.loads(x) for x in out.out.splitlines()] == lines[1:]
+    assert "4 event(s)" in out.err
+    assert main(["l1", "read", *vb, "--kind", "trip", "--current"]) == 2
+    assert main(["l1", "read", *vb, "--kind", "period", "--current", "--last", "1"]) == 2

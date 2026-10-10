@@ -167,11 +167,15 @@ temperature over each ([user guide](user-guide.md#reports-vledger-report)).
 
 Every reader goes through the library: `l1.read` yields a kind's events
 in order (`vledger l1 read`), `l1.last` its last N from the end of the
-file without reading the rest (`vledger l1 read --last N`), and
-`l1.waiting` the count above. A torn last line is skipped by all three.
-Home Assistant's event entities read the last event of each kind and the
-count once at start and again after every run of the writer, and show
-nothing else (ARC-05).
+file without reading the rest (`vledger l1 read --last N`),
+`l1.waiting` the count above, and `l1.current_periods` the current month,
+year, rolling and lifetime lines of `periods.jsonl` — per period its last
+line, the one holding the stream's last line (`vledger l1 read --kind
+period --current`). A torn last line is skipped by all of them.
+Home Assistant's event and metric entities read the last event of each
+kind, the count and the current periods once at start and again after
+every run of the writer, and show nothing else (ARC-05); the month lines,
+read whole, become its external statistics.
 
 ## Who writes what
 

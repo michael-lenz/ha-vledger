@@ -64,3 +64,11 @@ def chargepoint_entry(tmp_path):
     options[OPT_BASE_PATH] = str(tmp_path)
     return MockConfigEntry(domain=DOMAIN, title="Home", unique_id="c9e3",
                            data={DATA_KIND: "chargepoint", DATA_SUBJECT: "c9e3"}, options=options)
+
+
+@pytest.fixture
+def period_lines(monkeypatch):
+    """A stand-in for the periods: the lines it is given, whatever L1 holds."""
+    lines: list[dict] = []
+    monkeypatch.setattr(l1, "PERIODS", lambda base, subject, events: list(lines))
+    return lines

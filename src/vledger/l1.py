@@ -174,6 +174,23 @@ def last(base: Path, subject: Subject, kind: str, n: int = 1) -> list[dict]:
     return out[-n:]
 
 
+#: The lines of periods.jsonl that are current (ADR-0018, point 1).
+CURRENT = ("month", "year", "rolling", "lifetime")
+
+
+def current_periods(base: Path, subject: Subject) -> dict[str, dict | None]:
+    """The current month, year, rolling and lifetime lines of
+    ``periods.jsonl``: per period, its last line — the one holding the
+    stream's last line, judged by the stream, never the clock — or None
+    without one (ADR-0018, point 1). The file is a few hundred lines a
+    decade, so it is read whole."""
+    out: dict[str, dict | None] = dict.fromkeys(CURRENT)
+    for line in read(base, subject, "period"):
+        if line.get("period") in out:
+            out[line["period"]] = line
+    return out
+
+
 #: The confirmations that wait for a person (ADR-0016, point 4).
 WAITING = ("unconfirmed", "ambiguous")
 

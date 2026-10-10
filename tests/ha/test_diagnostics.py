@@ -115,13 +115,20 @@ async def test_what_the_stream_held_before_start_is_counted(hass, vehicle_entry,
 def test_every_sensor_has_a_name_and_an_icon():
     import json
 
-    from custom_components.vledger.sensor import EVENT_SENSORS, LOG_SENSORS
+    from custom_components.vledger.sensor import (
+        EVENT_SENSORS,
+        LIFETIME_SENSORS,
+        LOG_SENSORS,
+        METRICS,
+        PERIODS,
+    )
 
     root = Path(__file__).resolve().parents[2] / "custom_components/vledger"
     icons = json.loads((root / "icons.json").read_text())["entity"]["sensor"]
     names = json.loads((root / "strings.json").read_text())["entity"]["sensor"]
     keys = {"capture_status", "unconfirmed_candidates",
-            *(d.translation_key for d in (*LOG_SENSORS, *EVENT_SENSORS))}
+            *(d.translation_key for d in (*LOG_SENSORS, *EVENT_SENSORS, *LIFETIME_SENSORS)),
+            *(f"{m.key}_{p}" for m in METRICS for p in PERIODS)}
     assert set(icons) == set(names) == keys
 
 

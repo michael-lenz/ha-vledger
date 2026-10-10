@@ -1,6 +1,7 @@
 {
   "domain": "vledger",
   "name": "Vehicle Ledger",
+  "after_dependencies": ["recorder"],
   "codeowners": ["@michael-lenz"],
   "config_flow": true,
   "dependencies": [],

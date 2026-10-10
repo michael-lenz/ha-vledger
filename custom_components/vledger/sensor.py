@@ -3,7 +3,9 @@
 sensors about the raw log (TASK-0008): what the stream holds and how it is
 filling, without opening a file browser. For a vehicle, the event sensors
 (ADR-0016): the last trip, refuelling and charging session, and how many
-events wait for a receipt — read from L1, never derived here (ARC-05)."""
+events wait for a receipt (ADR-0016), and the metrics of the current
+month, year and rolling period with the lifetime counters (ADR-0018) —
+read from L1, never derived here (ARC-05)."""
 
 from __future__ import annotations
 
@@ -27,6 +29,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import dt as dt_util
 
 from vledger import clock
 
@@ -36,6 +39,18 @@ from .const import STATUS_RECOMPUTING, STATUS_RUNNING, STATUS_STOPPED
 from .entity import device_info
 from .l1view import TRIP, L1View
 from .l1writer import L1Writer
+from .metrics import (
+    ELECTRICITY,
+    FUEL,
+    METRICS,
+    PERIODS,
+    SUM,
+    Metric,
+    corrected,
+    energies,
+    unit_of,
+    value_of,
+)
 
 
 def _time(t: str | None) -> datetime | None:
@@ -139,6 +154,17 @@ NOT_ATTRIBUTES = frozenset({"kind", "subject", "version", "waypoints"})
 POSITIONS = frozenset({"start_position", "end_position", "position"})
 
 
+# --- the metric entities (ADR-0018) ------------------------------------------
+
+def metric_sensors(view: L1View, writer: L1Writer, capture: Capture,
+                   currency: str) -> list[SensorEntity]:
+    has = energies(view.kinds)
+    out: list[SensorEntity] = [PeriodMetricSensor(view, writer, capture, m, period, currency)
+                               for m in METRICS if m.needs in has for period in PERIODS]
+    out += [LifetimeSensor(view, writer, capture, d) for d in LIFETIME_SENSORS if d.needs in has]
+    return out
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: VledgerConfigEntry,
                             add_entities: AddEntitiesCallback) -> None:
     capture = entry.runtime_data.capture
@@ -151,6 +177,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: VledgerConfigEntry,
                      for d in EVENT_SENSORS if d.kind in view.kinds]
         if view.receipt_kinds:
             entities.append(WaitingSensor(view, writer, capture))
+        entities += metric_sensors(view, writer, capture, hass.config.currency)
     add_entities(entities)
 
 
@@ -302,3 +329,114 @@ class WaitingSensor(_L1Sensor):
     def extra_state_attributes(self) -> dict:
         return {f"{kind}_{state}": n
                 for kind, counts in self._view.waiting.items() for state, n in counts.items()}
+
+
+#: The attributes every metric entity shows of its line (ADR-0018, point 5).
+LINE_ATTRIBUTES = ("start", "end", "open", "gaps")
+
+
+class PeriodMetricSensor(_L1Sensor):
+    """One metric of the current month, year or rolling period (ADR-0018):
+    a sum restarts with its period, a rate or share is a level."""
+
+    def __init__(self, view: L1View, writer: L1Writer, capture: Capture, metric: Metric,
+                 period: str, currency: str) -> None:
+        key = f"{metric.key}_{period}"
+        super().__init__(view, writer, capture, key)
+        self._metric = metric
+        self._period = period
+        self._attr_translation_key = key
+        self._attr_entity_registry_enabled_default = period == "month"
+        self._attr_device_class = metric.device_class
+        self._attr_native_unit_of_measurement = unit_of(metric.unit, currency)
+        self._attr_suggested_display_precision = metric.precision
+        if metric.what != SUM:
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+        elif period != "rolling":
+            self._attr_state_class = SensorStateClass.TOTAL
+        # A rolling sum is a sliding window: no state_class (point 3).
+
+    @property
+    def _line(self) -> dict | None:
+        return self._view.periods.get(self._period)
+
+    @property
+    def native_value(self) -> float | None:
+        return value_of(self._metric, self._line)
+
+    @property
+    def last_reset(self) -> datetime | None:
+        # A new period's start is how Home Assistant learns the sum restarted.
+        if self.state_class is not SensorStateClass.TOTAL or self._line is None:
+            return None
+        return dt_util.parse_datetime(self._line["start"])
+
+    @property
+    def extra_state_attributes(self) -> dict | None:
+        line = self._line
+        if line is None:
+            return None
+        attrs = {k: line.get(k) for k in LINE_ATTRIBUTES}
+        attrs["state_quality"] = line.get(f"{self._metric.key}_quality")
+        attrs.update({k: line.get(k) for k in corrected(self._metric.needs)})
+        return attrs
+
+
+@dataclass(frozen=True, kw_only=True)
+class LifetimeSensorDescription(SensorEntityDescription):
+    needs: str
+    #: The lifetime line's value key and its quality key.
+    value: str
+    quality: str
+    attributes: tuple[str, ...] = ()
+
+
+LIFETIME_SENSORS: tuple[LifetimeSensorDescription, ...] = (
+    # total, not total_increasing: a rebuild can lower a counter (point 3).
+    LifetimeSensorDescription(
+        key="charge_cycles_total", translation_key="charge_cycles_total", needs=ELECTRICITY,
+        state_class=SensorStateClass.TOTAL, suggested_display_precision=2,
+        value="charge_cycles", quality="charge_cycles_quality"),
+    LifetimeSensorDescription(
+        key="tank_fills_total", translation_key="tank_fills_total", needs=FUEL,
+        state_class=SensorStateClass.TOTAL, suggested_display_precision=2,
+        value="tank_fills", quality="tank_fills_quality"),
+    LifetimeSensorDescription(
+        key="fuel_consumption", translation_key="fuel_consumption", needs=FUEL,
+        state_class=SensorStateClass.MEASUREMENT, native_unit_of_measurement="L/100km",
+        suggested_display_precision=1,
+        value="consumption_l_per_100km", quality="consumption_quality",
+        attributes=("consumption_from", "consumption_to", "consumption_receipts",
+                    "consumption_error_pct")),
+)
+
+
+class LifetimeSensor(_L1Sensor):
+    """A value of the lifetime line: the cumulative counters, starting
+    values included (VER-11), and the tank-to-tank consumption (VER-01)."""
+
+    entity_description: LifetimeSensorDescription
+
+    def __init__(self, view: L1View, writer: L1Writer, capture: Capture,
+                 description: LifetimeSensorDescription) -> None:
+        super().__init__(view, writer, capture, description.key)
+        self.entity_description = description
+
+    @property
+    def _line(self) -> dict | None:
+        return self._view.periods.get("lifetime")
+
+    @property
+    def native_value(self) -> float | None:
+        return (self._line or {}).get(self.entity_description.value)
+
+    @property
+    def extra_state_attributes(self) -> dict | None:
+        line = self._line
+        if line is None:
+            return None
+        d = self.entity_description
+        attrs = {k: line.get(k) for k in ("start", "end", "gaps")}
+        attrs["state_quality"] = line.get(d.quality)
+        attrs.update({k: line.get(k) for k in d.attributes})
+        return attrs

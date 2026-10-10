@@ -31,7 +31,8 @@ three actions and a dashboard form; the metrics come per month, year,
 rolling period and lifetime in L1, and for any span from `vledger report
 metrics`; L1 is exported as CSV, JSON and GPX, from the shell and by a
 Home Assistant action into the media folder. In Home Assistant the
-metrics are not shown yet. Every behaviour described below is the design,
+current month's, year's and rolling period's metrics are entities, and
+every corrected month is kept as a statistic. Every behaviour described below is the design,
 held as requirements in the project's register (`ha-vledger-pm`); what
 does not exist yet is marked *(planned)*.
 

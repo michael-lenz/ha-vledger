@@ -495,6 +495,571 @@
             "name": "Ladevorgänge mehrdeutig"
           }
         }
+      },
+      "distance_km_month": {
+        "name": "Strecke im laufenden Monat",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "distance_km_year": {
+        "name": "Strecke im laufenden Jahr",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "distance_km_rolling": {
+        "name": "Strecke im gleitenden Zeitraum",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "eur_per_100km_month": {
+        "name": "Kosten pro 100 km im laufenden Monat",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "eur_per_100km_year": {
+        "name": "Kosten pro 100 km im laufenden Jahr",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "eur_per_100km_rolling": {
+        "name": "Kosten pro 100 km im gleitenden Zeitraum",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "fuel_purchased_l_month": {
+        "name": "Getankter Kraftstoff im laufenden Monat",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "fuel_purchased_l_year": {
+        "name": "Getankter Kraftstoff im laufenden Jahr",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "fuel_purchased_l_rolling": {
+        "name": "Getankter Kraftstoff im gleitenden Zeitraum",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "fuel_consumed_l_month": {
+        "name": "Verbrauchter Kraftstoff im laufenden Monat",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "fuel_consumed_l_year": {
+        "name": "Verbrauchter Kraftstoff im laufenden Jahr",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "fuel_consumed_l_rolling": {
+        "name": "Verbrauchter Kraftstoff im gleitenden Zeitraum",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "fuel_cost_eur_month": {
+        "name": "Kraftstoffkosten im laufenden Monat",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "fuel_cost_eur_year": {
+        "name": "Kraftstoffkosten im laufenden Jahr",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "fuel_cost_eur_rolling": {
+        "name": "Kraftstoffkosten im gleitenden Zeitraum",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "tank_fills_month": {
+        "name": "Tankfüllungen im laufenden Monat",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "tank_fills_year": {
+        "name": "Tankfüllungen im laufenden Jahr",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "tank_fills_rolling": {
+        "name": "Tankfüllungen im gleitenden Zeitraum",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "grid_kwh_month": {
+        "name": "Netzenergie im laufenden Monat",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "soc_corrected": { "name": "Um den Ladestand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "grid_kwh_year": {
+        "name": "Netzenergie im laufenden Jahr",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "soc_corrected": { "name": "Um den Ladestand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "grid_kwh_rolling": {
+        "name": "Netzenergie im gleitenden Zeitraum",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "soc_corrected": { "name": "Um den Ladestand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "battery_kwh_month": {
+        "name": "Batterieenergie im laufenden Monat",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "soc_corrected": { "name": "Um den Ladestand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "battery_kwh_year": {
+        "name": "Batterieenergie im laufenden Jahr",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "soc_corrected": { "name": "Um den Ladestand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "battery_kwh_rolling": {
+        "name": "Batterieenergie im gleitenden Zeitraum",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "soc_corrected": { "name": "Um den Ladestand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "electricity_cost_eur_month": {
+        "name": "Stromkosten im laufenden Monat",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "soc_corrected": { "name": "Um den Ladestand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "electricity_cost_eur_year": {
+        "name": "Stromkosten im laufenden Jahr",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "soc_corrected": { "name": "Um den Ladestand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "electricity_cost_eur_rolling": {
+        "name": "Stromkosten im gleitenden Zeitraum",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "soc_corrected": { "name": "Um den Ladestand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "grid_kwh_per_100km_month": {
+        "name": "Netzenergie pro 100 km im laufenden Monat",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "soc_corrected": { "name": "Um den Ladestand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "grid_kwh_per_100km_year": {
+        "name": "Netzenergie pro 100 km im laufenden Jahr",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "soc_corrected": { "name": "Um den Ladestand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "grid_kwh_per_100km_rolling": {
+        "name": "Netzenergie pro 100 km im gleitenden Zeitraum",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "soc_corrected": { "name": "Um den Ladestand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "battery_kwh_per_100km_month": {
+        "name": "Batterieenergie pro 100 km im laufenden Monat",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "soc_corrected": { "name": "Um den Ladestand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "battery_kwh_per_100km_year": {
+        "name": "Batterieenergie pro 100 km im laufenden Jahr",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "soc_corrected": { "name": "Um den Ladestand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "battery_kwh_per_100km_rolling": {
+        "name": "Batterieenergie pro 100 km im gleitenden Zeitraum",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "soc_corrected": { "name": "Um den Ladestand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "charge_cycles_month": {
+        "name": "Ladezyklen im laufenden Monat",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "soc_corrected": { "name": "Um den Ladestand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "charge_cycles_year": {
+        "name": "Ladezyklen im laufenden Jahr",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "soc_corrected": { "name": "Um den Ladestand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "charge_cycles_rolling": {
+        "name": "Ladezyklen im gleitenden Zeitraum",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "soc_corrected": { "name": "Um den Ladestand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "fuel_eur_per_100km_month": {
+        "name": "Kraftstoffkosten pro 100 km im laufenden Monat",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
+          "soc_corrected": { "name": "Um den Ladestand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "fuel_eur_per_100km_year": {
+        "name": "Kraftstoffkosten pro 100 km im laufenden Jahr",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
+          "soc_corrected": { "name": "Um den Ladestand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "fuel_eur_per_100km_rolling": {
+        "name": "Kraftstoffkosten pro 100 km im gleitenden Zeitraum",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
+          "soc_corrected": { "name": "Um den Ladestand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "electricity_eur_per_100km_month": {
+        "name": "Stromkosten pro 100 km im laufenden Monat",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
+          "soc_corrected": { "name": "Um den Ladestand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "electricity_eur_per_100km_year": {
+        "name": "Stromkosten pro 100 km im laufenden Jahr",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
+          "soc_corrected": { "name": "Um den Ladestand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "electricity_eur_per_100km_rolling": {
+        "name": "Stromkosten pro 100 km im gleitenden Zeitraum",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
+          "soc_corrected": { "name": "Um den Ladestand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "electric_energy_share_month": {
+        "name": "Elektrischer Energieanteil im laufenden Monat",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
+          "soc_corrected": { "name": "Um den Ladestand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "electric_energy_share_year": {
+        "name": "Elektrischer Energieanteil im laufenden Jahr",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
+          "soc_corrected": { "name": "Um den Ladestand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "electric_energy_share_rolling": {
+        "name": "Elektrischer Energieanteil im gleitenden Zeitraum",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
+          "soc_corrected": { "name": "Um den Ladestand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "electric_distance_share_month": {
+        "name": "Elektrischer Streckenanteil im laufenden Monat",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
+          "soc_corrected": { "name": "Um den Ladestand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "electric_distance_share_year": {
+        "name": "Elektrischer Streckenanteil im laufenden Jahr",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
+          "soc_corrected": { "name": "Um den Ladestand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "electric_distance_share_rolling": {
+        "name": "Elektrischer Streckenanteil im gleitenden Zeitraum",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "open": { "name": "Läuft noch" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
+          "soc_corrected": { "name": "Um den Ladestand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "charge_cycles_total": {
+        "name": "Ladezyklen insgesamt",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "tank_fills_total": {
+        "name": "Tankfüllungen insgesamt",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
+      "fuel_consumption": {
+        "name": "Kraftstoffverbrauch",
+        "state_attributes": {
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "gaps": { "name": "Aufzeichnungslücken" },
+          "consumption_from": { "name": "Ab dem Beleg vom" },
+          "consumption_to": { "name": "Bis zum Beleg vom" },
+          "consumption_receipts": { "name": "Umfasste Belege" },
+          "consumption_error_pct": { "name": "Relativer Fehler (%)" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
       }
     },
     "button": {
