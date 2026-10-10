@@ -33,8 +33,12 @@ and never parses a line itself:
   the positive state, `unavailable` and `unknown` hold the last known
   state, anything else is the negative state.
 - A **start line's snapshot** seeds every series with the value before its
-  first change; a derivation from a cursor is seeded with the last value
-  of every role before it (ADR-0009, point 3).
+  first change, read at the entry's `since` but no earlier than the
+  stream's last line before the start, so that a restart never reaches
+  back into an event already completed (ADR-0028); an entry that repeats
+  the value its role already holds is dropped. A derivation from a cursor
+  is seeded with the last value of every role before it (ADR-0009,
+  point 3).
 - **Capture gaps** come from the markers: a start without a stop
   (`crash`), a stop and the next start (`stopped`), silence longer than
   `heartbeat_s` plus 300 s while running (`silence`), and a stream that

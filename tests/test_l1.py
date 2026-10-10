@@ -149,6 +149,41 @@ def test_the_verbs(tmp_path, capsys):
     shutil.rmtree(tmp_path / "vehicle-a7c1")
 
 
+def test_a_restarts_snapshot_never_reaches_back_into_a_completed_trip(tmp_path, capsys):
+    """ADR-0028 (ISSUE-0015): an odometer tick capture missed in the
+    shutdown window comes back in the restart's snapshot with a since
+    inside the completed trip's standstill. It is read at the stop line,
+    the trip stays what it was, and the stream replayed line by line
+    yields the same files as one rebuild."""
+    live = tmp_path / "live"
+    b = Builder(live, capsys)
+    end = b.drive(60)                                   # last movement at 105
+    b.heartbeat(end + 40)                               # T_still elapsed: complete
+    before = trips.derive_from(live, V, completed_only=True)
+    b.run("stop", *b.b, "--t", at(end + 50), "--reason", "reload")
+    snapshot = [{"role": "odometer", "entity": "x.odometer", "state": "1023.0", "unit": "km",
+                 "since": at(end + 5)}]
+    b.run("start", *b.b, "--t", at(end + 50), "--homeassistant", "2026.9.4",
+          "--snapshot", json.dumps(snapshot))
+    b.heartbeat(end + 120)
+    found = trips.derive_from(live, V)
+    assert found[0] == before[0]
+    assert [x.t for x in series.load(live, V).series["odometer"] if x.value == 1023] == [at(end + 50)]
+
+    replay = tmp_path / "replay"
+    src = live / "vehicle-a7c1" / "l0" / "2026-10.jsonl"
+    dst = replay / "vehicle-a7c1" / "l0" / "2026-10.jsonl"
+    dst.parent.mkdir(parents=True)
+    with open(dst, "a") as f:
+        for line in src.read_text().splitlines(keepends=True):
+            f.write(line)
+            f.flush()
+            l1.incremental(replay, V)
+    l1.rebuild(live, V)
+    assert (l1.l1_dir(live, V) / "trips.jsonl").read_bytes() == (l1.l1_dir(replay, V) / "trips.jsonl").read_bytes()
+    assert len(read_lines(live, "trip")) == 2           # the tick is a trip of its own, after the stop
+
+
 def test_a_cursor_is_seeded_from_a_snapshot_too(tmp_path, capsys):
     """ISSUE-0011: a role whose last value before the cursor came from a
     start line's snapshot still seeds the read from there."""

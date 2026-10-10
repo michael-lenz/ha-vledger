@@ -87,7 +87,12 @@ assigned role as it stands:
 
 `since` is the entity's `last_updated` at snapshot time: how old the
 snapshotted value is. The snapshot is the only L0 content that is not a
-change; the derivation treats it as the state at `t` with age `t − since`.
+change; the derivation reads each entry's value at its `since`, but no
+earlier than the stream's last line before the start — a value that
+changed after capture stopped listening is placed where the stream can
+still vouch for it, never inside an event the previous run completed
+(ADR-0028) — and drops an entry that repeats the value its role already
+holds.
 
 ### `stop`
 

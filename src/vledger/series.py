@@ -9,7 +9,7 @@ derivation parses a line itself.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from vledger import clock, geo, l0, layout, units
@@ -95,30 +95,61 @@ def _position_from(line: dict) -> Fix | None:
                line.get("reported_before"))
 
 
-def _seed_lines(base: Path, subject: Subject, since: str) -> list[dict]:
+def snapshot_time(entry: dict, start_t: str, before_t: str | None) -> str:
+    """Where a start line's snapshot entry is read (ADR-0028): at its
+    ``since``, but no earlier than ``before_t``, the stream's last line
+    before the start. A value that changed after capture stopped listening
+    — in the shutdown window, or while capture was down — is placed where
+    the stream can still vouch for it, never inside an event the previous
+    run completed. ``start_t`` where the entry has no ``since``; ``since``
+    itself for capture's first start, which has no line before it."""
+    since = entry.get("since") or start_t
+    if before_t is not None and clock.parse(since) < clock.parse(before_t):
+        return before_t
+    return since
+
+
+def _last_t(path: Path) -> str | None:
+    """The ``t`` of a month file's last line, or None for an empty file."""
+    last = None
+    for r in l0.read_file(path):
+        if r.line.get("kind") in l0.KINDS:
+            last = r.line["t"]
+    return last
+
+
+def _seed_lines(base: Path, subject: Subject, since: str) -> tuple[list[dict], str | None]:
     """The last value of every role — from a state line or a start line's
     snapshot, whichever came later — and the last config line, before
     ``since``; read backwards from the month file ``since`` falls in, so a
     derivation from a cursor starts from the value the vehicle had, not
     from its first change (ADR-0009, 3; ISSUE-0011). Stops at the first
-    month with nothing new to find."""
+    month with nothing new to find. Also the ``t`` of the stream's last
+    line before ``since``, which a start line read next is placed against
+    (ADR-0028)."""
     limit = clock.parse(since)
     found: dict[str, dict] = {}
     config = None
+    before_since = None
     files = [p for p in layout.l0_files(base, subject) if p.stem <= clock.month_of(since)]
-    for path in reversed(files):
+    for n, path in reversed(list(enumerate(files))):
         lines = [r.line for r in l0.read_file(path) if clock.parse(r.line["t"]) < limit]
+        if lines and before_since is None:
+            before_since = lines[-1]["t"]
         new = False
-        for line in reversed(lines):
+        for i, line in reversed(list(enumerate(lines))):
             kind = line.get("kind")
             if kind == "config" and config is None:
                 config, new = line, True
             elif kind == "state" and line.get("role") not in found:
                 found[line["role"]], new = line, True
             elif kind == "start":
+                # The line before this start: in this file, else the previous file's last.
+                before = lines[i - 1]["t"] if i > 0 else (_last_t(files[n - 1]) if n > 0 else None)
                 for entry in line.get("snapshot") or []:
                     if entry["role"] not in found:
-                        found[entry["role"]] = dict(entry, kind="state", t=entry.get("since") or line["t"])
+                        found[entry["role"]] = dict(entry, kind="state",
+                                                    t=snapshot_time(entry, line["t"], before))
                         new = True
         if not new and config is not None:
             break
@@ -126,14 +157,21 @@ def _seed_lines(base: Path, subject: Subject, since: str) -> list[dict]:
     if config is not None:
         out.append(config)
     out.sort(key=lambda x: clock.parse(x["t"]))
-    return out
+    return out, before_since
+
+
+def _repeats(latest, item) -> bool:
+    """Whether a snapshot entry repeats the latest sample of its role: the
+    same value, whenever it was set (ISSUE-0014)."""
+    return replace(latest, t=item.t) == item
 
 
 def load(base: Path, subject: Subject, *, since: str | None = None,
          until: str | None = None) -> Stream:
     """Read a stream into series. The latest config line in range wins; the
     snapshot of a start line seeds every series with the value before the
-    first change, at the snapshot's ``since`` time; a ``since`` is seeded
+    first change, at the snapshot's ``since`` time but no earlier than the
+    line before the start (:func:`snapshot_time`); a ``since`` is seeded
     with the last value of every role before it."""
     s = Stream(subject, since=since)
     pending_lat: dict[str, float] = {}
@@ -141,11 +179,12 @@ def load(base: Path, subject: Subject, *, since: str | None = None,
     seeding = False
 
     def add(items: list, item) -> None:
-        # A restart's snapshot repeats the last value at the time it was
-        # set; read twice, it would land again inside whatever event
-        # already holds it (ISSUE-0014).
-        if not (seeding and item in items):
-            items.append(item)
+        # A restart's snapshot repeats the value its role already holds;
+        # read again, it would land inside whatever event already holds
+        # it (ISSUE-0014). What repeats the latest sample is dropped.
+        if seeding and items and _repeats(items[-1], item):
+            return
+        items.append(item)
 
     def take(role: str, line: dict, t: str) -> None:
         q = units.quantity_of(role)
@@ -183,10 +222,11 @@ def load(base: Path, subject: Subject, *, since: str | None = None,
             add(s.domain.setdefault(role, []),
                 DomainSample(t, state, raw, line.get("reported_before")))
 
-    seeds = _seed_lines(base, subject, since) if since else []
+    seeds, prev_t = _seed_lines(base, subject, since) if since else ([], None)
     for line in seeds + [r.line for r in l0.read(base, subject, since=since, until=until)]:
         t = line["t"]
-        if line not in seeds:
+        seed = line in seeds
+        if not seed:
             s.first_t = s.first_t or t
             s.last_t = t
         kind = line["kind"]
@@ -195,10 +235,12 @@ def load(base: Path, subject: Subject, *, since: str | None = None,
         elif kind == "start":
             seeding = True
             for entry in line.get("snapshot") or []:
-                take(entry["role"], entry, entry.get("since") or t)
+                take(entry["role"], entry, snapshot_time(entry, t, prev_t))
             seeding = False
         elif kind == "state":
             take(line["role"], line, t)
+        if not seed:
+            prev_t = t    # the line a start read next is placed against
     if fuel_pct:
         _fuel_from_percent(s, fuel_pct)
     # Snapshot seeds may predate lines read before them: keep every series
