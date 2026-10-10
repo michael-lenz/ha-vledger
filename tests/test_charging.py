@@ -77,9 +77,9 @@ def vehicle(base, capsys, sid="a7c1", where=HOME, soc=40, charging_state=True, p
     return Stream(base, capsys, "vehicle", sid, cfg, snapshot)
 
 
-def chargepoint(base, capsys, sid, where, tariffs, meter=True, reading=5000.0):
+def chargepoint(base, capsys, sid, where, tariffs, meter=True, reading=5000.0, power_kw=None):
     cfg = {"name": sid.title(), "latitude": where[0], "longitude": where[1], "radius_m": 50,
-           "meter": {"entity": "sensor.meter"} if meter else None, "tariffs": tariffs}
+           "meter": {"entity": "sensor.meter"} if meter else None, "power_kw": power_kw, "tariffs": tariffs}
     snapshot = ([{"role": "energy_meter", "entity": "sensor.meter", "state": str(reading),
                   "unit": "kWh", "since": at(-120)}] if meter else [])
     return Stream(base, capsys, "chargepoint", sid, cfg, snapshot)
@@ -143,6 +143,78 @@ def test_an_unmetered_wallbox_costs_through_the_loss_factor(tmp_path, capsys):
     assert (s.grid_kwh, s.grid_kwh_quality, s.grid_kwh_source) == (6.586, "estimated", "loss_factor")
     assert (s.cost_eur, s.cost_quality) == (1.98, "estimated")
     assert s.kwh_per_pct is None and s.charging_loss_kwh is None  # never from the factor itself
+
+
+def test_an_unmetered_wallbox_with_a_known_power_counts_charging_time(tmp_path, capsys):
+    """ADR-0038: 61 minutes of charging state at 6.0 kW, and the loss is
+    observed, not assumed."""
+    chargepoint(tmp_path, capsys, "home", HOME, HOME_TARIFFS, meter=False, power_kw=6.0)
+    v = vehicle(tmp_path, capsys)
+    end = charge(v, 0, 40, 80)
+    v.heartbeat(end + 30)
+    s, = charging.derive_from(tmp_path, V)
+    assert (s.grid_kwh, s.grid_kwh_quality, s.grid_kwh_source) == (6.1, "estimated", "charge_point_power")
+    assert s.meter_attributable is None                           # still: no meter to attribute
+    assert (s.cost_eur, s.cost_quality) == (1.83, "estimated")
+    assert s.kwh_per_pct == 0.1525 and s.charging_loss_kwh == 0.22
+
+
+def test_a_meter_comes_before_the_declared_power(tmp_path, capsys):
+    home = chargepoint(tmp_path, capsys, "home", HOME, HOME_TARIFFS, power_kw=6.0)
+    v = vehicle(tmp_path, capsys)
+    end = charge(v, 0, 40, 80, meter=home, reading=5000.0, kwh=6.5)
+    v.heartbeat(end + 30)
+    home.heartbeat(end + 30)
+    s, = charging.derive_from(tmp_path, V)
+    assert (s.grid_kwh, s.grid_kwh_source) == (6.5, "meter")
+
+
+def test_the_declared_power_needs_a_charging_time_it_can_trust(tmp_path, capsys):
+    """ADR-0038, point 2: no SoC span, no span across a gap, no second
+    vehicle charging there — each falls back to the loss factor."""
+    def at_home(base, **kw):
+        chargepoint(base, capsys, "home", HOME, HOME_TARIFFS, meter=False, power_kw=6.0)
+        return vehicle(base, capsys, **kw)
+
+    v = at_home(tmp_path / "soc", charging_state=False)
+    for i, value in enumerate((45, 50, 55), start=1):
+        v.state(10 * i, "soc", value, "%")
+    v.heartbeat(90)
+    s, = charging.derive_from(tmp_path / "soc", V)
+    assert (s.source, s.grid_kwh_source) == ("soc", "loss_factor")
+
+    v = at_home(tmp_path / "gap")
+    v.state(0, "charging_state", "Charging").state(10, "soc", 50, "%")
+    v.run("stop", *v.b, "--t", at(15), "--reason", "shutdown")
+    v.run("start", *v.b, "--t", at(50), "--homeassistant", "2026.9.4", "--snapshot", json.dumps([
+        {"role": "charging_state", "entity": "sensor.c", "state": "Done", "since": at(40)},
+        {"role": "soc", "entity": "sensor.s", "state": "80", "unit": "%", "since": at(40)}]))
+    v.heartbeat(90)
+    s, = charging.derive_from(tmp_path / "gap", V)
+    assert (s.quality, s.grid_kwh_source) == ("incomplete", "loss_factor")
+
+    v = at_home(tmp_path / "shared")
+    w = vehicle(tmp_path / "shared", capsys, sid="b2d4")
+    charge(w, 30, 50, 60, minutes=20)
+    end = charge(v, 0, 40, 80)
+    v.heartbeat(end + 30)
+    w.heartbeat(end + 30)
+    s, = charging.derive_from(tmp_path / "shared", V)
+    assert (s.grid_kwh_source, s.meter_attributable) == ("loss_factor", None)
+
+
+def test_a_receipt_displaces_the_declared_power_and_keeps_it_beside(tmp_path, capsys):
+    chargepoint(tmp_path, capsys, "home", HOME, HOME_TARIFFS, meter=False, power_kw=6.0)
+    v = vehicle(tmp_path, capsys)
+    end = charge(v, 0, 40, 80)
+    v.heartbeat(end + 30)
+    assert main(["receipt", "add", "charging", *v.b, "--anchor", at(30), "--energy-kwh", "6.4",
+                 "--total-price", "1.92", "--t", at(end + 30)]) == 0
+    capsys.readouterr()
+    e, = l1.derive(tmp_path, V, "charging")
+    assert (e["grid_kwh"], e["grid_kwh_source"]) == (6.4, "receipt")
+    assert (e["sensor_grid_kwh"], e["sensor_grid_kwh_source"]) == (6.1, "charge_point_power")
+    assert e["deviation_pct"] == 4.7 and e["implausible"] is False
 
 
 def test_a_foreign_charge(tmp_path, capsys):

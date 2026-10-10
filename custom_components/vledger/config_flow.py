@@ -117,6 +117,7 @@ def _chargepoint_schema(currency: str) -> vol.Schema:
         vol.Required("name"): selector.TextSelector(),
         vol.Required("location"): selector.LocationSelector(selector.LocationSelectorConfig(radius=True)),
         vol.Optional("meter"): _entity(["sensor"]),
+        vol.Optional("power_kw"): _number("kW"),
         vol.Required("eur_per_kwh"): _tariff(currency),
         vol.Required("from"): selector.DateSelector(),
     })
@@ -236,7 +237,8 @@ class VledgerConfigFlow(ConfigFlow, domain=DOMAIN):
             options = vconfig.chargepoint(
                 user_input["name"], loc["latitude"], loc["longitude"], loc.get("radius") or 50,
                 tariffs=[{"from": user_input["from"], "eur_per_kwh": user_input["eur_per_kwh"]}],
-                meter={"entity": user_input["meter"]} if user_input.get("meter") else None)
+                meter={"entity": user_input["meter"]} if user_input.get("meter") else None,
+                power_kw=user_input.get("power_kw") or None)
             options[OPT_BASE_PATH] = self.hass.config.path(DOMAIN)
             return self.async_create_entry(
                 title=user_input["name"], data={DATA_KIND: KIND_CHARGEPOINT, DATA_SUBJECT: subject},
@@ -267,7 +269,7 @@ class VledgerOptionsFlow(OptionsFlow):
         if self.config_entry.data[DATA_KIND] == KIND_VEHICLE:
             menu = ["roles", "mapping", "parameters", "thresholds", "notifications", "storage"]
         else:
-            menu = ["meter", "add_tariff", "storage"]
+            menu = ["meter", "power", "add_tariff", "storage"]
         return self.async_show_menu(step_id="init", menu_options=menu)
 
     async def async_step_roles(self, user_input=None) -> ConfigFlowResult:
@@ -347,13 +349,27 @@ class VledgerOptionsFlow(OptionsFlow):
             {"meter": (opts.get("meter") or {}).get("entity")})
         return self.async_show_form(step_id="meter", data_schema=schema)
 
+    async def async_step_power(self, user_input=None) -> ConfigFlowResult:
+        """The constant power a vehicle draws at this charge point, or none
+        (ADR-0038)."""
+        opts = self._opts
+        if user_input is not None:
+            opts.update(vconfig.chargepoint(opts["name"], opts["latitude"], opts["longitude"],
+                                            opts["radius_m"], opts["tariffs"], opts.get("meter"),
+                                            power_kw=_clean(user_input).get("power_kw") or None))
+            return self._finish(opts)
+        schema = self.add_suggested_values_to_schema(
+            vol.Schema({vol.Optional("power_kw"): _number("kW")}), {"power_kw": opts.get("power_kw")})
+        return self.async_show_form(step_id="power", data_schema=schema)
+
     async def async_step_add_tariff(self, user_input=None) -> ConfigFlowResult:
         opts = self._opts
         if user_input is not None:
             tariffs = list(opts["tariffs"]) + [
                 {"from": user_input["from"], "eur_per_kwh": user_input["eur_per_kwh"]}]
             opts.update(vconfig.chargepoint(opts["name"], opts["latitude"], opts["longitude"],
-                                            opts["radius_m"], tariffs, opts.get("meter")))
+                                            opts["radius_m"], tariffs, opts.get("meter"),
+                                            power_kw=opts.get("power_kw")))
             return self._finish(opts)
         return self.async_show_form(step_id="add_tariff", data_schema=vol.Schema({
             vol.Required("eur_per_kwh"): _tariff(self.hass.config.currency),

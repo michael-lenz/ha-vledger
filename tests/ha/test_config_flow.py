@@ -89,6 +89,7 @@ async def test_a_chargepoint_in_one_step(hass):
     assert result["type"] is FlowResultType.CREATE_ENTRY
     opts = result["result"].options
     assert opts["radius_m"] == 40 and opts["meter"] == {"entity": "sensor.wallbox_energy"}
+    assert opts["power_kw"] is None
     assert opts["tariffs"] == [{"from": "2026-01-01", "eur_per_kwh": 0.30}]
     assert result["result"].data[DATA_KIND] == "chargepoint"
 
@@ -111,6 +112,38 @@ async def test_options_add_a_tariff_appends(hass):
     await hass.async_block_till_done()
     assert entry.options["tariffs"] == [{"from": "2026-01-01", "eur_per_kwh": 0.30},
                                         {"from": "2026-07-01", "eur_per_kwh": 0.34}]
+    await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_options_set_the_charging_power_and_a_tariff_keeps_it(hass):
+    """ADR-0038: the power is optional, set in its own step, and survives
+    the next tariff."""
+    result = await _start(hass, "chargepoint")
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {
+        "name": "Home", "location": {"latitude": 48.1, "longitude": 11.5, "radius": 40},
+        "eur_per_kwh": 0.30, "from": "2026-01-01"})
+    entry = result["result"]
+    await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {"next_step_id": "power"})
+    assert result["step_id"] == "power"
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {"power_kw": 6.35})
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+    assert entry.options["power_kw"] == 6.35
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {"next_step_id": "add_tariff"})
+    await hass.config_entries.options.async_configure(result["flow_id"], {"eur_per_kwh": 0.34, "from": "2026-07-01"})
+    await hass.async_block_till_done()
+    assert entry.options["power_kw"] == 6.35
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {"next_step_id": "power"})
+    await hass.config_entries.options.async_configure(result["flow_id"], {})
+    await hass.async_block_till_done()
+    assert entry.options["power_kw"] is None
     await hass.config_entries.async_unload(entry.entry_id)
 
 

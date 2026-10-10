@@ -81,7 +81,10 @@ def test_domain_state_holds_only_on_unavailable_and_unknown():
 
 def test_a_chargepoint_is_checked():
     cp = config.chargepoint("Home", 48.1, 11.5, 50, [{"from": "2026-01-01", "eur_per_kwh": 0.3}])
-    assert cp["meter"] is None and config.is_chargepoint(cp)
+    assert cp["meter"] is None and cp["power_kw"] is None and config.is_chargepoint(cp)
+    assert config.chargepoint("Home", 48.1, 11.5, 50, [], power_kw=6.35)["power_kw"] == 6.35
+    with pytest.raises(ValueError, match="power_kw"):
+        config.chargepoint("Home", 48.1, 11.5, 50, [], power_kw=0)
     with pytest.raises(ValueError):
         config.chargepoint("Home", 48.1, 11.5, 0, [])
     with pytest.raises(ValueError):

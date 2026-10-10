@@ -274,7 +274,7 @@ threshold has to exceed it.
 
 **Reads:** `charging_state` — or, without one, `soc` — `soc`, `position`,
 the movement roles; the charge points' streams (`energy_meter`) and
-configuration (position, `radius_m`, `meter`, `tariffs`); the other
+configuration (position, `radius_m`, `meter`, `power_kw`, `tariffs`); the other
 vehicles' streams. **Parameters:** `battery_net_kwh`,
 `charging_loss_factor`. **Thresholds:** `charging_threshold_pct` (2 %),
 `t_still_s`.
@@ -300,14 +300,19 @@ vehicles' streams. **Parameters:** `battery_net_kwh`,
    meter difference over the session — `measured`, source `meter` — but
    only when no other vehicle charged at that charge point at any time
    during it (LAD-07, `meter_attributable`), the meter did not go
-   backwards and its stream has no gap there; else `battery_kwh` ×
-   `charging_loss_factor` — `estimated`, `loss_factor`; else none. A
-   receipt, when one meets the session, comes before both (*Matching*,
-   below).
+   backwards and its stream has no gap there; else the charging time ×
+   the charge point's declared `power_kw` — `estimated`,
+   `charge_point_power` (ADR-0038) — but only for a session the charging
+   state bounds, not across a capture gap, and again only when no other
+   vehicle charged there meanwhile; an upper bound where the rate tapers
+   near full; else `battery_kwh` × `charging_loss_factor` — `estimated`,
+   `loss_factor`; else none. A receipt, when one meets the session, comes
+   before all of them (*Matching*, below).
 6. **Cost** (LAD-08). The tariff valid at the session's start, never
    re-priced; a tariff of 0 costs exactly 0 whatever the energy. Its flag
-   is the energy's. With a measured energy, `kwh_per_pct` and
-   `charging_loss_kwh` follow (LAD-09).
+   is the energy's. With an energy from the meter or the declared power,
+   `kwh_per_pct` and `charging_loss_kwh` follow (LAD-09) — never from the
+   loss factor, and neither feeds back into a parameter (LAD-10).
 7. `movements_while_charging` counts movement events inside the session:
    reported, never corrected (ADR-0012, point 5).
 8. **Complete** once the session's own boundary has passed (steps 1 and

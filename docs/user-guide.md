@@ -49,8 +49,11 @@ choose what to add.
    scales with this number.
 
 **A charge point**, in one step: name, location and radius on the map, an
-optional energy meter entity, and the first tariff with the date it is
-valid from. A charge point serves every vehicle.
+optional energy meter entity, an optional charging power in kW, and the
+first tariff with the date it is valid from. The charging power is for a
+wallbox without a meter that always charges at the same rate: the lesser
+of the wallbox's setting and the vehicle's onboard charger, as you see it
+while charging. Leave it empty if the rate varies. A charge point serves every vehicle.
 
 A vehicle's months and years are those of Home Assistant's time zone
 (*Settings → System → General*); the ledger records it at every start, and
@@ -84,7 +87,7 @@ that was wrong. Positions are redacted.
 **Options** (the entry's *Configure*): a menu over the same steps,
 pre-filled, plus the thresholds and time constants, the remaining
 parameters, where notifications go ([below](#events-and-notifications)),
-and the data directory. For a charge point: the meter, and
+and the data directory. For a charge point: the meter, the charging power, and
 *add a tariff from a date* — tariffs are never edited; a new price is a new
 entry, and a correction is a new entry under the same date. Saving any of
 them reloads the entry, which the stream records as stop, start and the
@@ -557,13 +560,17 @@ point whose radius holds that position — its subject id, or `foreign`.
 when the capacity is set. `grid_kwh` comes from the charge point's meter
 (`grid_kwh_source` `meter`, measured), read from the charge point's own
 stream, when no other vehicle charged there during the session —
-otherwise `meter_attributable` is `false` — else from `battery_kwh` × the
+otherwise `meter_attributable` is `false` — else, at a charge point with a
+charging power, from the time the charging state said `charging` × that
+power (`charge_point_power`, estimated; a little high where charging
+slows near full), when the session crossed no capture gap and no other
+vehicle charged there — else from `battery_kwh` × the
 charging loss factor (`loss_factor`, estimated), else it is empty. A
-charging receipt takes precedence over both (*Receipts*, below).
+charging receipt takes precedence over all of them (*Receipts*, below).
 `cost_eur` is `grid_kwh` × the charge point's tariff valid at the start,
 with the energy's quality; a tariff of 0 costs 0 without any energy; a
-foreign charge has no cost until a receipt gives one. Where a receipt or
-the meter gives the grid-side energy, `kwh_per_pct` is the grid-side kWh per % SoC and
+foreign charge has no cost until a receipt gives one. Where a receipt, the
+meter or the charging power gives the grid-side energy, `kwh_per_pct` is the grid-side kWh per % SoC and
 `charging_loss_kwh` grid- minus battery-side energy — never derived from
 the loss factor, and the capacity is never calibrated from them.
 `movements_while_charging` counts moving samples inside the session, as

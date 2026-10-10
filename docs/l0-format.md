@@ -136,8 +136,10 @@ Assistant's own at every start. A config line without one — every line
 written before it existed — reads as UTC.
 
 A charge point is its own subject with its own stream; its `config` line
-carries name, position, radius, meter entity and the tariff history, and
-tariffs are never in a vehicle's stream. The derivation reads configuration
+carries name, position, radius, meter entity, the constant charging power
+`power_kw` where the owner declared one (ADR-0038; a line without it reads
+as none) and the tariff history, and tariffs are never in a vehicle's
+stream. The derivation reads configuration
 from L0, never from Home Assistant — which is what lets the CLI run without
 one.
 

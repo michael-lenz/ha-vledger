@@ -66,9 +66,11 @@
           "name": "Name",
           "location": "Location and radius",
           "meter": "Energy meter (optional)",
+          "power_kw": "Charging power (optional)",
           "eur_per_kwh": "Tariff",
           "from": "Tariff valid from"
-        }
+        },
+        "data_description": { "power_kw": "The constant power a vehicle draws here while charging — the lesser of the charge point's setting and the vehicle's onboard charger. Without a meter, a session's grid energy is then its charging time times this power, an upper bound where charging slows near full. Leave it empty when the power varies." }
       }
     },
     "error": {
@@ -89,6 +91,7 @@
           "parameters": "Parameters",
           "thresholds": "Thresholds and time constants",
           "meter": "Energy meter",
+          "power": "Charging power",
           "add_tariff": "Add a tariff from a date",
           "notifications": "Notifications",
           "storage": "Storage"
@@ -178,6 +181,11 @@
       "meter": {
         "title": "Energy meter",
         "data": { "meter": "Energy meter entity (empty: none)" }
+      },
+      "power": {
+        "title": "Charging power",
+        "data": { "power_kw": "Charging power (empty: unknown)" },
+        "data_description": { "power_kw": "The constant power a vehicle draws here while charging — the lesser of the charge point's setting and the vehicle's onboard charger. Without a meter, a session's grid energy is then its charging time times this power, an upper bound where charging slows near full. Leave it empty when the power varies." }
       },
       "add_tariff": {
         "title": "Add a tariff",

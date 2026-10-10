@@ -9,7 +9,8 @@ charging threshold (LAD-04).
 
 A session is placed at the charge point whose radius holds its position, or
 at ``foreign``. Its grid-side energy comes, in this order, from the charge
-point's meter where exactly one vehicle charged there (LAD-07),
+point's meter where exactly one vehicle charged there (LAD-07), the
+charging time times the charge point's declared power (ADR-0038),
 battery-side energy times the charging loss factor, or nowhere (LAD-06);
 its cost from the tariff valid at its start (LAD-08, VER-07). A receipt
 that meets the session comes before both, and :mod:`vledger.receipts`
@@ -69,12 +70,12 @@ class Session:
     battery_kwh: float | None          # estimated: ΔSoC × net capacity (LAD-05)
     grid_kwh: float | None
     grid_kwh_quality: str | None       # measured or estimated; receipt once one meets it
-    grid_kwh_source: str | None        # meter or loss_factor; receipt likewise
+    grid_kwh_source: str | None        # meter, charge_point_power or loss_factor; receipt likewise
     meter_attributable: bool | None    # None: no meter to attribute (LAD-07)
     tariff_eur_per_kwh: float | None
     cost_eur: float | None
     cost_quality: str | None
-    kwh_per_pct: float | None          # grid-side kWh per % SoC, from a meter (LAD-09)
+    kwh_per_pct: float | None          # grid-side kWh per % SoC, not from the factor (LAD-09)
     charging_loss_kwh: float | None    # grid − battery, only with a capacity (LAD-09)
     movements_while_charging: int      # contradictions, reported (ADR-0012, point 5)
     version: str
@@ -292,6 +293,18 @@ def _alone(cp: ChargePoint, span: Span, others: list[tuple[str, str, str | None]
     return True
 
 
+def _power_kwh(cp: ChargePoint, span: Span, alone: bool) -> float | None:
+    """Charging time × the charge point's declared power (ADR-0038, point
+    2), or ``None``: no power declared, a span not from the charging
+    state, a span across a capture gap, or another vehicle charging there
+    meanwhile."""
+    power = cp.config.get("power_kw")
+    if not power or span.source != "charging_state" or span.crossed or not alone:
+        return None
+    hours = (clock.parse(span.end) - clock.parse(span.start)).total_seconds() / 3600
+    return round(hours * power, 3)
+
+
 # --- the session -------------------------------------------------------------
 
 def _session(s: Stream, span: Span, cp: ChargePoint | None, position: dict | None,
@@ -312,11 +325,16 @@ def _session(s: Stream, span: Span, cp: ChargePoint | None, position: dict | Non
     battery = round(delta / 100 * capacity, 3) if delta is not None and capacity else None
 
     grid, grid_q, grid_src, attributable = None, None, None, None
+    alone = cp is not None and _alone(cp, span, others)
     if cp is not None and cp.config.get("meter"):
-        attributable = _alone(cp, span, others)
+        attributable = alone
         kwh = _meter_kwh(cp, span) if attributable else None
         if kwh is not None:
             grid, grid_q, grid_src = kwh, MEASURED, "meter"
+    if grid is None and cp is not None:
+        kwh = _power_kwh(cp, span, alone)
+        if kwh is not None:
+            grid, grid_q, grid_src = kwh, ESTIMATED, "charge_point_power"
     factor = p.get("charging_loss_factor")
     if grid is None and battery is not None and factor:
         grid, grid_q, grid_src = round(battery * factor, 3), ESTIMATED, "loss_factor"
@@ -330,9 +348,11 @@ def _session(s: Stream, span: Span, cp: ChargePoint | None, position: dict | Non
     elif price is not None and grid is not None:
         cost, cost_q = round(grid * price, 2), grid_q
 
-    measured = grid_q == MEASURED
-    per_pct = round(grid / delta, 4) if measured and delta else None
-    loss = round(grid - battery, 3) if measured and battery is not None else None
+    # Observed, not assumed: from a meter or a declared power, never from
+    # the factor itself (ADR-0038, point 3).
+    observed = grid_src in ("meter", "charge_point_power")
+    per_pct = round(grid / delta, 4) if observed and delta else None
+    loss = round(grid - battery, 3) if observed and battery is not None else None
 
     t0, t1 = clock.parse(span.start), clock.parse(span.end)
     moving = sum(1 for m in moves if t0 < clock.parse(m.t) < t1)

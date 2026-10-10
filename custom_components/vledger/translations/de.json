@@ -66,9 +66,11 @@
           "name": "Name",
           "location": "Ort und Radius",
           "meter": "Energiezähler (optional)",
+          "power_kw": "Ladeleistung (optional)",
           "eur_per_kwh": "Tarif",
           "from": "Tarif gültig ab"
-        }
+        },
+        "data_description": { "power_kw": "Die konstante Leistung, die ein Fahrzeug hier beim Laden aufnimmt — die kleinere aus der Einstellung des Ladepunkts und dem Bordlader des Fahrzeugs. Ohne Zähler ist die netzseitige Energie eines Ladevorgangs dann seine Ladezeit mal diese Leistung, eine Obergrenze, wo das Laden kurz vor voll langsamer wird. Leer lassen, wenn die Leistung schwankt." }
       }
     },
     "error": {
@@ -89,6 +91,7 @@
           "parameters": "Parameter",
           "thresholds": "Schwellwerte und Zeitkonstanten",
           "meter": "Energiezähler",
+          "power": "Ladeleistung",
           "add_tariff": "Tarif ab Datum hinzufügen",
           "notifications": "Benachrichtigungen",
           "storage": "Ablage"
@@ -178,6 +181,11 @@
       "meter": {
         "title": "Energiezähler",
         "data": { "meter": "Energiezähler-Entität (leer: keiner)" }
+      },
+      "power": {
+        "title": "Ladeleistung",
+        "data": { "power_kw": "Ladeleistung (leer: unbekannt)" },
+        "data_description": { "power_kw": "Die konstante Leistung, die ein Fahrzeug hier beim Laden aufnimmt — die kleinere aus der Einstellung des Ladepunkts und dem Bordlader des Fahrzeugs. Ohne Zähler ist die netzseitige Energie eines Ladevorgangs dann seine Ladezeit mal diese Leistung, eine Obergrenze, wo das Laden kurz vor voll langsamer wird. Leer lassen, wenn die Leistung schwankt." }
       },
       "add_tariff": {
         "title": "Tarif hinzufügen",

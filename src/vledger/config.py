@@ -151,10 +151,15 @@ def zone_of(config: dict) -> ZoneInfo:
 
 
 def chargepoint(name: str, latitude: float, longitude: float, radius_m: float,
-                tariffs: list[dict], meter: dict | None = None) -> dict:
-    """A charge point's configuration (LAD-01, LAD-02)."""
+                tariffs: list[dict], meter: dict | None = None,
+                power_kw: float | None = None) -> dict:
+    """A charge point's configuration (LAD-01, LAD-02): ``power_kw`` is the
+    constant power a vehicle draws there, where the owner knows it
+    (ADR-0038)."""
     if radius_m <= 0:
         raise ValueError("radius_m must be positive")
+    if power_kw is not None and power_kw <= 0:
+        raise ValueError("power_kw must be positive")
     if meter is not None and (not isinstance(meter, dict) or not meter.get("entity")):
         raise ValueError("meter names no entity")
     for t in tariffs:
@@ -162,7 +167,8 @@ def chargepoint(name: str, latitude: float, longitude: float, radius_m: float,
         if t["eur_per_kwh"] < 0:
             raise ValueError("a tariff is not negative")
     return {"name": name, "latitude": float(latitude), "longitude": float(longitude),
-            "radius_m": float(radius_m), "meter": deepcopy(meter), "tariffs": deepcopy(tariffs)}
+            "radius_m": float(radius_m), "meter": deepcopy(meter),
+            "power_kw": float(power_kw) if power_kw is not None else None, "tariffs": deepcopy(tariffs)}
 
 
 def missing(config: dict) -> list[str]:
