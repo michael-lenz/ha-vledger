@@ -45,8 +45,8 @@ CHARGEPOINT_ROLES = ("energy_meter", "power")
 ROLES = VEHICLE_ROLES + CHARGEPOINT_ROLES
 
 #: The role-relevant attributes, per role: what a state line carries in
-#: ``attrs`` and what counts as a change worth a line (ERF-01). Fixed for
-#: schema versions 1 and 2 — adding to it is a version bump (ADR-0004, consequence 1).
+#: ``attrs`` and what counts as a change worth a line (ERF-01). Unchanged
+#: since version 1 — adding to it is a version bump (ADR-0004, consequence 1).
 RELEVANT_ATTRS: dict[str, tuple[str, ...]] = {
     "position": ("latitude", "longitude", "gps_accuracy", "source_type"),
 }
@@ -203,10 +203,9 @@ def read_file(path: Path) -> Iterator[Read]:
             if torn:
                 return
             raise TornLine(f"{path}:{number}: not JSON and not the last line") from None
-        if torn:
-            # Complete JSON without its newline: the crash came after the
-            # text and before the newline. The line is whole; keep it.
-            pass
+        # A torn tail that still parsed is complete JSON without its newline:
+        # the crash came after the text and before the newline. The line is
+        # whole, and it is kept.
         if not isinstance(line, dict):
             raise TornLine(f"{path}:{number}: not a JSON object")
         if line.get("v", 0) > VERSION:
@@ -222,12 +221,19 @@ def read(base: Path, subject: Subject, *, kind: str | None = None,
          until: str | None = None) -> Iterator[Read]:
     """A stream in order, across its month files, optionally narrowed.
 
-    Lines of a kind this version does not know are skipped here (ADR-0004,
-    point 1); :func:`validate` reports them.
+    A month file holds the lines of its own month and no others (ADR-0004,
+    point 3), so ``since`` and ``until`` decide which files are opened at
+    all: a derivation from a cursor reads the months it reaches into, not
+    years of L0 (ISSUE-0012). Lines of a kind this version does not know
+    are skipped here (ADR-0004, point 1); :func:`validate` reports them.
     """
     lo = clock.parse(since) if since else None
     hi = clock.parse(until) if until else None
+    first = clock.month_of(since) if since else None
+    last = clock.month_of(until) if until else None
     for path in layout.l0_files(base, subject):
+        if (first and path.stem < first) or (last and path.stem > last):
+            continue
         for r in read_file(path):
             if r.line.get("kind") not in KINDS:
                 continue
@@ -242,6 +248,19 @@ def read(base: Path, subject: Subject, *, kind: str | None = None,
                 if hi and t > hi:
                     continue
             yield r
+
+
+def last_line(base: Path, subject: Subject, *, kind: str | None = None) -> Line | None:
+    """The stream's last line, or its last line of one ``kind`` — the
+    latest ``config`` line, the ``t`` the stream reaches — read from the
+    newest month file backwards and no further than it has to be, so the
+    answer costs one file on a stream that is years long (ISSUE-0012).
+    ``None`` for a stream without such a line."""
+    for path in reversed(layout.l0_files(base, subject)):
+        for r in reversed(list(read_file(path))):
+            if r.line.get("kind") in KINDS and (kind is None or r.line["kind"] == kind):
+                return r.line
+    return None
 
 
 # --- validating ------------------------------------------------------------

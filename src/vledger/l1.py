@@ -55,11 +55,17 @@ def _sha(data: bytes) -> str:
     return "sha256:" + hashlib.sha256(data).hexdigest()
 
 
+def latest_config(base: Path, subject: Subject) -> dict | None:
+    """The object of the latest ``config`` line, or None without one. Read
+    from the newest month file backwards (ISSUE-0012): the live writer
+    asks on every run, and the answer must not cost the whole stream."""
+    line = l0.last_line(base, subject, kind="config")
+    return None if line is None else line["config"]
+
+
 def config_hash(base: Path, subject: Subject) -> str | None:
     """The hash of the latest config line's object, or None without one."""
-    latest = None
-    for r in l0.read(base, subject, kind="config"):
-        latest = r.line["config"]
+    latest = latest_config(base, subject)
     if latest is None:
         return None
     return _sha(json.dumps(latest, sort_keys=True, ensure_ascii=False).encode("utf-8"))
@@ -71,10 +77,10 @@ def receipts_hash(base: Path, subject: Subject) -> str:
 
 
 def l0_through(base: Path, subject: Subject) -> str | None:
-    last = None
-    for r in l0.read(base, subject):
-        last = r.line["t"]
-    return last
+    """The ``t`` of the stream's last line: the newest month file's last
+    line, since a line lands in the file its own ``t`` names."""
+    line = l0.last_line(base, subject)
+    return None if line is None else line["t"]
 
 
 # --- the manifest ------------------------------------------------------
@@ -92,8 +98,11 @@ def _write_atomic(path: Path, text: str) -> None:
     os.replace(tmp, path)
 
 
-def write_manifest(base: Path, subject: Subject, through: dict[str, str]) -> dict:
-    manifest = {
+def manifest_of(base: Path, subject: Subject, through: dict[str, str]) -> dict:
+    """What L1 was derived from, and by what (ADR-0009, point 2): the
+    library's version, the hashes of the latest config line and of the
+    receipts, the cursor per kind, and how far L0 was read."""
+    return {
         "vledger": __version__,
         "derived_at": clock.to_text(clock.now()),
         "config": config_hash(base, subject),
@@ -101,6 +110,11 @@ def write_manifest(base: Path, subject: Subject, through: dict[str, str]) -> dic
         "through": dict(sorted(through.items())),
         "l0_through": l0_through(base, subject),
     }
+
+
+def write_manifest(base: Path, subject: Subject, through: dict[str, str]) -> dict:
+    """Rewrite the manifest atomically, after an incremental run."""
+    manifest = manifest_of(base, subject, through)
     d = l1_dir(base, subject)
     d.mkdir(parents=True, exist_ok=True)
     _write_atomic(d / MANIFEST, json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
@@ -254,10 +268,7 @@ def through_of(events: list[dict], previous: str | None = None) -> str | None:
 def thresholds(base: Path, subject: Subject) -> dict:
     """The thresholds of the latest config line, over the defaults."""
     thr = dict(vconfig.DEFAULT_THRESHOLDS)
-    latest = None
-    for r in l0.read(base, subject, kind="config"):
-        latest = r.line["config"]
-    thr.update((latest or {}).get("thresholds") or {})
+    thr.update((latest_config(base, subject) or {}).get("thresholds") or {})
     return thr
 
 
@@ -333,14 +344,7 @@ def rebuild(base: Path, subject: Subject) -> dict:
     if lines is not None:
         (tmp / FILES["period"]).write_text("".join(encode(e) + "\n" for e in lines), encoding="utf-8")
     # The manifest goes into the temporary directory too, so the swap is one act.
-    manifest = {
-        "vledger": __version__,
-        "derived_at": clock.to_text(clock.now()),
-        "config": config_hash(base, subject),
-        "receipts": receipts_hash(base, subject),
-        "through": dict(sorted(through.items())),
-        "l0_through": l0_through(base, subject),
-    }
+    manifest = manifest_of(base, subject, through)
     (tmp / MANIFEST).write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     old = final.with_name("l1.old")
     if old.exists():

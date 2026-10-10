@@ -64,6 +64,23 @@ def test_a_rebuild_is_due_when_version_config_or_receipts_change(tmp_path, capsy
     assert "0.0.1" in l1.rebuild_due(tmp_path, V)
 
 
+def test_the_manifest_reads_the_latest_config_line_wherever_it_lies(tmp_path, capsys):
+    """ISSUE-0012: the hash and the thresholds come from the latest config
+    line, found from the newest month file backwards; a newer line in the
+    same stream replaces an older one, as a full scan would have it."""
+    b = Builder(tmp_path, capsys)
+    end = b.drive(60)
+    b.heartbeat(end + 60)
+    assert l1.thresholds(tmp_path, V)["t_still_s"] == 1800
+    before = l1.config_hash(tmp_path, V)
+    b.run("config", *b.b, "--t", at(end + 70), "--config",
+          '{"name":"V","roles":{"odometer":{"entity":"sensor.o"}},"thresholds":{"t_still_s":900}}')
+    assert l1.thresholds(tmp_path, V)["t_still_s"] == 900
+    assert l1.config_hash(tmp_path, V) != before
+    assert l1.l0_through(tmp_path, V) == at(end + 70)
+    assert l1.latest_config(tmp_path, Subject("vehicle", "nobody")) is None
+
+
 def test_incremental_appends_only_what_starts_after_the_cursor(tmp_path, capsys):
     b = Builder(tmp_path, capsys)
     end = b.drive(60)

@@ -78,6 +78,49 @@ def test_read_is_in_order_across_months_and_narrowable(tmp_path, capsys):
     assert [json.loads(x)["state"] for x in out.splitlines()] == ["not_home", "120"]
 
 
+def opened(monkeypatch) -> list[str]:
+    """The month files :func:`l0.read_file` is asked for, by name."""
+    names: list[str] = []
+    real = l0.read_file
+
+    def counting(path):
+        names.append(path.name)
+        return real(path)
+
+    monkeypatch.setattr(l0, "read_file", counting)
+    return names
+
+
+def test_read_opens_only_the_month_files_its_bounds_reach_into(tmp_path, capsys, monkeypatch):
+    """ISSUE-0012: a derivation from a cursor must not cost years of L0. A
+    line lands in the file its own t names, so a bound names the files."""
+    build_stream(tmp_path, capsys)
+    names = opened(monkeypatch)
+    assert [r.line["kind"] for r in l0.read(tmp_path, V, since="2026-10-01T00:00:00Z")][:2] == ["state", "heartbeat"]
+    assert names == ["2026-10.jsonl"]
+    names.clear()
+    assert len(list(l0.read(tmp_path, V, until="2026-09-30T23:59:59Z"))) == 3
+    assert names == ["2026-09.jsonl"]
+    names.clear()
+    assert len(list(l0.read(tmp_path, V))) == 10
+    assert names == ["2026-09.jsonl", "2026-10.jsonl"]
+
+
+def test_the_last_line_is_read_from_the_newest_file_backwards(tmp_path, capsys, monkeypatch):
+    """ISSUE-0012: the latest config line and the stream's last t, without
+    a full scan — the live writer asks for both on every run."""
+    build_stream(tmp_path, capsys)
+    names = opened(monkeypatch)
+    assert l0.last_line(tmp_path, V)["t"] == "2026-10-01T07:00:00.000Z"
+    assert names == ["2026-10.jsonl"]
+    names.clear()
+    # The one config line is in September: the newest file is read first and found empty of them.
+    assert l0.last_line(tmp_path, V, kind="config")["config"]["name"] == "Volvo"
+    assert names == ["2026-10.jsonl", "2026-09.jsonl"]
+    assert l0.last_line(tmp_path, V, kind="state")["state"] == "120"
+    assert l0.last_line(tmp_path, Subject("vehicle", "nobody")) is None
+
+
 def test_a_torn_last_line_is_skipped_and_reported(tmp_path, capsys):
     b = build_stream(tmp_path, capsys)
     path = tmp_path / "vehicle-a7c1/l0/2026-10.jsonl"
