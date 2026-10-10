@@ -45,6 +45,8 @@ from .metrics import (
     ELECTRICITY,
     EVERY,
     FUEL,
+    KWH_PER_100KM,
+    L_PER_100KM,
     METRICS,
     PERIODS,
     SUM,
@@ -55,10 +57,6 @@ from .metrics import (
     value_of,
 )
 from .receipt_desk import CHARGING, REFUELLING
-
-#: The units Home Assistant has no device class for (ADR-0018, point 4;
-#: ISSUE-0028): shown as they are, unconverted.
-LITRES_PER_100KM, KWH_PER_100KM = "L/100 km", "kWh/100 km"
 
 
 def _time(t: str | None) -> datetime | None:
@@ -167,7 +165,7 @@ class ConsumptionSensorDescription(EventSensorDescription):
 CONSUMPTION_SENSORS: tuple[ConsumptionSensorDescription, ...] = (
     ConsumptionSensorDescription(
         key="last_trip_fuel_consumption", translation_key="last_trip_fuel_consumption",
-        kind=TRIP, gate=REFUELLING, native_unit_of_measurement=LITRES_PER_100KM,
+        kind=TRIP, gate=REFUELLING, native_unit_of_measurement=L_PER_100KM,
         suggested_display_precision=1,
         values=(("fuel_l_per_100km", "fuel_l_per_100km_quality"),),
         attributes=("start", "end", "quality", "distance_km", "distance_quality",
@@ -453,7 +451,7 @@ LIFETIME_SENSORS: tuple[LifetimeSensorDescription, ...] = (
         value="tank_fills", quality="tank_fills_quality"),
     LifetimeSensorDescription(
         key="fuel_consumption", translation_key="fuel_consumption", needs=FUEL,
-        state_class=SensorStateClass.MEASUREMENT, native_unit_of_measurement="L/100km",
+        state_class=SensorStateClass.MEASUREMENT, native_unit_of_measurement=L_PER_100KM,
         suggested_display_precision=1,
         value="consumption_l_per_100km", quality="consumption_quality",
         attributes=("consumption_from", "consumption_to", "consumption_receipts",
@@ -462,12 +460,12 @@ LIFETIME_SENSORS: tuple[LifetimeSensorDescription, ...] = (
     # level, the sums total without last_reset, as the counters above.
     LifetimeSensorDescription(
         key="grid_kwh_per_100km_total", translation_key="grid_kwh_per_100km_total", needs=ELECTRICITY,
-        state_class=SensorStateClass.MEASUREMENT, native_unit_of_measurement="kWh/100km",
+        state_class=SensorStateClass.MEASUREMENT, native_unit_of_measurement=KWH_PER_100KM,
         suggested_display_precision=1,
         value="grid_kwh_per_100km", quality="grid_kwh_per_100km_quality", attributes=("soc_corrected",)),
     LifetimeSensorDescription(
         key="battery_kwh_per_100km_total", translation_key="battery_kwh_per_100km_total", needs=ELECTRICITY,
-        state_class=SensorStateClass.MEASUREMENT, native_unit_of_measurement="kWh/100km",
+        state_class=SensorStateClass.MEASUREMENT, native_unit_of_measurement=KWH_PER_100KM,
         suggested_display_precision=1,
         value="battery_kwh_per_100km", quality="battery_kwh_per_100km_quality", attributes=("soc_corrected",)),
     LifetimeSensorDescription(

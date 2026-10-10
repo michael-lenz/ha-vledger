@@ -161,7 +161,7 @@ async def test_the_last_trips_consumption_is_a_slice_of_its_line(hass, phev_entr
         battery_consumed_error_kwh=0.208)))      # the battery figure is swallowed by its error
     await _setup(hass, phev_entry)
     s = _state(hass, "sensor.golf_last_trip_fuel_consumption")
-    assert float(s.state) == 7.0 and s.attributes["unit_of_measurement"] == "L/100 km"
+    assert float(s.state) == 7.0 and s.attributes["unit_of_measurement"] == "L/100km"
     assert "state_class" not in s.attributes and "device_class" not in s.attributes
     assert s.attributes["state_quality"] == "measured"
     assert s.attributes["fuel_consumed_source"] == "trip_computer"
@@ -169,9 +169,12 @@ async def test_the_last_trips_consumption_is_a_slice_of_its_line(hass, phev_entr
     assert s.attributes["distance_km"] == 25.0 and s.attributes["start"] == at(0)
     assert "battery_consumed_kwh" not in s.attributes and "waypoints" not in s.attributes
     e = _state(hass, "sensor.golf_last_trip_electricity_consumption")
-    assert e.state == "unknown" and e.attributes["unit_of_measurement"] == "kWh/100 km"
+    assert e.state == "unknown" and e.attributes["unit_of_measurement"] == "kWh/100km"
     assert e.attributes["battery_consumed_kwh"] == 0.05 and e.attributes["state_quality"] is None
     assert "fuel_consumed_l" not in e.attributes
+    # One quantity, one spelling of its unit on every entity (ISSUE-0038).
+    assert s.attributes["unit_of_measurement"] == _state(hass, "sensor.golf_fuel_consumption").attributes["unit_of_measurement"]
+    assert e.attributes["unit_of_measurement"] == _state(hass, "sensor.golf_battery_energy_per_100_km_in_total").attributes["unit_of_measurement"]
     # The whole line stays the last trip's.
     assert _state(hass, "sensor.golf_last_trip").attributes["fuel_l_per_100km"] == 7.0
 
