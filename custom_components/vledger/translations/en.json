@@ -55,6 +55,9 @@
           "fuel": "Fuel",
           "tank_capacity_l": "Tank capacity",
           "battery_net_kwh": "Net battery capacity"
+        },
+        "data_description": {
+          "battery_net_kwh": "The usable capacity: what a full battery delivers, net. The capacity a vehicle integration reports may be the gross figure. Every battery energy, electricity cost and metric scales with this number."
         }
       },
       "chargepoint": {
@@ -142,6 +145,7 @@
           "soc_resolution_pct": "State of charge sensor resolution"
         },
         "data_description": {
+          "battery_net_kwh": "The usable capacity: what a full battery delivers, net. The capacity a vehicle integration reports may be the gross figure. Every battery energy, electricity cost and metric scales with this number.",
           "fuel_level_resolution_l": "What a reading of the level may be off by, not its display step: a level shown to 0.1 L that can be wrong by a litre has a resolution of 1 L. It bounds every figure read from a change of the level — a trip's fuel, a consumption between partial fills.",
           "soc_resolution_pct": "What a reading of the state of charge may be off by; 1 for a value reported in whole percent. It bounds every figure read from a change of the state of charge."
         }

@@ -55,7 +55,11 @@ choose what to add.
    use, closed.
 4. **Parameters.** Fuel, tank capacity, net battery capacity — only what a
    derivation needs; the tank capacity is required when the fuel level is
-   reported in percent. Everything else keeps its default.
+   reported in percent. Everything else keeps its default. *Net* battery
+   capacity means the usable capacity, what a full battery delivers: the
+   figure a vehicle integration reports as the battery's capacity may be
+   the gross one, and every battery energy, electricity cost and metric
+   scales with this number.
 
 **A charge point**, in one step: name, location and radius on the map, an
 optional energy meter entity, and the first tariff with the date it is
