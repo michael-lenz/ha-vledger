@@ -159,7 +159,9 @@ takes; full to full always qualifies. With none, the latest interval is
 reported with its error rather than suppressed. An interval needs the
 odometer at both ends and, unless both are full, the settled level after
 both; one with an unreceipted refuelling inside it is not formed, since
-no receipt states its litres.
+no receipt states its litres. The list of every interval is not stored:
+`vledger report metrics` computes it for a span, with the mean outside
+temperature over each ([user guide](user-guide.md#reports-vledger-report)).
 
 ## Reading
 

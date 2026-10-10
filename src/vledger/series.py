@@ -282,3 +282,10 @@ def first_at_or_after(samples: list, t: str):
 def between(samples: list, start: str, end: str) -> list:
     lo, hi = clock.parse(start), clock.parse(end)
     return [x for x in samples if lo <= clock.parse(x.t) <= hi]
+
+
+def mean(samples: list[Sample]) -> float | None:
+    """The plain mean of the samples' values to a tenth — what a trip and a
+    consumption interval report as their outside temperature — or ``None``
+    for none."""
+    return round(sum(x.value for x in samples) / len(samples), 1) if samples else None

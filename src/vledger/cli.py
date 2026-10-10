@@ -28,6 +28,7 @@ from vledger import (
     periods,
     receipts,
     refuellings,
+    report,
     series,
     stats,
     trips,
@@ -436,19 +437,23 @@ def cmd_l1_clean(args) -> int:
     return 0
 
 
-# --- export verbs ----------------------------------------------------------
+# --- export and report verbs -----------------------------------------------
 
-def _exported(args, kind: str) -> list[dict]:
-    """One kind's events as L1 holds them, within --since and --until; a
-    note on stderr when L1 is not current, since an export renders L1 as
-    it is and derives nothing."""
-    base, subject = _base(args), _subject(args)
+def _l1_as_it_is(base: Path, subject: Subject, verb: str) -> None:
+    """Exports and reports render L1 as it is and derive nothing: refused
+    without one, a note on stderr when it is not current."""
     if l1.read_manifest(base, subject) is None:
-        raise Usage("no L1 to export: derive all --write first")
+        raise Usage(f"no L1 to {verb}: derive all --write first")
     due = l1.rebuild_due(base, subject)
     if due:
         print(f"vledger: L1 is not current ({due}); derive all --write brings it up to date",
               file=sys.stderr)
+
+
+def _exported(args, kind: str) -> list[dict]:
+    """One kind's events as L1 holds them, within --since and --until."""
+    base, subject = _base(args), _subject(args)
+    _l1_as_it_is(base, subject, "export")
     return export.within(l1.read(base, subject, kind), args.since, args.until)
 
 
@@ -478,6 +483,16 @@ def cmd_export_json(args) -> int:
 def cmd_export_gpx(args) -> int:
     found = _exported(args, "trip")
     return _emit(args, export.to_gpx(found), len(found), "trip")
+
+
+def cmd_report_metrics(args) -> int:
+    base, subject = _base(args), _subject(args)
+    if subject.kind != "vehicle":
+        raise Usage("a report is a vehicle's; a charge point's L1 holds no events")
+    _l1_as_it_is(base, subject, "report on")
+    r = report.from_l1(base, subject, since=args.since, until=args.until)
+    text = json.dumps(r, indent=2, ensure_ascii=False) + "\n" if args.json else report.table(r)
+    return _emit(args, text, len(r["intervals"]), "tank-to-tank interval")
 
 
 # --- calc verbs: the atoms ---------------------------------------------------
@@ -703,6 +718,18 @@ def build_parser() -> argparse.ArgumentParser:
     sp = everbs.add_parser("gpx", help="the trips as GPX 1.1, a track each from its waypoints")
     export_common(sp)
     sp.set_defaults(func=cmd_export_gpx)
+
+    p_report = nouns.add_parser("report", help="the metrics of a freely chosen span, from L1")
+    rpverbs = p_report.add_subparsers(dest="verb", metavar="<verb>", required=True)
+    sp = rpverbs.add_parser("metrics", help="a period line's metrics for the span, and the "
+                                           "tank-to-tank intervals in it with their mean "
+                                           "outside temperature")
+    _add_stream_args(sp)
+    sp.add_argument("--since", help="the span's start, inclusive (default: the stream's first line)")
+    sp.add_argument("--until", help="the span's end, inclusive (default: the stream's last line)")
+    sp.add_argument("--json", action="store_true", help="the report as JSON instead of a table")
+    sp.add_argument("--out", metavar="FILE", help="write the file instead of printing it")
+    sp.set_defaults(func=cmd_report_metrics)
 
     p_calc = nouns.add_parser("calc", help="the atoms the derivations are built from")
     cverbs = p_calc.add_subparsers(dest="verb", metavar="<verb>", required=True)

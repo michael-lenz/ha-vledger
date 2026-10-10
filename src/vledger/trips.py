@@ -269,8 +269,7 @@ def derive(s: Stream, *, completed_only: bool = False) -> list[Trip]:
         waypoints = ([start_fix] if start_fix and start_fix not in inside else []) + inside
         end_fix = waypoints[-1] if waypoints else None
         km, kq, ksrc = _distance(s, start, end, waypoints)
-        temps = series.between(s.series.get("outside_temperature", []), start, end)
-        temp = round(sum(x.value for x in temps) / len(temps), 1) if temps else None
+        temp = series.mean(series.between(s.series.get("outside_temperature", []), start, end))
         out.append(Trip(
             kind="trip", subject=s.subject.id, start=start, end=end,
             quality=INCOMPLETE if crossed else MEASURED,

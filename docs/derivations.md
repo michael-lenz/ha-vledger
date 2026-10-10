@@ -219,7 +219,11 @@ level and SoC read at the boundaries for the stock correction, never
 across a gap, and each metric flagged with the weakest of what it rests
 on. Fuel consumption is tank to tank between receipts, corrected by the
 level sensor, with its error bound beside it. The definitions are
-[l1-format.md](l1-format.md#periods).
+[l1-format.md](l1-format.md#periods). The same arithmetic over a span
+chosen freely is the report, `vledger report metrics`, computed from the
+event files and the stream on demand; it also lists every tank-to-tank
+interval in the span with the mean outside temperature between its two
+refuellings (VER-09).
 
 **Limitations.** Counts over a period with a capture gap are lower bounds,
 and `gaps` says how many there were. Without `battery_net_kwh` there is no

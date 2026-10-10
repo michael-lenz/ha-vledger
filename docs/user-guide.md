@@ -12,8 +12,8 @@ corrected, cancelled and matched with the `receipt` verbs and `derive
 match`, and in Home Assistant with actions and a dashboard form; the
 last trip, refuelling and charging session and what waits for a receipt
 are entities; L1 is exported as CSV, JSON and GPX with the `export`
-verbs. Metric entities, reports and an export action in Home Assistant
-are planned.
+verbs, and `report metrics` gives the metrics of any span. Metric
+entities and an export action in Home Assistant are planned.
 
 ## In Home Assistant
 
@@ -488,6 +488,32 @@ vledger export gpx --vehicle a7c1 --since 2026-10-01T00:00:00Z --out october.gpx
 kind whatever it holds; how nested values become columns, and what a GPX
 track holds, is [l1-format.md](l1-format.md#exports).
 
+## Reports: `vledger report`
+
+The metrics of a span you choose — a quarter, a holiday, the time between
+two services — computed from the events in L1 and the raw log rather than
+read from the periods, so any span works:
+
+```bash
+vledger report metrics --vehicle a7c1                                   # the whole of capture
+vledger report metrics --vehicle a7c1 --since 2026-07-01T00:00:00Z --until 2026-09-30T23:59:59Z
+vledger report metrics --vehicle a7c1 --since 2026-07-01T00:00:00Z --json --out q3.json
+```
+
+The table has every metric of a period line
+([above](#periods)) with its quality, whether the fuel level and the
+state of charge could be read at both bounds, the fuel consumption chosen
+among the span's tank-to-tank intervals the way the lifetime line chooses
+among all of them — and then every such interval that lies in the span:
+its two receipts, how many it spans, litres per 100 km, its possible
+error, and the mean outside temperature between the two refuellings. The
+charge cycles and tank fills are the span's own; the starting values from
+before capture are the lifetime line's. `--since` and `--until` are
+inclusive and default to the stream's first and last line; `--json` gives
+the same as one object, `report` and `intervals`, for a spreadsheet or
+a script. Like an export, a report reads L1 as it is and says when it is
+not current.
+
 ## The atoms: `vledger calc`
 
 The computations the derivations are built from, each callable on its own
@@ -498,8 +524,3 @@ vledger calc distance 51.4437 7.1413 51.4812 7.2166     # great-circle, km
 vledger calc convert 630 mi --quantity distance         # 1013.89 km
 vledger calc convert 72 "°F" --quantity temperature     # 22.2222 °C
 ```
-
-## Planned
-
-`vledger report …` follows the same shape: a noun, a verb, `--base` and
-the subject.

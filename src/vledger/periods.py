@@ -29,6 +29,21 @@ RECEIPT, MEASURED, ESTIMATED, INCOMPLETE = "receipt", "measured", "estimated", "
 ORDER = (RECEIPT, MEASURED, ESTIMATED, INCOMPLETE)
 
 MONTH, YEAR, ROLLING, LIFETIME = "month", "year", "rolling", "lifetime"
+#: A span chosen freely, by the report (CLI-04): never a line of periods.jsonl.
+REPORT = "report"
+
+#: The metrics of a period line (ADR-0014, point 4), in order; each with
+#: ``<key>_quality`` beside it.
+METRICS = ("distance_km", "fuel_purchased_l", "fuel_cost_eur", "fuel_consumed_l",
+           "grid_kwh", "electricity_cost_eur", "battery_kwh",
+           "grid_kwh_per_100km", "battery_kwh_per_100km", "fuel_eur_per_100km",
+           "electricity_eur_per_100km", "eur_per_100km", "electric_energy_share",
+           "electric_distance_share", "charge_cycles", "tank_fills")
+
+#: What the lifetime line — and a report — say about the vehicle's fuel
+#: consumption (ADR-0014, point 5).
+CONSUMPTION = ("consumption_l_per_100km", "consumption_quality", "consumption_from",
+               "consumption_to", "consumption_receipts", "consumption_error_pct")
 
 
 def weakest(*qualities: str | None) -> str:
@@ -78,13 +93,14 @@ def spans(first_t: str, last_t: str, zone, rolling_days: float) -> list[tuple[st
 
 def _within(e: dict, period: str, start: str, end: str) -> bool:
     """Whether an event belongs to a period: by its start, the period's
-    end excluded — except where the end is the stream's last line. The
-    lifetime holds every event, a receipt anchored before capture too."""
+    end excluded — except where the end is the stream's last line, or a
+    bound somebody chose. The lifetime holds every event, a receipt
+    anchored before capture too."""
     if period == LIFETIME:
         return True
     t = clock.parse(e["start"])
     lo, hi = clock.parse(start), clock.parse(end)
-    return lo <= t and (t < hi or (period in (ROLLING, LIFETIME) and t == hi))
+    return lo <= t and (t < hi or (period in (ROLLING, REPORT) and t == hi))
 
 
 # --- the stock at a boundary -------------------------------------------------
@@ -243,7 +259,7 @@ def metrics(s: Stream, events: dict[str, list[dict]], period: str, start: str, e
     lo, hi = clock.parse(start), clock.parse(end)
     gaps = sum(1 for g in s.gaps if clock.parse(g.start) < hi and clock.parse(g.end) > lo)
 
-    m = {
+    m = {   # in the order of METRICS
         "distance_km": (_r(km, 3), km_q),
         "fuel_purchased_l": (_r(litres, 3), litres_q),
         "fuel_cost_eur": (_r(fuel_cost, 2), fuel_cost_q),
@@ -271,6 +287,7 @@ def metrics(s: Stream, events: dict[str, list[dict]], period: str, start: str, e
         "period": period,
         "open": clock.parse(end) > clock.parse(last_t),
     }
+    assert tuple(m) == METRICS
     for key, (value, q) in m.items():
         line[key] = value
         line[key + "_quality"] = q if value is not None else None
@@ -324,25 +341,26 @@ def intervals(s: Stream, refuellings: list[dict]) -> list[dict]:
     return out
 
 
+def chosen(found: list[dict], limit: float) -> dict:
+    """The consumption among intervals as :func:`intervals` lists them
+    (VER-10): the latest whose relative error is below ``limit``, extended
+    over as many receipts as it takes; a full-to-full one always
+    qualifies. With none, the latest interval with its error — unknown
+    without a sensor resolution — and never suppressed."""
+    x = next((x for x in found if x["error_pct"] is not None and x["error_pct"] < limit),
+             found[0] if found else None)
+    if x is None:
+        return dict.fromkeys(CONSUMPTION)
+    return {"consumption_l_per_100km": _r(x["l_per_100km"], 3),
+            "consumption_quality": x["quality"],
+            "consumption_from": x["from"], "consumption_to": x["to"],
+            "consumption_receipts": x["receipts"],
+            "consumption_error_pct": _r(x["error_pct"], 2)}
+
+
 def consumption(s: Stream, refuellings: list[dict]) -> dict:
-    """The vehicle's consumption (VER-10): the latest interval whose
-    relative error is below the threshold, extended over as many receipts
-    as it takes; a full-to-full one always qualifies. With none, the latest
-    interval with its error — unknown without a sensor resolution — and
-    never suppressed."""
-    limit = float(s.thresholds()["consumption_error_pct"])
-    found = intervals(s, refuellings)
-    chosen = next((x for x in found if x["error_pct"] is not None and x["error_pct"] < limit),
-                  found[0] if found else None)
-    if chosen is None:
-        return {"consumption_l_per_100km": None, "consumption_quality": None,
-                "consumption_from": None, "consumption_to": None,
-                "consumption_receipts": None, "consumption_error_pct": None}
-    return {"consumption_l_per_100km": _r(chosen["l_per_100km"], 3),
-            "consumption_quality": chosen["quality"],
-            "consumption_from": chosen["from"], "consumption_to": chosen["to"],
-            "consumption_receipts": chosen["receipts"],
-            "consumption_error_pct": _r(chosen["error_pct"], 2)}
+    """The vehicle's consumption: :func:`chosen` over every interval."""
+    return chosen(intervals(s, refuellings), float(s.thresholds()["consumption_error_pct"]))
 
 
 # --- the file ----------------------------------------------------------------

@@ -23,7 +23,7 @@ import json
 from collections.abc import Iterable
 from xml.etree import ElementTree as ET
 
-from vledger import __version__, clock
+from vledger import __version__, clock, periods
 
 ENVELOPE = ("kind", "subject", "start", "end", "quality", "version")
 POSITION = ("t", "latitude", "longitude", "accuracy_m")
@@ -58,15 +58,8 @@ COLUMNS: dict[str, tuple[str, ...]] = {
         "sensor_grid_kwh", "sensor_grid_kwh_quality", "sensor_grid_kwh_source",
         "place", "provider", "note", *_PLAUSIBILITY),
     "period": ENVELOPE + ("period", "open") + tuple(
-        k for m in ("distance_km", "fuel_purchased_l", "fuel_cost_eur", "fuel_consumed_l",
-                    "grid_kwh", "electricity_cost_eur", "battery_kwh",
-                    "grid_kwh_per_100km", "battery_kwh_per_100km", "fuel_eur_per_100km",
-                    "electricity_eur_per_100km", "eur_per_100km", "electric_energy_share",
-                    "electric_distance_share", "charge_cycles", "tank_fills")
-        for k in (m, m + "_quality")) + (
-        "fuel_level_corrected", "soc_corrected", "gaps",
-        "consumption_l_per_100km", "consumption_quality", "consumption_from",
-        "consumption_to", "consumption_receipts", "consumption_error_pct"),
+        k for m in periods.METRICS for k in (m, m + "_quality")) + (
+        "fuel_level_corrected", "soc_corrected", "gaps", *periods.CONSUMPTION),
 }
 
 #: Keys whose value is a position (series.fix_dict), and the one dict that is not.
