@@ -215,12 +215,13 @@ Every metric entity's attributes are its line's **Start**, **End**,
 fuel metrics add whether the fuel level corrected them, electricity
 metrics whether the state of charge did.
 
-A charge still running, or a trip whose standstill has not yet elapsed,
-is left out of the figures entirely — its distance, its energy and the
-fuel level and state of charge it changed — until it is complete. So
-while you charge, and for the standstill time after a trip (half an
-hour unless configured otherwise), the month's figures hold still, and
-then step once.
+A charge still running, a trip whose standstill has not yet elapsed, or
+a refuelling whose level has not yet settled is left out of the figures
+entirely — its distance, its energy, its litres and the fuel level and
+state of charge it changed — until it is complete. So while you charge,
+for the standstill time after a trip (half an hour unless configured
+otherwise) and for the settling time after a fill (six minutes), the
+month's figures hold still, and then step once.
 
 What they keep as statistics:
 

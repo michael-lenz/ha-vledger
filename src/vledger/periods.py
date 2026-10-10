@@ -12,7 +12,8 @@ An event belongs to the period its ``start`` falls in, and nothing is
 split; the stock is read at a boundary moved forward to the end of any
 trip or session under way across it, so what an event used or added
 counts where its distance and energy count — and back to the start of
-one that is not yet an event of L1, which counts nowhere yet (ADR-0033).
+one that is not yet an event of L1, which counts nowhere yet (ADR-0033);
+a refuelling moves it likewise (ADR-0034).
 """
 
 from __future__ import annotations
@@ -109,11 +110,11 @@ def _within(e: dict, period: str, start: str, end: str) -> bool:
 def reading_time(t: str, spanning: list[dict], first_t: str, last_t: str,
                  under_way: list[str] = ()) -> str:
     """Where the stock is read for a boundary at ``t``: moved forward to the
-    end of any trip or session under way across it, then back to the start
-    of any that had begun by then but is not yet an event (``under_way``,
-    :func:`under_way`; ADR-0033), and kept within the stream — a period
-    that began before capture is read from capture's start, one still
-    running at its last line."""
+    end of any event under way across it (:func:`spanning`), then back to
+    the start of any that had begun by then but is not yet an event
+    (``under_way``, :func:`under_way`; ADR-0033, ADR-0034), and kept within
+    the stream — a period that began before capture is read from capture's
+    start, one still running at its last line."""
     at = clock.parse(t)
     moved = True
     while moved:
@@ -126,18 +127,39 @@ def reading_time(t: str, spanning: list[dict], first_t: str, last_t: str,
     return clock.to_text(at)
 
 
+def spanning(events: dict[str, list[dict]]) -> list[dict]:
+    """The events a boundary's reading moves forward past, as ``start`` and
+    ``end``: trips and charging sessions to their end (ADR-0014, point 3),
+    refuellings to where their level after was read (ADR-0034, point 1) —
+    a receipt that met nothing has no such reading and moves nothing."""
+    return (events.get("trip", []) + events.get("charging", [])
+            + [{"start": e["start"], "end": e["settled_at"]}
+               for e in events.get("refuelling", []) if e.get("settled_at")])
+
+
+def _before(t: str) -> str:
+    """The last instant before ``t``: what was in effect until a sample at
+    ``t`` changed it."""
+    return clock.to_text(clock.parse(t) - timedelta(milliseconds=1))
+
+
 def under_way(base: Path, subject: Subject, events: dict[str, list[dict]]) -> list[str]:
-    """The start of every trip and charging session that has begun by the
-    stream's last line but is not an event of ``events`` (ADR-0033, point
-    2): still under way, a trip whose standstill has not elapsed, a session
-    waiting for another stream (ADR-0027). Each kind is read from its
-    cursor on, as the live writer reads it, and what starts after the
-    cursor is what L1 does not hold."""
-    from vledger import charging, trips  # they import this module
+    """Where the stock is read for every trip, charging session and
+    refuelling that has begun by the stream's last line but is not an
+    event of ``events``: still under way, a trip whose standstill has not
+    elapsed, a session waiting for another stream (ADR-0027), a refuelling
+    whose T_settle has not (ADR-0033, point 2; ADR-0034, point 2). That is
+    its start — for a refuelling the instant before, since its start is the
+    first sample that shows the rise. Each kind is read from its cursor on,
+    as the live writer reads it, and what starts after the cursor is what
+    L1 does not hold."""
+    # Each of them imports this module, if only through trips.
+    from vledger import charging, refuellings, trips
 
     out = []
     for kind, begun in (("trip", lambda s: [x.start for x in trips.derive(s)]),
-                        ("charging", charging.begun)):
+                        ("charging", charging.begun),
+                        ("refuelling", lambda s: [_before(x.start) for x in refuellings.derive(s)])):
         cursor = l1.through_of(events.get(kind, []))
         s = series.load(base, subject, since=cursor)
         out += [x for x in begun(s) if cursor is None or clock.parse(x) > clock.parse(cursor)]
@@ -207,9 +229,9 @@ def metrics(s: Stream, events: dict[str, list[dict]], period: str, start: str, e
     sessions = [e for e in events.get("charging", []) if _within(e, period, start, end)]
     all_refuellings = events.get("refuelling", [])
     refuellings = [e for e in all_refuellings if _within(e, period, start, end)]
-    spanning = events.get("trip", []) + events.get("charging", [])
-    t0 = reading_time(start, spanning, first_t, last_t, under_way)
-    t1 = reading_time(min(end, last_t, key=clock.parse), spanning, first_t, last_t, under_way)
+    moving = spanning(events)
+    t0 = reading_time(start, moving, first_t, last_t, under_way)
+    t1 = reading_time(min(end, last_t, key=clock.parse), moving, first_t, last_t, under_way)
 
     # Distance: the trips, by their start (ADR-0014, 3).
     km = sum(e["distance_km"] for e in trips if e.get("distance_km") is not None)

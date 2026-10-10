@@ -261,6 +261,23 @@ def test_a_soc_run_not_yet_over_is_not_read_into_the_stock(tmp_path, capsys):
     assert month(tmp_path)["battery_kwh"] == 1
 
 
+def replayed_line_by_line(live, replay):
+    """The vehicle's stream of ``live`` written again line by line, the live
+    writer run after each, its periods equal to a fresh derivation of the
+    same lines every time."""
+    shutil.copytree(live / "chargepoint-home", replay / "chargepoint-home")
+    src = live / "vehicle-a7c1" / "l0" / "2026-10.jsonl"
+    dst = replay / "vehicle-a7c1" / "l0" / "2026-10.jsonl"
+    dst.parent.mkdir(parents=True)
+    with open(dst, "a") as f:
+        for line in src.read_text().splitlines(keepends=True):
+            f.write(line)
+            f.flush()
+            l1.incremental(replay, V)
+            assert list(l1.read(replay, V, "period")) == periods.derive_from(replay, V)
+    return replay
+
+
 def test_line_by_line_the_periods_equal_a_fresh_derivation_across_completions(tmp_path, capsys):
     """Each line appended and the live writer run equals deriving the same
     prefix afresh — while the charge and the trip are under way, and at the
@@ -274,20 +291,52 @@ def test_line_by_line_the_periods_equal_a_fresh_derivation_across_completions(tm
     trip(v, 300, 1030, 10, soc=70)
     v.heartbeat(400)
     home.heartbeat(400)
-    replay = tmp_path / "replay"
-    shutil.copytree(live / "chargepoint-home", replay / "chargepoint-home")
-    src = live / "vehicle-a7c1" / "l0" / "2026-10.jsonl"
-    dst = replay / "vehicle-a7c1" / "l0" / "2026-10.jsonl"
-    dst.parent.mkdir(parents=True)
-    with open(dst, "a") as f:
-        for line in src.read_text().splitlines(keepends=True):
-            f.write(line)
-            f.flush()
-            l1.incremental(replay, V)
-            assert list(l1.read(replay, V, "period")) == periods.derive_from(replay, V)
+    replay = replayed_line_by_line(live, tmp_path / "replay")
     assert len(list(l1.read(replay, V, "charging"))) == 2 and len(list(l1.read(replay, V, "trip"))) == 2
     # 1 kWh each trip: 1 + 3 charged, less the SoC risen from 50 to 70 %.
     assert month(replay)["battery_kwh"] == 2
+
+
+def test_a_refuelling_moves_the_stock_reading_like_the_other_events():
+    first, last = "2026-10-01T00:00:00.000Z", "2026-11-30T00:00:00.000Z"
+    fill = {"start": "2026-10-31T22:58:00.000Z", "end": "2026-10-31T23:01:00.000Z",
+            "settled_at": "2026-10-31T23:07:00.000Z"}
+    own = {"start": "2026-10-31T22:30:00.000Z", "end": "2026-10-31T23:30:00.000Z"}
+    moving = periods.spanning({"refuelling": [fill, own]})
+    # Forward to where its level after was read (ADR-0034, point 1); a
+    # receipt that met nothing read no level and moves nothing.
+    assert moving == [{"start": fill["start"], "end": fill["settled_at"]}]
+    assert periods.reading_time("2026-10-31T23:00:00.000Z", moving, first, last) == fill["settled_at"]
+
+
+def test_a_refuelling_still_settling_is_not_read_into_the_stock(tmp_path, capsys):
+    """A fill three minutes before the last line, T_settle six: the level
+    is read as it stood before the rise (ADR-0034, point 2), then the fill
+    enters whole once settled."""
+    v = vehicle(tmp_path, capsys)
+    trip(v, 0, 1000, 30, fuel=17)
+    v.state(100, "fuel_level", 37, "L")
+    v.heartbeat(103)
+    m = month(tmp_path)
+    assert m["fuel_purchased_l"] == 0 and m["fuel_consumed_l"] == 3     # not −17 (ISSUE-0047)
+    v.heartbeat(110)
+    m = month(tmp_path)
+    assert m["fuel_purchased_l"] == 20 and m["fuel_consumed_l"] == 3
+
+
+def test_line_by_line_a_refuelling_settles_into_the_periods_as_derived_afresh(tmp_path, capsys):
+    live = tmp_path / "live"
+    v, home = charged_then_driven(live, capsys)
+    v.state(150, "fuel_level", 19, "L")     # read at rest after the trip
+    v.state(200, "fuel_level", 30, "L")
+    v.state(202, "fuel_level", 37, "L")     # the pump seen in two steps
+    v.heartbeat(240)
+    home.heartbeat(240)
+    replay = replayed_line_by_line(live, tmp_path / "replay")
+    assert len(list(l1.read(replay, V, "refuelling"))) == 1
+    m = month(replay)
+    # 18 L bought, 1 L used: 20 at capture's start, 37 at the last line.
+    assert m["fuel_purchased_l"] == 18 and m["fuel_consumed_l"] == 1
 
 
 def partial_fills(base, capsys, resolution):
