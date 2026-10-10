@@ -97,7 +97,11 @@ sensor pair), and `in_use`; markers `ignition`, `plug_state`,
    — within T_still after the last movement moves the end forward to it,
    the earliest winning. Each is a time the vehicle was not driving, so
    each bounds the true boundary; none ever crosses the previous trip's
-   end, and none makes a trip without movement. Lock and engine are never
+   end, and none makes a trip without movement. A marker written in the
+   same poll as the boundary movement — within a second on its far side,
+   in whichever order Home Assistant wrote the two lines — bounds the
+   trip too: it moves nothing, the movement being the outer line, but
+   `refined_by` names it (ISSUE-0031). Lock and engine are never
    end markers: the car locks itself on driving off, and an engine stops
    while a hybrid drives on. `refined_by` names the role that moved each
    end, or `null`.

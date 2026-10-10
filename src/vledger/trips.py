@@ -36,6 +36,12 @@ MEASURED, ESTIMATED, INCOMPLETE = "measured", "estimated", "incomplete"
 #: Where a trip's fuel figure was read (ADR-0025, point 2).
 TRIP_COMPUTER, FUEL_LEVEL = "trip_computer", "fuel_level"
 
+#: The lines of one poll land milliseconds apart, in an order Home Assistant
+#: chooses. A marker this close to a boundary movement is at it (ISSUE-0031),
+#: and a slower role's report this close to a faster role's is of the same
+#: poll (ADR-0021, point 4) — well under any sampling interval.
+POLL_GRACE = timedelta(seconds=1)
+
 
 @dataclass(frozen=True)
 class Movement:
@@ -221,24 +227,29 @@ def _refine(start: str, end: str, t_still_s: float, starts: list[Marker],
     ends it (ADR-0012). Each is a time the vehicle was not driving, so each
     bounds the true boundary and the closest is the best. Never the sole
     criterion — without movement there is no trip — and never across the
-    previous trip's end, ``floor``."""
+    previous trip's end, ``floor``.
+
+    A marker written in the same poll as the boundary movement, within
+    :data:`POLL_GRACE` on its far side, bounds the trip too (ISSUE-0031):
+    it moves no boundary, since the movement is the outer line, but
+    ``refined_by`` names it."""
     still = timedelta(seconds=t_still_s)
     ts, te = clock.parse(start), clock.parse(end)
     lo = clock.parse(floor) if floor else None
     by = {"start": None, "end": None}
     for m in reversed(starts):
         tm = clock.parse(m.t)
-        if tm > ts:
+        if tm > ts + POLL_GRACE:
             continue
         if ts - tm <= still and (lo is None or tm > lo):
-            start, by["start"] = m.t, m.role
+            start, by["start"] = min(start, m.t, key=clock.parse), m.role
         break
     for m in ends:
         tm = clock.parse(m.t)
-        if tm < te:
+        if tm < te - POLL_GRACE:
             continue
         if tm - te <= still:
-            end, by["end"] = m.t, m.role
+            end, by["end"] = max(end, m.t, key=clock.parse), m.role
         break
     return start, end, by
 
@@ -280,8 +291,8 @@ def _moving_until(moves: list[Movement], intervals: dict[str, float]) -> str:
     slower role's late report (ADR-0021, point 4). A role is slower when its
     measured interval is longer; a report is late when it follows the last
     movement of a faster role by no more than its own interval — the old
-    value was last heard no later than that movement (one second's grace for
-    lines of one poll). The faster role stopped changing first, so the
+    value was last heard no later than that movement (:data:`POLL_GRACE`
+    for lines of one poll). The faster role stopped changing first, so the
     vehicle had stopped by then."""
     ms = sorted(moves, key=lambda m: clock.parse(m.t))
     i = len(ms) - 1
@@ -291,7 +302,7 @@ def _moving_until(moves: list[Movement], intervals: dict[str, float]) -> str:
             break
         faster = [f for f in ms[:i] if f.role != m.role
                   and intervals.get(f.role, intervals[m.role]) < intervals[m.role]]
-        if not faster or (clock.parse(m.t) - clock.parse(faster[-1].t)).total_seconds() > m.interval_s + 1:
+        if not faster or clock.parse(m.t) - clock.parse(faster[-1].t) > timedelta(seconds=m.interval_s) + POLL_GRACE:
             break
         i -= 1
     return ms[i].t
@@ -312,8 +323,6 @@ def _while_plugged(s: Stream, moves: list[Movement]) -> int:
                 n += 1
                 break
     return n
-
-
 
 
 def _start_value(s: Stream, samples: list, start: str):

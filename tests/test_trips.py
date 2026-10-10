@@ -171,6 +171,33 @@ def test_markers_beyond_t_still_or_through_an_outage_refine_nothing(tmp_path, ca
     assert t.refined_by == {"start": None, "end": None}
 
 
+def test_a_marker_in_the_same_poll_as_a_boundary_movement_still_bounds_the_trip(tmp_path, capsys):
+    """ISSUE-0031: the ignition went off and the odometer rose in one poll,
+    the ignition's line milliseconds before the odometer's — the lines of
+    one poll land in an order Home Assistant chooses. The marker names
+    the end; the trip's time stays the movement's, the outer line."""
+    ms = 0.005 / 60                                 # five milliseconds, in minutes
+    b = Builder(tmp_path, capsys)
+    b.heartbeat(0).heartbeat(60)
+    b.state(75, "odometer", 1007, "km").fix(75, *ROAD[0])
+    b.state(75 + ms, "ignition", "on")              # the same poll as the first moving sample
+    b.state(90, "odometer", 1015, "km").fix(90, *ROAD[1])
+    b.state(105 - ms, "ignition", "off")            # the same poll as the last, written first
+    b.state(105, "odometer", 1022, "km").fix(105, *ROAD[2])
+    b.heartbeat(165)
+    t, = trips.derive_from(tmp_path, V)
+    assert (t.start, t.end) == (at(75), at(105))
+    assert t.refined_by == {"start": "ignition", "end": "ignition"}
+    # Two seconds before the last movement is inside the trip, not at its end.
+    b2 = Builder(tmp_path / "inside", capsys)
+    b2.heartbeat(0).heartbeat(60)
+    end = plain_drive(b2, 60)
+    b2.state(end - 2 / 60, "ignition", "off")
+    b2.heartbeat(end + 60)
+    t, = trips.derive_from(tmp_path / "inside", V)
+    assert t.end == at(end) and t.refined_by["end"] is None
+
+
 def test_a_movement_while_plugged_counts_and_is_reported(tmp_path, capsys):
     b = Builder(tmp_path, capsys)
     b.heartbeat(0).heartbeat(60)
