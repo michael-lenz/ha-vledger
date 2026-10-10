@@ -242,9 +242,12 @@ driving cycle, at the stop, and is read as legs instead of steps 2 and 3:
 
 **Limitations.** A rise between two odometer samples taken while driving
 looks like one at rest; the threshold is what keeps a sloshing tank from
-being a refuelling, and a top-up smaller than it is not seen. A sensor
-that reports in coarse steps (`fuel_level_resolution_l`) makes the delta
-coarse too — which is why the receipt's litres come first.
+being a refuelling, and a top-up smaller than it is not seen. A level
+that errs by more than its display step — `fuel_level_resolution_l` is
+that error, not the step ([glossary](glossary.md), *Sensor resolution*) —
+makes the delta err by twice as much, which is why the receipt's litres
+come first; a rise within the error looks like a top-up, which is why the
+threshold has to exceed it.
 
 ## Charging sessions
 

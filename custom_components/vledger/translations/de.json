@@ -140,6 +140,10 @@
           "tank_fills_start": "Tankfüllungen vor Erfassungsbeginn",
           "movement_reporting": "Wie Bewegung gemeldet wird",
           "soc_resolution_pct": "Auflösung des Ladestandsensors"
+        },
+        "data_description": {
+          "fuel_level_resolution_l": "Um wie viel ein Messwert des Füllstands danebenliegen kann, nicht sein Anzeigeschritt: ein auf 0,1 L angezeigter Stand, der um einen Liter falsch sein kann, hat eine Auflösung von 1 L. Sie begrenzt jede Größe, die aus einer Änderung des Füllstands gelesen wird — den Kraftstoff einer Fahrt, einen Verbrauch zwischen Teilbetankungen.",
+          "soc_resolution_pct": "Um wie viel ein Messwert des Ladestands danebenliegen kann; 1 für einen in ganzen Prozent gemeldeten Wert. Sie begrenzt jede Größe, die aus einer Änderung des Ladestands gelesen wird."
         }
       },
       "thresholds": {
@@ -160,6 +164,9 @@
           "temperature_tau_s": "Tiefpass-Zeitkonstante der Außentemperatur",
           "exit_window_s": "Aussteige-Fenster um eine Ankunft (Fahrzeuge mit Meldung pro Fahrzyklus)",
           "trip_consumption_step_l_per_100km": "Anzeigeschritt des Bordcomputer-Durchschnitts"
+        },
+        "data_description": {
+          "refuel_threshold_l": "Der kleinste Anstieg des Füllstands, der als Betankung zählt. Über den größten Anstieg setzen, den der Sensor ohne Betankung zeigt — ein Stand, der um 3 L danebenliegt, braucht 5 L — sonst wird jedes Schwappen ein Kandidat."
         }
       },
       "meter": {

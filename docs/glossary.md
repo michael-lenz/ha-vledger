@@ -228,6 +228,13 @@ how the vehicle reports movement — sampled while driving, or once per
 driving cycle (ADR-0024). Each is mandatory only when an enabled
 derivation needs it.
 
+**Sensor resolution.** What a reading of the fuel level or of the state of
+charge may be off by — the sensor's uncertainty, not its display step: a
+level shown to 0.1 L that errs by a litre has a resolution of 1 L
+(ISSUE-0033; ADR-0025 reads the parameter so). Twice the resolution bounds
+every figure read from a change of that sensor, and a figure that does
+not exceed its bound is not reported as one.
+
 **Thresholds and time constants.** T_still, the refuelling threshold,
 T_settle, the charging threshold (SoC fallback), the matching tolerance,
 the plausibility threshold receipt/sensor, the heartbeat interval, the

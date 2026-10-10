@@ -140,6 +140,10 @@
           "tank_fills_start": "Tank fills before capture began",
           "movement_reporting": "How movement is reported",
           "soc_resolution_pct": "State of charge sensor resolution"
+        },
+        "data_description": {
+          "fuel_level_resolution_l": "What a reading of the level may be off by, not its display step: a level shown to 0.1 L that can be wrong by a litre has a resolution of 1 L. It bounds every figure read from a change of the level — a trip's fuel, a consumption between partial fills.",
+          "soc_resolution_pct": "What a reading of the state of charge may be off by; 1 for a value reported in whole percent. It bounds every figure read from a change of the state of charge."
         }
       },
       "thresholds": {
@@ -160,6 +164,9 @@
           "temperature_tau_s": "Temperature low-pass time constant",
           "exit_window_s": "Exit window around an arrival (per-cycle vehicles)",
           "trip_consumption_step_l_per_100km": "Display step of the trip computer's average"
+        },
+        "data_description": {
+          "refuel_threshold_l": "The smallest rise of the fuel level that counts as a refuelling. Set it above the largest rise the sensor shows without one — a level that errs by 3 L needs 5 L — or every slosh becomes a candidate."
         }
       },
       "meter": {

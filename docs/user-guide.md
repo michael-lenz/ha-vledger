@@ -511,7 +511,9 @@ stop ([glossary](glossary.md), *Sampling interval*).
 
 A refuelling candidate is a rise of the fuel level by at least the
 refuelling threshold (3 L) between two samples while the odometer stood
-([glossary](glossary.md), *Refuelling*); a pump the sensor sees in
+([glossary](glossary.md), *Refuelling*) — set the threshold above the
+largest rise your level sensor shows without a refuelling, 5 L for a
+sensor that errs by 3, or every slosh becomes a candidate; a pump the sensor sees in
 several steps is one candidate, from `start`, the first sample that rose,
 to `end`, the last. It carries the position and zone where the vehicle
 stood, `level_before_l`, `level_after_l` read once T_settle (6 min) has
