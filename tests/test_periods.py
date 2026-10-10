@@ -8,7 +8,7 @@ import shutil
 import pytest
 
 from test_charging import HOME, HOME_TARIFFS, Stream, at, charge, chargepoint
-from vledger import clock, l1, periods
+from vledger import clock, l1, periods, series
 from vledger import config as vconfig
 from vledger.cli import main
 from vledger.layout import Subject
@@ -337,6 +337,71 @@ def test_line_by_line_a_refuelling_settles_into_the_periods_as_derived_afresh(tm
     m = month(replay)
     # 18 L bought, 1 L used: 20 at capture's start, 37 at the last line.
     assert m["fuel_purchased_l"] == 18 and m["fuel_consumed_l"] == 1
+
+
+def reloaded(v, stop_at, start_at, soc_since, fuel_since, reason="reload"):
+    """Capture stopped and started again with a snapshot of the day as it
+    stands — every value repeated, each role's ``since`` as given."""
+    v.run("stop", *v.b, "--t", at(stop_at), "--reason", reason)
+    snapshot = [
+        {"role": "odometer", "entity": "sensor.o", "state": "1060", "unit": "km", "since": at(245)},
+        {"role": "position", "entity": "device_tracker.v", "state": "home", "since": at(-120),
+         "attrs": {"latitude": HOME[0], "longitude": HOME[1], "gps_accuracy": 0}},
+        {"role": "soc", "entity": "sensor.s", "state": "50", "unit": "%", "since": soc_since},
+        {"role": "fuel_level", "entity": "sensor.f", "state": "37", "unit": "L", "since": fuel_since},
+        {"role": "charging_state", "entity": "sensor.c", "state": "Done", "since": at(161)},
+    ]
+    v.run("start", *v.b, "--t", at(start_at), "--homeassistant", "2026.9.4",
+          "--snapshot", json.dumps(snapshot))
+
+
+STOCK = ("soc_corrected", "fuel_level_corrected", "fuel_consumed_l", "battery_kwh",
+         "electric_distance_share")
+
+
+def test_a_restart_whose_snapshot_held_through_the_gap_keeps_the_stock_correction(tmp_path, capsys):
+    """ADR-0035 (ISSUE-0048): the snapshot repeats every value with a since
+    before the stop, so each is a reading at the start line, and the open
+    month's figures stay what they were — for as long as nothing changes."""
+    v = a_day(tmp_path, capsys)
+    before = month(tmp_path)
+    assert before["soc_corrected"] and before["fuel_level_corrected"]
+    reloaded(v, 401, 401, soc_since=at(245), fuel_since=at(280))
+    v.run("heartbeat", *v.b, "--t", at(402), "--lines", "0")
+    m = month(tmp_path)
+    assert m["gaps"] == 1
+    assert {k: m[k] for k in STOCK} == {k: before[k] for k in STOCK}
+    v.heartbeat(440)
+    assert {k: month(tmp_path)[k] for k in STOCK} == {k: before[k] for k in STOCK}
+    assert [x.t for x in series.load(tmp_path, V).series["soc"] if x.t >= at(401)] == [at(401)]
+    # The role's next change moves the stock as it always did.
+    v.state(441, "soc", 49, "%")
+    assert month(tmp_path)["battery_kwh"] == 2.1
+
+
+def test_a_snapshot_entry_whose_since_lies_inside_the_gap_is_no_reading_after_it(tmp_path, capsys):
+    """ADR-0035, the limit: a state written inside the gap — Home Assistant
+    restarted, or the entity re-created — vouches for nothing across it,
+    and that role's correction waits for its next change as before."""
+    v = a_day(tmp_path, capsys)
+    reloaded(v, 401, 405, soc_since=at(403), fuel_since=at(280), reason="shutdown")
+    v.run("heartbeat", *v.b, "--t", at(406), "--lines", "0")
+    m = month(tmp_path)
+    assert m["soc_corrected"] is False and m["fuel_level_corrected"] is True
+    assert m["fuel_consumed_l"] == 6 and m["gaps"] == 1
+    assert [x.t for x in series.load(tmp_path, V).series["soc"] if x.t >= at(401)] == []
+
+
+def test_line_by_line_the_periods_equal_a_fresh_derivation_across_a_restart(tmp_path, capsys):
+    live = tmp_path / "live"
+    v = a_day(live, capsys)
+    reloaded(v, 401, 401, soc_since=at(245), fuel_since=at(280))
+    trip(v, 420, 1060, 30, fuel=34, soc=40)
+    v.heartbeat(520)
+    replay = replayed_line_by_line(live, tmp_path / "replay")
+    assert len(list(l1.read(replay, V, "trip"))) == 3
+    m = month(replay)
+    assert m["soc_corrected"] and m["fuel_level_corrected"] and m["gaps"] == 1
 
 
 def partial_fills(base, capsys, resolution):

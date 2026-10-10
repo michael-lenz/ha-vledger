@@ -36,9 +36,13 @@ and never parses a line itself:
   first change, read at the entry's `since` but no earlier than the
   stream's last line before the start, so that a restart never reaches
   back into an event already completed (ADR-0028); an entry that repeats
-  the value its role already holds is dropped. A derivation from a cursor
-  is seeded with the last value of every role before it (ADR-0009,
-  point 3).
+  the value its role already holds is dropped. An entry whose `since` is
+  not later than that last line held through the gap — Home Assistant kept
+  the value while capture was not listening — and is a sample at the start
+  line's time as well, repeated or not (ADR-0035): what is in effect after
+  a restart is read from the start line on, not from the role's next
+  change. A derivation from a cursor is seeded with the last value of
+  every role before it (ADR-0009, point 3).
 - **Capture gaps** come from the markers: a start without a stop
   (`crash`), a stop and the next start (`stopped`), silence longer than
   `heartbeat_s` plus 300 s while running (`silence`), and a stream that

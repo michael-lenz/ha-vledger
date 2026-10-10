@@ -112,6 +112,20 @@ def snapshot_time(entry: dict, start_t: str, before_t: str | None) -> str:
     return since
 
 
+def held_through(entry: dict, before_t: str | None) -> bool:
+    """Whether a start line's snapshot entry held through the gap before the
+    start (ADR-0035): its ``since`` is not later than ``before_t``, the
+    stream's last line before the start. Home Assistant then kept the state
+    while capture was not listening, and the entry is a reading at the start
+    line's time — on the gap's near side, so nothing is read across the gap
+    to find it. An entry whose ``since`` lies inside the gap says only that
+    the state was written then, which a restored or re-created state does
+    too; it is placed by :func:`snapshot_time` alone."""
+    since = entry.get("since")
+    return (before_t is not None and since is not None
+            and clock.parse(since) <= clock.parse(before_t))
+
+
 def _last_t(path: Path) -> str | None:
     """The ``t`` of a month file's last line, or None for an empty file."""
     last = None
@@ -126,7 +140,8 @@ def _seed_lines(base: Path, subject: Subject, since: str) -> tuple[list[dict], s
     snapshot, whichever came later — and the last config line, before
     ``since``; read backwards from the month file ``since`` falls in, so a
     derivation from a cursor starts from the value the vehicle had, not
-    from its first change (ADR-0009, 3; ISSUE-0011). Stops at the first
+    from its first change (ADR-0009, 3; ISSUE-0011) — a snapshot entry at
+    the later of the times :func:`load` reads it. Stops at the first
     month with nothing new to find. Also the ``t`` of the stream's last
     line before ``since``, which a start line read next is placed against
     (ADR-0028)."""
@@ -151,8 +166,9 @@ def _seed_lines(base: Path, subject: Subject, since: str) -> tuple[list[dict], s
                 before = lines[i - 1]["t"] if i > 0 else (_last_t(files[n - 1]) if n > 0 else None)
                 for entry in line.get("snapshot") or []:
                     if entry["role"] not in found:
-                        found[entry["role"]] = dict(entry, kind="state",
-                                                    t=snapshot_time(entry, line["t"], before))
+                        when = (line["t"] if held_through(entry, before)
+                                else snapshot_time(entry, line["t"], before))
+                        found[entry["role"]] = dict(entry, kind="state", t=when)
                         new = True
         if not new and config is not None:
             break
@@ -177,8 +193,10 @@ def load(base: Path, subject: Subject, *, since: str | None = None,
     """Read a stream into series. The latest config line in range wins; the
     snapshot of a start line seeds every series with the value before the
     first change, at the snapshot's ``since`` time but no earlier than the
-    line before the start (:func:`snapshot_time`); a ``since`` is seeded
-    with the last value of every role before it. The gaps are judged
+    line before the start (:func:`snapshot_time`), and an entry that held
+    through the gap before the start is a sample at the start line's time
+    as well (:func:`held_through`, ADR-0035); a ``since`` is seeded with
+    the last value of every role before it. The gaps are judged
     against ``now``, by default the stream's own last line — a stream read
     beside another is judged against that one's (ADR-0027, point 2)."""
     s = Stream(subject, since=since)
@@ -241,10 +259,19 @@ def load(base: Path, subject: Subject, *, since: str | None = None,
         if kind == "config":
             s.config = line["config"]
         elif kind == "start":
-            seeding = True
             for entry in line.get("snapshot") or []:
-                take(entry["role"], entry, snapshot_time(entry, t, prev_t))
-            seeding = False
+                when = snapshot_time(entry, t, prev_t)
+                held = held_through(entry, prev_t)
+                if not held or when != t:
+                    # The change, if any: no earlier than the line before
+                    # the start, dropped when it repeats (ADR-0028).
+                    seeding = True
+                    take(entry["role"], entry, when)
+                    seeding = False
+                if held:
+                    # The value at the start, which Home Assistant held
+                    # through the gap: a sample like any other (ADR-0035).
+                    take(entry["role"], entry, t)
         elif kind == "state":
             take(line["role"], line, t)
         if not seed:

@@ -92,7 +92,10 @@ earlier than the stream's last line before the start — a value that
 changed after capture stopped listening is placed where the stream can
 still vouch for it, never inside an event the previous run completed
 (ADR-0028) — and drops an entry that repeats the value its role already
-holds.
+holds. An entry whose `since` is not later than that last line held
+through the gap: Home Assistant kept the value while capture was not
+listening, and the derivation reads it at the start line's time as well,
+a reading on the gap's near side (ADR-0035).
 
 ### `stop`
 

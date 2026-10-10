@@ -184,6 +184,35 @@ def test_a_restarts_snapshot_never_reaches_back_into_a_completed_trip(tmp_path, 
     assert len(read_lines(live, "trip")) == 2           # the tick is a trip of its own, after the stop
 
 
+def test_a_snapshot_entry_that_held_through_the_gap_is_read_at_the_start_too(tmp_path, capsys):
+    """ADR-0035: an odometer tick missed in the shutdown window, its since
+    before the stop, is read at the stop line (ADR-0028) and again at the
+    start line four minutes later — so it is in effect after the gap. One
+    whose since lies inside the gap is placed there alone, and nothing is
+    read across the gap to reach it."""
+    b = Builder(tmp_path, capsys)
+    b.heartbeat(0)
+    end = b.drive(60)
+    b.heartbeat(end + 40)
+    b.run("stop", *b.b, "--t", at(end + 50), "--reason", "shutdown")
+    snapshot = [{"role": "odometer", "entity": "x.odometer", "state": "1023.0", "unit": "km",
+                 "since": at(end + 5)},
+                {"role": "soc", "entity": "x.soc", "state": "70", "unit": "%", "since": at(end + 52)}]
+    b.run("start", *b.b, "--t", at(end + 54), "--homeassistant", "2026.9.4",
+          "--snapshot", json.dumps(snapshot))
+    b.heartbeat(end + 100)
+    s = series.load(tmp_path, V)
+    assert [g.reason for g in s.gaps] == ["stopped"]
+    assert [x.t for x in s.series["odometer"] if x.value == 1023] == [at(end + 50), at(end + 54)]
+    assert series.in_effect(s, "odometer", at(end + 90)).value == 1023
+    assert [x.t for x in s.series["soc"] if x.t > at(0)] == [at(end + 52)]
+    assert series.in_effect(s, "soc", at(end + 90)) is None
+    # Seeded from a cursor after the start, the role's last value is that reading.
+    seeded = series.load(tmp_path, V, since=at(end + 60))
+    assert seeded.series["odometer"][-1].t == at(end + 54)
+    assert seeded.series["soc"][-1].t == at(end + 52)
+
+
 def test_a_cursor_is_seeded_from_a_snapshot_too(tmp_path, capsys):
     """ISSUE-0011: a role whose last value before the cursor came from a
     start line's snapshot still seeds the read from there."""
