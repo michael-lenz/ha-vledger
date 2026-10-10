@@ -29,7 +29,8 @@ keeps it live, with a `vledger.recompute` action to rebuild it; receipts
 are entered and matched by the `receipt` verbs, and in Home Assistant by
 three actions and a dashboard form; the metrics come per month, year,
 rolling period and lifetime in L1, and for any span from `vledger report
-metrics`; L1 is exported as CSV, JSON and GPX. In Home Assistant the
+metrics`; L1 is exported as CSV, JSON and GPX, from the shell and by a
+Home Assistant action into the media folder. In Home Assistant the
 metrics are not shown yet. Every behaviour described below is the design,
 held as requirements in the project's register (`ha-vledger-pm`); a
 section is marked *(planned)* until it exists.

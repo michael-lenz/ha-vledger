@@ -12,7 +12,9 @@ from custom_components.vledger.const import (
 )
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+import vledger.cli  # noqa: F401 — the real derivations register first, so a stand-in replaces one
 from vledger import config as vconfig
+from vledger import l1
 
 
 @pytest.fixture(autouse=True)
@@ -45,6 +47,15 @@ def phev_entry(tmp_path):
     options[OPT_BASE_PATH] = str(tmp_path)
     return MockConfigEntry(domain=DOMAIN, title="Golf", unique_id="b8d2",
                            data={DATA_KIND: "vehicle", DATA_SUBJECT: "b8d2"}, options=options)
+
+
+@pytest.fixture
+def stand_in(monkeypatch):
+    """Stand-in derivations: per kind, the events they are given."""
+    events: dict[str, list[dict]] = {"trip": [], "refuelling": [], "charging": []}
+    for kind, given in events.items():
+        monkeypatch.setitem(l1.DERIVATIONS, kind, lambda base, subject, since, given=given: list(given))
+    return events
 
 
 @pytest.fixture

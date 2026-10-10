@@ -6,6 +6,10 @@ derived from it and from nothing else, and never by the live path: CSV and
 JSON of one kind of event, GPX of the trips. Every export reads the files
 in ``l1/`` as they are — it derives nothing — so it is as current as L1.
 
+An export is made by the verb and by the Home Assistant action alike
+(ADR-0017): both select with :func:`selected` and render with
+:func:`render`, so neither can produce what the other cannot.
+
 A CSV has one row per event and a column order fixed per kind, not taken
 from the data, so two exports of the same kind line up whatever they
 hold. A nested value is flattened: a position becomes its ``<key>.t``,
@@ -21,9 +25,13 @@ import csv
 import io
 import json
 from collections.abc import Iterable
+from pathlib import Path
 from xml.etree import ElementTree as ET
 
-from vledger import __version__, clock, periods
+from vledger import __version__, clock, l1, periods
+from vledger.layout import Subject
+
+FORMATS = ("csv", "json", "gpx")
 
 ENVELOPE = ("kind", "subject", "start", "end", "quality", "version")
 POSITION = ("t", "latitude", "longitude", "accuracy_m")
@@ -68,6 +76,44 @@ SUBKEYS = {"refined_by": ("start", "end")}
 
 #: Left out of the CSV: what another format carries better.
 NOT_IN_CSV = {"waypoints"}
+
+
+class NoL1(Exception):
+    """Nothing to render: L1 has not been derived."""
+
+
+def status(base: Path, subject: Subject) -> str | None:
+    """Why L1 is not current, or ``None`` when it is; :class:`NoL1` without
+    one. An export renders L1 as it is and derives nothing, so a stale one
+    is reported, not repaired."""
+    if l1.read_manifest(base, subject) is None:
+        raise NoL1(f"no L1 for {subject.dirname}: derive all --write first")
+    return l1.rebuild_due(base, subject)
+
+
+def selected(base: Path, subject: Subject, kind: str, since: str | None = None,
+             until: str | None = None) -> tuple[list[dict], str | None]:
+    """One kind's events as L1 holds them, within ``since`` and ``until``
+    by their start, and :func:`status`'s note."""
+    note = status(base, subject)
+    return within(l1.read(base, subject, kind), since, until), note
+
+
+def render(fmt: str, kind: str, events: list[dict]) -> str:
+    """The events in one of :data:`FORMATS`; GPX takes the trips."""
+    if fmt == "csv":
+        return to_csv(kind, events)
+    if fmt == "json":
+        return to_json(events)
+    if fmt == "gpx":
+        return to_gpx(events)
+    raise ValueError(f"unknown export format {fmt!r}; one of {FORMATS}")
+
+
+def filename(fmt: str, kind: str) -> str:
+    """The default file of a kind in a format: its L1 file's name with the
+    format's extension — ``trips.csv``, ``periods.json``, ``trips.gpx``."""
+    return f"{Path(l1.FILES[kind]).stem}.{fmt}"
 
 
 def within(events: Iterable[dict], since: str | None = None,

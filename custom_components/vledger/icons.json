@@ -57,6 +57,7 @@
     "add_refuelling_receipt": { "service": "mdi:gas-station" },
     "add_charging_receipt": { "service": "mdi:ev-station" },
     "cancel_receipt": { "service": "mdi:receipt-text-remove-outline" },
-    "recompute": { "service": "mdi:refresh" }
+    "recompute": { "service": "mdi:refresh" },
+    "export": { "service": "mdi:file-export-outline" }
   }
 }

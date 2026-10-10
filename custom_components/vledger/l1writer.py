@@ -104,6 +104,13 @@ class L1Writer:
         """A rebuild on demand: the action ``vledger.recompute`` (ABL-02)."""
         await self._run(rebuild=REQUESTED)
 
+    async def async_read(self, job: Callable[[], object]) -> object:
+        """Run ``job`` in the executor while no run is under way, so a reader
+        of ``l1/`` never meets a directory about to be swapped (ADR-0017,
+        point 4). A run requested meanwhile follows it."""
+        async with self._lock:
+            return await self.hass.async_add_executor_job(job)
+
     # --- when to run -------------------------------------------------------
 
     async def _first_run(self) -> None:

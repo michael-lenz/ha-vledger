@@ -29,6 +29,11 @@ SERVICE_ADD_REFUELLING = "add_refuelling_receipt"
 SERVICE_ADD_CHARGING = "add_charging_receipt"
 SERVICE_CANCEL = "cancel_receipt"
 
+#: The export action (ADR-0017), and the folder under the media directory
+#: it writes into.
+SERVICE_EXPORT = "export"
+EXPORT_FOLDER = DOMAIN
+
 #: The form's event select: enter the time by hand rather than pick a candidate.
 EVENT_MANUAL = "manual"
 

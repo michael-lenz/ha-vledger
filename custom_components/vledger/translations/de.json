@@ -163,6 +163,12 @@
   "selector": {
     "fuel": {
       "options": { "petrol": "Benzin", "diesel": "Diesel" }
+    },
+    "export_format": {
+      "options": { "csv": "CSV", "json": "JSON", "gpx": "GPX (Fahrten)" }
+    },
+    "export_kind": {
+      "options": { "trip": "Fahrten", "charging": "Ladevorgänge", "refuelling": "Tankvorgänge", "period": "Perioden" }
     }
   },
   "entity": {
@@ -651,6 +657,36 @@
         }
       }
     },
+    "export": {
+      "name": "Exportieren",
+      "description": "Schreibt eine Ereignisart der L1 eines Fahrzeugs als CSV, JSON oder GPX in den Medienordner `vledger/<fahrzeug>/`, wie `vledger export` — eine Datei je Art, überschrieben — und antwortet mit dem Pfad und der Zahl der Ereignisse. Exportiert, was auf der Platte liegt; leitet nichts ab.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fahrzeug",
+          "description": "Das Fahrzeug, dessen L1 exportiert wird."
+        },
+        "format": {
+          "name": "Format",
+          "description": "CSV oder JSON einer Ereignisart, oder GPX der Fahrten."
+        },
+        "kind": {
+          "name": "Art",
+          "description": "Welche Ereignisse: Fahrten, Ladevorgänge, Tankvorgänge oder Perioden. Für CSV und JSON nötig; nicht für GPX, das sind die Fahrten."
+        },
+        "since": {
+          "name": "Von",
+          "description": "Der früheste Ereignisbeginn, der enthalten ist."
+        },
+        "until": {
+          "name": "Bis",
+          "description": "Der späteste Ereignisbeginn, der enthalten ist."
+        },
+        "filename": {
+          "name": "Dateiname",
+          "description": "Ein bloßer Name mit der Erweiterung des Formats, um mehrere Exporte zu behalten; leer: der Name der Art, z. B. trips.csv."
+        }
+      }
+    },
     "recompute": {
       "name": "Neu berechnen",
       "description": "Berechnet die Ableitung auf der Platte (L1) neu aus dem Rohprotokoll, den Belegen und der Konfiguration, für ein Fahrzeug oder einen Ladepunkt oder für alle. Die Erfassung läuft dabei weiter.",
@@ -664,6 +700,12 @@
   },
   "exceptions": {
     "refused": { "message": "Beleg abgelehnt: {reason}" },
+    "kind_required": { "message": "Ein Export als {format} braucht eine Ereignisart." },
+    "kind_not_for_gpx": { "message": "GPX sind die Fahrten; es nimmt keine Art ({kind} angegeben)." },
+    "bad_filename": { "message": "{filename} ist kein bloßer Dateiname mit der Endung .{format}." },
+    "path_not_allowed": { "message": "Home Assistant erlaubt kein Schreiben nach {path}." },
+    "no_l1": { "message": "{name} hat noch keine L1 zum Exportieren; vledger.recompute leitet sie ab." },
+    "no_media_dir": { "message": "Diese Instanz hat kein Medienverzeichnis für Exporte." },
     "not_a_vehicle": { "message": "{entry} ist ein Ladepunkt; Belege gehören zu einem Fahrzeug." },
     "entry_not_loaded": { "message": "Kein geladenes Fahrzeug und kein geladener Ladepunkt hat den Eintrag {entry}." }
   }

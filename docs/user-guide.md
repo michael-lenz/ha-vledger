@@ -12,8 +12,8 @@ corrected, cancelled and matched with the `receipt` verbs and `derive
 match`, and in Home Assistant with actions and a dashboard form; the
 last trip, refuelling and charging session and what waits for a receipt
 are entities; L1 is exported as CSV, JSON and GPX with the `export`
-verbs, and `report metrics` gives the metrics of any span. Metric
-entities and an export action in Home Assistant are planned.
+verbs and the `vledger.export` action, and `report metrics` gives the
+metrics of any span. Metric entities in Home Assistant are planned.
 
 ## In Home Assistant
 
@@ -474,7 +474,7 @@ at startup.
 
 For a spreadsheet, another tool or a map: renderings of L1 as it is on
 disk. An export derives nothing — run `derive all --write` first; it says
-so when L1 is not current — and nothing in Home Assistant writes one.
+so when L1 is not current.
 
 ```bash
 vledger export csv --vehicle a7c1 --kind trip               # a row per trip, on stdout
@@ -487,6 +487,34 @@ vledger export gpx --vehicle a7c1 --since 2026-10-01T00:00:00Z --out october.gpx
 `--until` pick events by their start. A CSV's columns are the same for a
 kind whatever it holds; how nested values become columns, and what a GPX
 track holds, is [l1-format.md](l1-format.md#exports).
+
+**In Home Assistant**, the action **Vehicle Ledger: Export**
+(`vledger.export`) writes the same files into the instance's media folder,
+`media/vledger/<vehicle>/` — where the media browser, in the frontend and
+in the companion app, lists them for download, and a dashboard links one
+as `/media/local/vledger/<vehicle>/trips.csv`:
+
+```yaml
+action: vledger.export
+data:
+  config_entry_id: 01J…            # the vehicle
+  format: csv                      # csv, json or gpx
+  kind: trip                       # trip, charging, refuelling or period; not for gpx
+  since: "2026-10-01 00:00:00"     # optional, local time, by the event's start
+  until: "2026-10-31 23:59:59"     # optional
+  filename: october-trips.csv      # optional; default: the kind's name, trips.csv
+response_variable: written         # written.path, written.count, written.current
+```
+
+Without a file name the file is the kind's own — `trips.csv`,
+`charging-sessions.json`, `refuellings.csv`, `periods.csv`, `trips.gpx` —
+and the next export of that kind replaces it, so a link or an automation
+can point at a name that does not change; a file name of your own keeps
+several. A name is a bare name with the format's extension, nothing else:
+the action writes nowhere but that folder. The answer says where the file
+is, how many events it holds and whether L1 was current; it is refused
+while the vehicle has no L1 yet. Exports are copies: a renamed vehicle
+gets a new folder, and the old one stays until you delete it.
 
 ## Reports: `vledger report`
 

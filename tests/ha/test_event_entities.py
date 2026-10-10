@@ -39,15 +39,6 @@ def session(minutes, kwh):
             "grid_kwh": kwh, "grid_kwh_quality": "estimated", "version": "x"}
 
 
-@pytest.fixture
-def stand_in(monkeypatch):
-    """Stand-in derivations: per kind, the events they are given."""
-    events: dict[str, list[dict]] = {"trip": [], "refuelling": [], "charging": []}
-    for kind, given in events.items():
-        monkeypatch.setitem(l1.DERIVATIONS, kind, lambda base, subject, since, given=given: list(given))
-    return events
-
-
 def _state(hass, entity_id):
     state = hass.states.get(entity_id)
     assert state is not None, entity_id

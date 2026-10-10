@@ -439,12 +439,9 @@ def cmd_l1_clean(args) -> int:
 
 # --- export and report verbs -----------------------------------------------
 
-def _l1_as_it_is(base: Path, subject: Subject, verb: str) -> None:
-    """Exports and reports render L1 as it is and derive nothing: refused
-    without one, a note on stderr when it is not current."""
-    if l1.read_manifest(base, subject) is None:
-        raise Usage(f"no L1 to {verb}: derive all --write first")
-    due = l1.rebuild_due(base, subject)
+def _stale(due: str | None) -> None:
+    """Exports and reports render L1 as it is and derive nothing: a note on
+    stderr when it is not current."""
     if due:
         print(f"vledger: L1 is not current ({due}); derive all --write brings it up to date",
               file=sys.stderr)
@@ -452,9 +449,12 @@ def _l1_as_it_is(base: Path, subject: Subject, verb: str) -> None:
 
 def _exported(args, kind: str) -> list[dict]:
     """One kind's events as L1 holds them, within --since and --until."""
-    base, subject = _base(args), _subject(args)
-    _l1_as_it_is(base, subject, "export")
-    return export.within(l1.read(base, subject, kind), args.since, args.until)
+    try:
+        events, due = export.selected(_base(args), _subject(args), kind, args.since, args.until)
+    except export.NoL1 as e:
+        raise Usage(str(e)) from None
+    _stale(due)
+    return events
 
 
 def _emit(args, text: str, n: int, noun: str) -> int:
@@ -489,7 +489,10 @@ def cmd_report_metrics(args) -> int:
     base, subject = _base(args), _subject(args)
     if subject.kind != "vehicle":
         raise Usage("a report is a vehicle's; a charge point's L1 holds no events")
-    _l1_as_it_is(base, subject, "report on")
+    try:
+        _stale(export.status(base, subject))
+    except export.NoL1 as e:
+        raise Usage(str(e)) from None
     r = report.from_l1(base, subject, since=args.since, until=args.until)
     text = json.dumps(r, indent=2, ensure_ascii=False) + "\n" if args.json else report.table(r)
     return _emit(args, text, len(r["intervals"]), "tank-to-tank interval")

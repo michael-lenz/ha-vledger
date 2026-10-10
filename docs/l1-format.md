@@ -220,9 +220,17 @@ corrected tariff, above all — does not make a rebuild due; `derive all
 ## Exports
 
 JSON Lines is the L1 of record; CSV, JSON and GPX are renderings of it,
-made by `vledger export` from the files as they are and never by the live
-path (ABL-05). An export reads nothing but L1, so it is exactly as current
-as L1 and a stale one is reported, not re-derived.
+made by `vledger export` and by the Home Assistant action `vledger.export`
+from the files as they are and never by the live path (ABL-05). Both
+select and render through the same two library functions, so neither can
+produce what the other cannot. An export reads nothing but L1, so it is
+exactly as current as L1 and a stale one is reported, not re-derived. The
+verb writes where `--out` says; the action writes into the instance's
+local media directory under `vledger/<vehicle>/`, one file per kind named
+as its L1 file (`trips.csv`, `trips.gpx`), replaced atomically by the next
+export of the kind, or a bare file name of the caller's (ADR-0017) — never
+anywhere else, and only under the writer's lock, so a rebuild cannot swap
+`l1/` away underneath it.
 
 - **CSV**, one kind: a header, then a row per event in file order. The
   columns are declared per kind in the library, the envelope first, so two

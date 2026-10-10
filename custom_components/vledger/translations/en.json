@@ -163,6 +163,12 @@
   "selector": {
     "fuel": {
       "options": { "petrol": "Petrol", "diesel": "Diesel" }
+    },
+    "export_format": {
+      "options": { "csv": "CSV", "json": "JSON", "gpx": "GPX (trips)" }
+    },
+    "export_kind": {
+      "options": { "trip": "Trips", "charging": "Charging sessions", "refuelling": "Refuellings", "period": "Periods" }
     }
   },
   "entity": {
@@ -651,6 +657,36 @@
         }
       }
     },
+    "export": {
+      "name": "Export",
+      "description": "Writes one kind of a vehicle's L1 as CSV, JSON or GPX into the media folder `vledger/<vehicle>/`, as `vledger export` does — one file per kind, overwritten — and answers with the path and how many events it holds. Exports what is on disk; derives nothing.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Vehicle",
+          "description": "The vehicle whose L1 is exported."
+        },
+        "format": {
+          "name": "Format",
+          "description": "CSV or JSON of one kind of event, or GPX of the trips."
+        },
+        "kind": {
+          "name": "Kind",
+          "description": "Which events: trips, charging sessions, refuellings or periods. Required for CSV and JSON; not for GPX, which is the trips."
+        },
+        "since": {
+          "name": "From",
+          "description": "The earliest event start to include."
+        },
+        "until": {
+          "name": "Until",
+          "description": "The latest event start to include."
+        },
+        "filename": {
+          "name": "File name",
+          "description": "A bare name with the format's extension, to keep several exports; empty: the kind's own name, e.g. trips.csv."
+        }
+      }
+    },
     "recompute": {
       "name": "Recompute",
       "description": "Rebuilds the derivation on disk (L1) from the raw log, the receipts and the configuration, for one vehicle or charge point or for all of them. Capture goes on while it runs.",
@@ -664,6 +700,12 @@
   },
   "exceptions": {
     "refused": { "message": "Receipt refused: {reason}" },
+    "kind_required": { "message": "An export as {format} needs a kind of event." },
+    "kind_not_for_gpx": { "message": "GPX is the trips; it takes no kind ({kind} given)." },
+    "bad_filename": { "message": "{filename} is not a bare file name ending in .{format}." },
+    "path_not_allowed": { "message": "Home Assistant does not allow writing to {path}." },
+    "no_l1": { "message": "{name} has no L1 to export yet; vledger.recompute derives it." },
+    "no_media_dir": { "message": "This instance has no media directory to export into." },
     "not_a_vehicle": { "message": "{entry} is a charge point; receipts belong to a vehicle." },
     "entry_not_loaded": { "message": "No loaded vehicle or charge point has the entry {entry}." }
   }
