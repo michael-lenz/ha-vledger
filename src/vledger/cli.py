@@ -401,6 +401,8 @@ def cmd_derive_match(args) -> int:
 
 def cmd_l1_read(args) -> int:
     base, subject = _base(args), _subject(args)
+    if args.waiting and args.last is None:
+        raise Usage("--waiting is for --last")
     if args.current:
         if args.kind != "period" or args.last is not None:
             raise Usage("--current is for --kind period, and not with --last")
@@ -408,7 +410,7 @@ def cmd_l1_read(args) -> int:
     elif args.last is not None:
         if args.last < 1:
             raise Usage("--last takes a number of events, at least 1")
-        events = l1.last(base, subject, args.kind, args.last)
+        events = l1.last(base, subject, args.kind, args.last, waiting=args.waiting)
     else:
         events = l1.read(base, subject, args.kind)
     n = 0
@@ -737,6 +739,8 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--kind", required=True, choices=list(l1.FILES))
     sp.add_argument("--last", type=int, metavar="N",
                     help="only the last N events, read from the end of the file")
+    sp.add_argument("--waiting", action="store_true",
+                    help="with --last: only events waiting for a receipt (unconfirmed or ambiguous)")
     sp.add_argument("--current", action="store_true",
                     help="with --kind period: the current month, year, rolling and lifetime lines")
     sp.set_defaults(func=cmd_l1_read)

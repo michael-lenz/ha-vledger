@@ -25,6 +25,7 @@ from vledger.layout import Subject
 
 from .announce import Announcer
 from .capture import Capture
+from .card import async_register as async_register_card
 from .const import (
     DATA_KIND,
     DATA_SUBJECT,
@@ -95,6 +96,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     hass.services.async_register(DOMAIN, SERVICE_RECOMPUTE, recompute, schema=RECOMPUTE_SCHEMA)
     # The receipt actions, likewise for the domain (ADR-0015, point 1).
     async_register(hass)
+    # The Lovelace card, once for every frontend (ADR-0039, point 2).
+    await async_register_card(hass)
     return True
 
 

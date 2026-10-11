@@ -1,7 +1,8 @@
 # The actions: recompute (ABL-02), the receipt actions (HAI-03, ADR-0015),
-# whose fields are the `vledger receipt` verbs' options, and export
-# (ADR-0017), whose fields are `vledger export`'s. Names and descriptions
-# are in strings.json.
+# whose fields are the `vledger receipt` verbs' options, export
+# (ADR-0017), whose fields are `vledger export`'s, and read_events
+# (ADR-0039), whose fields are `vledger l1 read --last`'s. Names and
+# descriptions are in strings.json.
 recompute:
   fields:
     config_entry_id:
@@ -157,3 +158,33 @@ export:
     filename:
       selector:
         text:
+
+read_events:
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: vledger
+    kind:
+      required: true
+      default: trip
+      selector:
+        select:
+          options:
+            - trip
+            - refuelling
+            - charging
+          translation_key: event_kind
+    last:
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 50
+          step: 1
+          mode: box
+    waiting:
+      default: false
+      selector:
+        boolean:

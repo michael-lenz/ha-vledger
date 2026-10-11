@@ -102,8 +102,9 @@ A refuelling or charging session whose `confirmation` is `unconfirmed` or
 written, and Home Assistant's **Waiting for a receipt** shows the same
 count (ADR-0016). Between a receipt being entered and the next run of
 the writer, the count can still include the event it was entered for.
-`l1.is_waiting` is that test for one event, and the count and the
-`vledger_candidate` event both use it (ADR-0020).
+`l1.is_waiting` is that test for one event, and the count, the
+`vledger_candidate` event and the card's candidates all use it (ADR-0020,
+ADR-0039).
 
 ## Periods
 
@@ -192,7 +193,9 @@ temperature over each ([user guide](user-guide.md#reports-vledger-report)).
 
 Every reader goes through the library: `l1.read` yields a kind's events
 in order (`vledger l1 read`), `l1.last` its last N from the end of the
-file without reading the rest (`vledger l1 read --last N`),
+file without reading the rest (`vledger l1 read --last N`) — with
+`waiting`, the last N that wait for a receipt, read whole, since how far
+back they lie is not known from the end (`--last N --waiting`) —
 `l1.waiting` the count above, and `l1.current_periods` the current month,
 year, rolling and lifetime lines of `periods.jsonl` — per period its last
 line, the one holding the stream's last line (`vledger l1 read --kind
@@ -200,7 +203,9 @@ period --current`). A torn last line is skipped by all of them.
 Home Assistant's event and metric entities read the last event of each
 kind, the count and the current periods once at start and again after
 every run of the writer, and show nothing else (ARC-05); the month lines,
-read whole, become its external statistics.
+read whole, become its external statistics. The action
+`vledger.read_events`, which the Lovelace card reads through, is
+`l1.last` with and without `waiting` (ADR-0039).
 
 ## Who writes what
 

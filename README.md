@@ -39,7 +39,8 @@ behaviour is the design, held as requirements in the project's register
   carries a quality flag: `measured`, `receipt`, `estimated` or
   `incomplete`.
 - **Takes receipts.** Price and exact quantity come from you: a refuelling
-  or charging receipt, entered from a dashboard or an action — a
+  or charging receipt, entered from a dashboard, the Vehicle Ledger card
+  beside its trip list, or an action — a
   notification of the new candidate opens the form — matched to the
   detected event by time. Receipt values beat sensor
   values; a detected event without a receipt stays visible as unconfirmed.
@@ -69,10 +70,12 @@ src/vledger/               the library and the vledger CLI: all derivation
                            published to PyPI as `vledger`
 custom_components/vledger/ the Home Assistant integration, a shell over the
                            library: capture, config and options flows,
-                           entities, actions, diagnostics; pins the library
-                           by the same version in manifest.json
+                           entities, actions, diagnostics, and the Lovelace
+                           card as plain JavaScript under frontend/; pins
+                           the library by the same version in manifest.json
 tests/                     pytest: library tests on L0 fixtures, integration
-                           tests with pytest-homeassistant-custom-component
+                           tests with pytest-homeassistant-custom-component;
+                           the card's model with Node's own test runner
 docs/                      design documents, operating manuals, the user guide
 ```
 
@@ -119,10 +122,11 @@ development checkout runs differently —
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev,ha]"
 .venv/bin/python -m pytest -q
 .venv/bin/ruff check src tests custom_components
+node --test tests/frontend/model.test.mjs
 ```
 
 The library's tests run in any Python with `.[dev]`; the integration's
-need the `ha` extra and a venv. `CLAUDE.md` says how a Claude session
+need the `ha` extra and a venv; the card's need Node and nothing else. `CLAUDE.md` says how a Claude session
 works here and with the register.
 
 ## Privacy

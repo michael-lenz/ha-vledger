@@ -14,6 +14,10 @@ repository is shaped this way is ADR-0002 in the project's register.*
   of its transitive dependencies (`PyRIC`) fails to build against the
   distribution's patched setuptools, and Debian-managed packages such as
   PyYAML refuse to be replaced. A venv has neither problem.
+- **Node 22 or newer, for one command.** The Lovelace card is plain
+  JavaScript without a build step (ADR-0039): no `package.json`, no
+  `node_modules`, nothing to install. Node runs its model's tests with its
+  own runner, and that is all it is for.
 - **Nothing else.** No database, no services, no pandoc. The library has
   no runtime dependencies (CLI-06), and the tests write only to pytest's
   temporary directories.
@@ -83,6 +87,7 @@ version difference, not a broken tree.
 .venv/bin/python -m pytest -q tests/ha            # the integration only
 python -m pytest -q                               # the library only, if the system Python has .[dev]
 .venv/bin/ruff check src tests custom_components  # the default rules, nothing more
+node --test tests/frontend/model.test.mjs         # the card's model
 ```
 
 **`python -m pytest`, never a bare `pytest`.** A `pytest` found on `PATH`
@@ -91,8 +96,9 @@ package — which never sees what was just installed into the venv, and the
 failure then reads as a broken tree. `python -m pytest` runs the
 interpreter that is actually active.
 
-Both pytest and ruff have to be green before a push. The release workflow
-runs them again and refuses a tag over a red tree
+pytest, ruff and the card's tests have to be green before a push; the
+`tests` workflow runs all three on every push to `main`. The release
+workflow runs pytest and ruff again and refuses a tag over a red tree
 ([releasing.md](releasing.md)).
 
 ## Trying the CLI by hand
@@ -151,6 +157,30 @@ then symlink or copy `custom_components/vledger` into the configuration
 directory and restart. On Home Assistant OS, only a published version can
 be loaded ([releasing.md](releasing.md)).
 
+## Checking the card by hand
+
+The card's model is tested; the card itself — the elements, what they
+draw, what the frontend hands them — is not, by any automated test
+(ADR-0039, point 9). A change to `custom_components/vledger/frontend/` is
+checked by hand in a development instance, on the declared minimum Home
+Assistant and the newest:
+
+1. Restart, so the integration serves the changed files, and reload the
+   browser past its cache.
+2. Add the card from the card picker, choosing the vehicle in its editor;
+   a charge point's device says it is not a vehicle.
+3. The trip list shows the last trips, with the distance in the
+   instance's unit system and a flag on one not measured; switching the
+   unit system to US customary shows miles.
+4. Enter a receipt with the litres missing — the card names what is
+   missing; with no price — the action's refusal appears in the card and
+   the form keeps what was typed; then a valid one from a candidate — the
+   form clears, and after the writer's run the candidate is gone from the
+   list.
+5. `vledger.recompute`: while it runs the card says the derivation is
+   being rebuilt, and comes back with it.
+6. The same in German.
+
 ## The brand assets
 
 `custom_components/vledger/brand/` holds the icon and logo Home Assistant
@@ -177,8 +207,10 @@ A new drawing replaces all six.
 ```
 src/vledger/               the library and CLI — all derivation logic, no Home Assistant
 custom_components/vledger/ the integration: flows, capture, entities, translations;
-                           brand/ the icon and logo it is shown with
+                           brand/ the icon and logo it is shown with;
+                           frontend/ the Lovelace card, served as it is
 tests/                     the library's tests; tests/ha/ the integration's;
+                           tests/frontend/ the card's model;
                            tests/fixtures/ real streams, anonymised
 docs/                      design documents, operating manuals, the user guide
 .github/workflows/         tests.yml on every push, release.yml on a tag

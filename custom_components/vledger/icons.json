@@ -311,6 +311,9 @@
     },
     "export": {
       "service": "mdi:file-export-outline"
+    },
+    "read_events": {
+      "service": "mdi:format-list-bulleted"
     }
   }
 }

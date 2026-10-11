@@ -306,6 +306,48 @@ Assistant they are actions only: `vledger.cancel_receipt` with
 Every receipt changes the receipts file, so L1 is rebuilt right after it,
 as at startup.
 
+### The Vehicle Ledger card
+
+A dashboard card for one vehicle: its last trips, and below them a
+receipt form for each energy it uses. It comes with the integration —
+there is no resource to add and nothing else to install. *Edit dashboard →
+Add card → Vehicle Ledger*, then pick the vehicle and how many trips the
+list shows (10 unless you choose, at most 50).
+
+- **The trip list** — per trip the start time, where it started and ended
+  (the zones, `—` outside one), and the distance in your unit system. A
+  distance that is not measured says so beside it (*estimated*).
+- **The receipt forms** — the same fields as the form above, and the same
+  rules: pick a waiting event or type the time, at least the litres or the
+  energy, and a price; the button writes the receipt. The event list
+  offers what waits for a receipt, unconfirmed or ambiguous. Quantities
+  are entered in litres and kWh, as the actions take them.
+
+What is typed stays in the card in your browser: it is not shared with
+anyone else looking at the vehicle, nor with the entity form, and a reload
+clears it. The card reads again after every run of the ledger, so a new
+trip or candidate appears without a reload; while L1 is rebuilt it says so.
+
+The card is optional. It uses a few of Home Assistant's own frontend
+elements, so a frontend update can break it before a release of the
+integration catches up; the entity form above keeps working whatever
+happens to the card.
+
+**`vledger.read_events`** is what the card reads through, and works in
+scripts and *Developer tools → Actions* as well. It answers with the last
+events of one kind, newest first, each line as the event entities show it,
+as `vledger l1 read --last` reads them:
+
+```yaml
+action: vledger.read_events
+data:
+  config_entry_id: 01J…            # the vehicle
+  kind: refuelling                 # trip, refuelling or charging
+  last: 5                          # 10 unless given, at most 50
+  waiting: true                    # only those waiting for a receipt
+response_variable: answer          # answer.events: the lines
+```
+
 ### Events and notifications
 
 Every event the ledger completes — a trip, a refuelling, a charging
@@ -660,6 +702,7 @@ vledger derive all --vehicle a7c1 --write        # rebuild all of l1/ from scrat
 vledger l1 status --vehicle a7c1                 # the manifest, what waits for a receipt, and whether a rebuild is due and why
 vledger l1 read --vehicle a7c1 --kind trip       # the events, as l0 read prints lines
 vledger l1 read --vehicle a7c1 --kind trip --last 1   # only the last one, read from the end of the file
+vledger l1 read --vehicle a7c1 --kind refuelling --last 10 --waiting   # the last ten waiting for a receipt
 vledger l1 update --vehicle a7c1                 # what the integration runs live: append what completed, print what is new
 vledger l1 read --vehicle a7c1 --kind period --current   # the current month, year, rolling and lifetime lines
 vledger l1 clean --vehicle a7c1                  # delete l1/ — it is regenerable

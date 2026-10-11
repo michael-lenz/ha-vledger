@@ -4,7 +4,7 @@
   "after_dependencies": ["recorder"],
   "codeowners": ["@michael-lenz"],
   "config_flow": true,
-  "dependencies": [],
+  "dependencies": ["frontend", "http"],
   "documentation": "https://github.com/michael-lenz/ha-vledger",
   "integration_type": "device",
   "iot_class": "calculated",

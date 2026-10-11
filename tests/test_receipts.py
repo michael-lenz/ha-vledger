@@ -371,6 +371,27 @@ def test_what_waits_for_a_receipt_is_counted_from_l1(entry, detected):
     assert "charging: waiting for a receipt: 1 unconfirmed, 0 ambiguous" in out.out
 
 
+def test_the_last_events_waiting_for_a_receipt_are_read_through_the_verb(entry, detected):
+    """ADR-0039, point 4: the card's candidates, decided by is_waiting and
+    nothing else, through the verb the action mirrors."""
+    detected.events["refuelling"] = [refuelling(0), refuelling(120), refuelling(600), refuelling(900)]
+    entry.refuel(at(61))                                      # equally near the first two
+    entry.refuel(cand=at(900))                                # the last one has its receipt
+    l1.rebuild(entry.base, V)
+    every = list(l1.read(entry.base, V, "refuelling"))
+    waiting = [e for e in every if l1.is_waiting(e)]
+    assert [e["start"] for e in waiting] == [at(0), at(120), at(600)]
+    assert l1.last(entry.base, V, "refuelling", 2, waiting=True) == waiting[-2:]
+    assert l1.last(entry.base, V, "refuelling", 9, waiting=True) == waiting
+    assert l1.last(entry.base, V, "refuelling", 1) == every[-1:]      # not waiting: still the last
+    assert l1.last(entry.base, V, "charging", 3, waiting=True) == []  # no file of that kind
+
+    out = entry.run("l1", "read", *entry.b, "--kind", "refuelling", "--last", "2", "--waiting")
+    assert [json.loads(x) for x in out.out.splitlines()] == waiting[-2:]
+    assert out.err.strip() == "2 event(s)"
+    assert main(["l1", "read", *entry.b, "--kind", "refuelling", "--waiting"]) == 2
+
+
 def test_l1_update_prints_what_is_new_to_l1_and_not_what_a_receipt_changed(entry, detected):
     """ADR-0020, point 2: new means a kind and start L1 did not hold; an
     event a receipt confirmed is changed, not new — even when the run had

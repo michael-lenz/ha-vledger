@@ -10,6 +10,7 @@ from custom_components.vledger.const import (
     DOMAIN,
     OPT_BASE_PATH,
 )
+from homeassistant.components import frontend
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 import vledger.derivations  # noqa: F401 — the real derivations register first, so a stand-in replaces one
@@ -20,6 +21,21 @@ from vledger import l1
 @pytest.fixture(autouse=True)
 def _custom_integrations(enable_custom_integrations):
     """Let Home Assistant load custom_components/vledger."""
+
+
+@pytest.fixture(autouse=True)
+def _frontend(request):
+    """Home Assistant's frontend, stood in for wherever there is a ``hass``:
+    the integration depends on it to load the card (ADR-0039, point 2), and
+    the real one needs the home-assistant-frontend package, which the test
+    plugin does not bring. What the integration asks of it is the set of
+    extra module URLs, and that is the real one. ``http`` is set up for
+    real, as a dependency."""
+    if "hass" not in request.fixturenames:
+        return
+    hass = request.getfixturevalue("hass")
+    hass.data[frontend.DATA_EXTRA_MODULE_URL] = frontend.UrlManager(lambda *_: None, [])
+    hass.config.components.add("frontend")
 
 
 @pytest.fixture

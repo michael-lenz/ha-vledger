@@ -37,6 +37,12 @@ SERVICE_CANCEL = "cancel_receipt"
 SERVICE_EXPORT = "export"
 EXPORT_FOLDER = DOMAIN
 
+#: The read action behind the Lovelace card (ADR-0039, point 4): how many
+#: events it answers when not told, and at most.
+SERVICE_READ_EVENTS = "read_events"
+READ_EVENTS_DEFAULT = 10
+READ_EVENTS_MAX = 50
+
 #: The form's event select: enter the time by hand rather than pick a candidate.
 EVENT_MANUAL = "manual"
 

@@ -222,6 +222,9 @@
     },
     "export_kind": {
       "options": { "trip": "Trips", "charging": "Charging sessions", "refuelling": "Refuellings", "period": "Periods" }
+    },
+    "event_kind": {
+      "options": { "trip": "Trips", "refuelling": "Refuellings", "charging": "Charging sessions" }
     }
   },
   "entity": {
@@ -1754,6 +1757,28 @@
         "filename": {
           "name": "File name",
           "description": "A bare name with the format's extension, to keep several exports; empty: the kind's own name, e.g. trips.csv."
+        }
+      }
+    },
+    "read_events": {
+      "name": "Read events",
+      "description": "Answers with a vehicle's last events of one kind from L1, newest first, each line as the event entities show it as attributes, as `vledger l1 read --last` reads them. Reads what is on disk; derives nothing. The Vehicle Ledger card reads its trips and candidates through it.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Vehicle",
+          "description": "The vehicle whose events are read."
+        },
+        "kind": {
+          "name": "Kind",
+          "description": "Which events: trips, refuellings or charging sessions."
+        },
+        "last": {
+          "name": "How many",
+          "description": "The last this many events, at most 50."
+        },
+        "waiting": {
+          "name": "Only waiting for a receipt",
+          "description": "Only the refuellings and charging sessions that wait for a receipt: unconfirmed or ambiguous."
         }
       }
     },

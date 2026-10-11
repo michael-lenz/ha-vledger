@@ -222,6 +222,9 @@
     },
     "export_kind": {
       "options": { "trip": "Fahrten", "charging": "Ladevorgänge", "refuelling": "Tankvorgänge", "period": "Perioden" }
+    },
+    "event_kind": {
+      "options": { "trip": "Fahrten", "refuelling": "Tankvorgänge", "charging": "Ladevorgänge" }
     }
   },
   "entity": {
@@ -1754,6 +1757,28 @@
         "filename": {
           "name": "Dateiname",
           "description": "Ein bloßer Name mit der Erweiterung des Formats, um mehrere Exporte zu behalten; leer: der Name der Art, z. B. trips.csv."
+        }
+      }
+    },
+    "read_events": {
+      "name": "Ereignisse lesen",
+      "description": "Antwortet mit den letzten Ereignissen einer Art aus der L1 eines Fahrzeugs, das neueste zuerst, jede Zeile so, wie die Ereignis-Entitäten sie als Attribute zeigen, wie `vledger l1 read --last` sie liest. Liest, was auf der Platte liegt; leitet nichts ab. Die Karte von Vehicle Ledger liest ihre Fahrten und Kandidaten darüber.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fahrzeug",
+          "description": "Das Fahrzeug, dessen Ereignisse gelesen werden."
+        },
+        "kind": {
+          "name": "Art",
+          "description": "Welche Ereignisse: Fahrten, Tankvorgänge oder Ladevorgänge."
+        },
+        "last": {
+          "name": "Wie viele",
+          "description": "Die letzten so vielen Ereignisse, höchstens 50."
+        },
+        "waiting": {
+          "name": "Nur wartend auf einen Beleg",
+          "description": "Nur die Tank- und Ladevorgänge, die auf einen Beleg warten: unbestätigt oder mehrdeutig."
         }
       }
     },

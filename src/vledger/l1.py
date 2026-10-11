@@ -173,13 +173,20 @@ def read(base: Path, subject: Subject, kind: str) -> Iterator[dict]:
 _TAIL_CHUNK = 64 * 1024
 
 
-def last(base: Path, subject: Subject, kind: str, n: int = 1) -> list[dict]:
+def last(base: Path, subject: Subject, kind: str, n: int = 1, *,
+         waiting: bool = False) -> list[dict]:
     """The last ``n`` events of a kind, in order of start, read from the
     end of the file rather than the whole of it (ADR-0016, point 8). A
-    torn last line is skipped, as :func:`read` skips it."""
+    torn last line is skipped, as :func:`read` skips it. With ``waiting``,
+    the last ``n`` of those :func:`is_waiting` holds true for (ADR-0039,
+    point 4) — read whole, as :func:`waiting` reads them: how far back
+    they lie is not known from the end, and a vehicle's refuellings and
+    charging sessions are a few lines a week."""
     p = path_of(base, subject, kind)
     if n < 1 or not p.is_file():
         return []
+    if waiting:
+        return [e for e in read(base, subject, kind) if is_waiting(e)][-n:]
     with open(p, "rb") as f:
         size = f.seek(0, os.SEEK_END)
         data, pos = b"", size
