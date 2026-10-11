@@ -67,6 +67,14 @@ test("a trip row: local start time, zones, distance, and a flag only when not me
   assert.equal(M.qualityFlag("something new", en), "something new");
 });
 
+test("outside every zone is no zone, not away from home", () => {
+  const line = { start: "2026-10-09T10:00:00Z", start_zone: "not_home", end_zone: "Z9", distance_km: 1 };
+  const row = M.tripRow(line, ctx);
+  assert.equal(row.from, "no zone");
+  assert.equal(row.to, "Z9");
+  assert.equal(M.tripRow(line, { ...ctx, language: "de", strings: M.STRINGS.de }).from, "keine Zone");
+});
+
 test("a candidate is offered by its start, labelled as the entity form labels it", () => {
   const line = { start: "2026-10-09T10:00:00Z", sensor_delta_l: 41.37, grid_kwh: 11 };
   assert.deepEqual(M.candidateOption("refuelling", line, ctx),

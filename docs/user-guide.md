@@ -330,8 +330,9 @@ show_charging: false
 ```
 
 - **The trip list** — per trip the start time, where it started and ended
-  (the zones, `—` outside one), and the distance in your unit system. A
-  distance that is not measured says so beside it (*estimated*).
+  (the zones; *no zone* outside every one, `—` without a position), and
+  the distance in your unit system. A distance that is not measured says
+  so beside it (*estimated*).
 - **The receipt forms** — the same fields as the form above, and the same
   rules: pick a waiting event or type the time, at least the litres or the
   energy, and a price; the button writes the receipt. The event list

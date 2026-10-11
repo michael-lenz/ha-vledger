@@ -77,6 +77,7 @@ export const STRINGS = {
     quality_estimated: "estimated",
     quality_incomplete: "incomplete",
     quality_receipt: "receipt",
+    no_zone: "no zone",
   },
   de: {
     card_name: "Vehicle Ledger",
@@ -112,6 +113,7 @@ export const STRINGS = {
     quality_estimated: "geschätzt",
     quality_incomplete: "unvollständig",
     quality_receipt: "Beleg",
+    no_zone: "keine Zone",
   },
 };
 
@@ -203,6 +205,15 @@ export function qualityFlag(quality, strings) {
   return strings[`quality_${quality}`] ?? quality;
 }
 
+// A trip end's zone as the list shows it. Home Assistant's not_home is
+// outside every zone, not away from home: the other zones are not home.
+export function zoneLabel(zone, strings) {
+  if (!zone) {
+    return "—";
+  }
+  return zone === "not_home" ? strings.no_zone : zone;
+}
+
 // One trip line of vledger.read_events, as the list shows it.
 export function tripRow(line, ctx) {
   const { language, timeZone, unitSystem, strings } = ctx;
@@ -210,8 +221,8 @@ export function tripRow(line, ctx) {
   return {
     start: line.start,
     when: formatTime(line.start, timeZone),
-    from: line.start_zone || "—",
-    to: line.end_zone || "—",
+    from: zoneLabel(line.start_zone, strings),
+    to: zoneLabel(line.end_zone, strings),
     distance: d.value === null ? "—" : `${formatNumber(d.value, language)} ${d.unit}`,
     flag: qualityFlag(line.distance_quality, strings),
   };
