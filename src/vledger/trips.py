@@ -28,7 +28,7 @@ from datetime import timedelta
 from itertools import pairwise
 from pathlib import Path
 
-from vledger import __version__, clock, geo, l0, l1, periods, series
+from vledger import __version__, clock, geo, l0, l1, periods, series, temperature
 from vledger.layout import Subject
 from vledger.series import Fix, Sample, Stream
 
@@ -103,6 +103,7 @@ class Trip:
     outside_temperature_c: float | None
     delta_soc_pct: float | None        # estimated, FAH-05
     delta_fuel_l: float | None         # estimated, FAH-05
+    delta_fuel_15c_l: float | None     # the same at 15 °C, plausibility only (ADR-0040)
     # The trip's consumption (ADR-0025): the quantity with its error, and the
     # rate on the trip's distance, null where the error swallows it.
     fuel_consumed_l: float | None
@@ -394,14 +395,22 @@ def _distance(s: Stream, start: str, end: str, waypoints: list[Fix]) -> tuple[fl
     return None, None, None
 
 
-def _delta(s: Stream, role: str, start: str, end: str, settle_s: float) -> float | None:
-    """Value after the trip (settled) minus the value before it — estimated
-    always (FAH-05)."""
+def _readings(s: Stream, role: str, start: str, end: str, settle_s: float
+              ) -> tuple[Sample, Sample] | None:
+    """The samples a trip's delta is taken from: the value before it and
+    the value once settled after it — ``None`` without both."""
     before = _start_value(s, s.series.get(role, []), start)
     after = series.last_at_or_before(s.series.get(role, []), _settled(end, settle_s))
     if before is None or after is None or clock.parse(after.t) < clock.parse(start):
         return None
-    return round(after.value - before.value, 3)
+    return before, after
+
+
+def _delta(s: Stream, role: str, start: str, end: str, settle_s: float) -> float | None:
+    """Value after the trip (settled) minus the value before it — estimated
+    always (FAH-05)."""
+    pair = _readings(s, role, start, end, settle_s)
+    return round(pair[1].value - pair[0].value, 3) if pair else None
 
 
 def _settled(end: str, settle_s: float) -> str:
@@ -504,6 +513,7 @@ def _trip(s: Stream, start: str, end: str, values_until: str, crossed: bool,
     temp = series.mean(series.between(s.series.get("outside_temperature", []), start, end))
     delta_soc = _delta(s, "soc", start, values_until, settle)
     delta_fuel = _delta(s, "fuel_level", start, values_until, settle)
+    fuel_readings = _readings(s, "fuel_level", start, values_until, settle) or (None, None)
     return Trip(
         kind="trip", subject=s.subject.id, start=start, end=end,
         quality=INCOMPLETE if crossed else MEASURED,
@@ -515,6 +525,7 @@ def _trip(s: Stream, start: str, end: str, values_until: str, crossed: bool,
         outside_temperature_c=temp,
         delta_soc_pct=delta_soc,
         delta_fuel_l=delta_fuel,
+        delta_fuel_15c_l=temperature.Source(s).delta_15c(*fuel_readings),
         **_consumption(s, start, values_until, settle, crossed, km, kq, delta_soc, delta_fuel),
         refined_by=refined_by,
         movements_while_plugged=_while_plugged(s, moves),

@@ -509,7 +509,8 @@ there.
 Every trip carries its distance with its source and quality (`odometer`
 measured, `trip_counter` measured, `waypoints` estimated), the positions
 and zones at both ends, every fix in between, the mean outside
-temperature, and ΔSoC and Δfuel as estimates. A trip that spans a capture
+temperature, and ΔSoC and Δfuel as estimates — Δfuel also at 15 °C,
+`delta_fuel_15c_l`, when an outside temperature role is assigned. A trip that spans a capture
 gap is `incomplete`, and so is one whose standstill a gap falls into —
 its end is unknown; a gap after the standstill has elapsed leaves the
 completed trip as it was. Nothing is read across a gap: the distance
@@ -530,7 +531,8 @@ to `end`, the last. It carries the position and zone where the vehicle
 stood, `level_before_l`, `level_after_l` read once T_settle (6 min) has
 passed after `end` together with `settled_at`, the time of that reading,
 the `sensor_delta_l` between the two — always `estimated`, the receipt
-says what was bought — and, with a fuel price role assigned, its value at
+says what was bought — beside it `sensor_delta_15c_l`, the same at 15 °C
+when an outside temperature role is assigned, and, with a fuel price role assigned, its value at
 `start` as `price_suggestion`. No fuel flap is needed. A rise across a
 drive counts as well when the vehicle stopped and started again in
 between, or its fuel flap opened — a vehicle that reports its level only
@@ -756,4 +758,13 @@ vledger calc distance 51.4437 7.1413 51.4812 7.2166     # great-circle, km
 vledger calc convert 630 mi --quantity distance         # 1013.89 km
 vledger calc convert 72 "°F" --quantity temperature     # 22.2222 °C
 vledger calc convert 7.5 "l/100km" --quantity consumption   # 7.5 L/100 km
+vledger calc normalise-fuel 50 25                       # 49.529 L at 15 °C (petrol)
+vledger calc normalise-fuel 50 25 --fuel diesel         # 49.603 L at 15 °C
+vledger calc filtered-temperature --vehicle a7c1 --at 2026-10-09T14:00:00Z
 ```
+
+`normalise-fuel` takes litres and the fuel's temperature; `--beta` gives
+the expansion coefficient itself. `filtered-temperature` is the outside
+temperature the 15 °C figures use at that time — low-pass filtered over
+the hours before it ([derivations.md](derivations.md#fuel-at-15-c)) — or
+says why there is none.

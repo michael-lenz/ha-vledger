@@ -31,9 +31,11 @@ from vledger import (
     report,
     series,
     stats,
+    temperature,
     trips,
     units,
 )
+from vledger import config as vconfig
 from vledger.layout import Subject
 
 ENV_BASE = "VLEDGER_BASE"
@@ -528,6 +530,30 @@ def cmd_calc_convert(args) -> int:
     return 0
 
 
+def cmd_calc_normalise_fuel(args) -> int:
+    beta = args.beta if args.beta is not None else vconfig.FUEL_THRESHOLDS[args.fuel]["beta_per_k"]
+    print(f"{temperature.normalise(args.litres, args.temperature, beta):.3f} L at 15 °C")
+    return 0
+
+
+def cmd_calc_filtered_temperature(args) -> int:
+    subject = _subject(args)
+    if subject.kind != "vehicle":
+        raise Usage("the outside temperature is a vehicle's role")
+    at = clock.to_text(clock.parse(args.at))
+    s = series.load(_base(args), subject, until=at)
+    if temperature.ROLE not in ((s.config or {}).get("roles") or {}):
+        print("no filtered temperature: no outside_temperature role is assigned", file=sys.stderr)
+        return 1
+    value = temperature.Source(s).at(at)
+    if value is None:
+        print("no filtered temperature: no sample in the window, or a dropout or "
+              "capture gap after the last", file=sys.stderr)
+        return 1
+    print(f"{value:.2f} °C")
+    return 0
+
+
 # --- the parser ------------------------------------------------------------
 
 def build_parser() -> argparse.ArgumentParser:
@@ -768,6 +794,20 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("unit", help="the source unit, as Home Assistant spells it")
     sp.add_argument("--quantity", required=True, choices=units.QUANTITIES)
     sp.set_defaults(func=cmd_calc_convert)
+    sp = cverbs.add_parser("normalise-fuel", help="a fuel volume at a temperature as the "
+                                                  "volume at 15 °C (VER-08)")
+    sp.add_argument("litres", type=float)
+    sp.add_argument("temperature", type=float, help="the fuel's temperature, °C")
+    g = sp.add_mutually_exclusive_group()
+    g.add_argument("--fuel", choices=vconfig.FUELS, default="petrol",
+                   help="whose expansion coefficient (default: petrol)")
+    g.add_argument("--beta", type=float, metavar="PER_K", help="the expansion coefficient itself, /K")
+    sp.set_defaults(func=cmd_calc_normalise_fuel)
+    sp = cverbs.add_parser("filtered-temperature", help="a vehicle's low-pass filtered outside "
+                                                        "temperature at a time (ADR-0040)")
+    _add_stream_args(sp)
+    sp.add_argument("--at", required=True, help="the time, UTC ISO 8601")
+    sp.set_defaults(func=cmd_calc_filtered_temperature)
 
     return parser
 

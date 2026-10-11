@@ -30,7 +30,7 @@ from datetime import timedelta
 from itertools import pairwise
 from pathlib import Path
 
-from vledger import __version__, clock, l1, series, trips
+from vledger import __version__, clock, l1, series, temperature, trips
 from vledger.layout import Subject
 from vledger.series import Sample, Stream
 
@@ -50,6 +50,7 @@ class Refuelling:
     level_after_l: float | None        # read once T_settle has elapsed
     settled_at: str | None             # the time of that reading
     sensor_delta_l: float | None
+    sensor_delta_15c_l: float | None   # the same at 15 °C, plausibility only (ADR-0040)
     sensor_delta_quality: str          # estimated, always (TNK-02)
     price_suggestion: float | None     # the fuel_price role at start (TNK-05)
     flap_opened_at: str | None         # the fuel flap's opening within it (ADR-0022)
@@ -153,6 +154,7 @@ def derive(s: Stream, *, completed_only: bool = False) -> list[Refuelling]:
                 continue
         groups.append([(a, b)])
     out: list[Refuelling] = []
+    temps = temperature.Source(s)
     for a, b in _rises_across_a_stop(s, threshold):
         # The level after is the later reading itself: T_settle has long
         # elapsed, and no reading falls inside it (ADR-0022, point 2).
@@ -164,6 +166,7 @@ def derive(s: Stream, *, completed_only: bool = False) -> list[Refuelling]:
             position=series.fix_dict(fix), zone=fix.zone if fix else None,
             level_before_l=round(a.value, 3), level_after_l=round(b.value, 3),
             settled_at=b.t, sensor_delta_l=round(b.value - a.value, 3),
+            sensor_delta_15c_l=temps.delta_15c(a, b),
             sensor_delta_quality=ESTIMATED,
             price_suggestion=price.value if price else None,
             flap_opened_at=_flap_opened(s, a.t, b.t),
@@ -185,6 +188,7 @@ def derive(s: Stream, *, completed_only: bool = False) -> list[Refuelling]:
             level_after_l=round(after.value, 3) if after else None,
             settled_at=after.t if after else None,
             sensor_delta_l=round(after.value - before.value, 3) if after else None,
+            sensor_delta_15c_l=temps.delta_15c(before, after),
             sensor_delta_quality=ESTIMATED,
             price_suggestion=price.value if price else None,
             flap_opened_at=_flap_opened(s, before.t, after.t if after else end),

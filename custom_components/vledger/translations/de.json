@@ -301,6 +301,9 @@
           "delta_fuel_l": {
             "name": "Änderung des Kraftstoffs (L)"
           },
+          "delta_fuel_15c_l": {
+            "name": "Änderung des Kraftstoffs bei 15 °C (L)"
+          },
           "refined_by": {
             "name": "Grenzen verfeinert durch"
           },
@@ -420,6 +423,9 @@
           },
           "sensor_delta_l": {
             "name": "Sensormenge (L)"
+          },
+          "sensor_delta_15c_l": {
+            "name": "Sensormenge bei 15 °C (L)"
           },
           "sensor_delta_quality": {
             "name": "Qualität der Sensormenge"

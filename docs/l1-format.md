@@ -81,7 +81,7 @@ value they displaced stays beside them:
 
 | kind | from the receipt | kept from the sensor |
 |---|---|---|
-| refuelling | `quantity_l`, `quantity_quality`; `price`, `unit_price`, `price_quality`; `full`, `place`, `fuel`, `note` | `sensor_delta_l` |
+| refuelling | `quantity_l`, `quantity_quality`; `price`, `unit_price`, `price_quality`; `full`, `place`, `fuel`, `note` | `sensor_delta_l`, `sensor_delta_15c_l` |
 | charging | `grid_kwh`, `grid_kwh_quality` and `grid_kwh_source` all `receipt`; `cost_eur`, `cost_quality`; `place`, `provider`, `note` — and `kwh_per_pct`, `charging_loss_kwh` from the billed energy (LAD-09) | `sensor_grid_kwh`, `sensor_grid_kwh_quality`, `sensor_grid_kwh_source` |
 
 `deviation_pct` is |receipt − sensor| / receipt × 100, and `implausible`

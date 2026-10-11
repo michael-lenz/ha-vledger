@@ -143,7 +143,8 @@ sensor pair), and `in_use`; markers `ignition`, `plug_state`,
    last of them. `outside_temperature_c` is the mean of the samples
    inside it. `delta_soc_pct` and `delta_fuel_l` are the value once
    `t_settle_s` has passed after the end minus the value before the start
-   — `estimated` always (FAH-05). `movements_while_plugged` counts
+   — `estimated` always (FAH-05); `delta_fuel_15c_l` is the fuel delta at
+   15 °C ([Fuel at 15 °C](#fuel-at-15-c)). `movements_while_plugged` counts
    movement events inside the trip while plug or charging state says the
    vehicle could not drive: sample timing or a wrong mapping, reported and
    never corrected (ADR-0012, point 5).
@@ -245,7 +246,8 @@ driving cycle, at the stop, and is read as legs instead of steps 2 and 3:
    out by then, the first value after it came back. A gap before that
    reading leaves it unread and the candidate `incomplete`.
 4. **Values.** `level_before_l` is the sample before the first rise,
-   `sensor_delta_l` the settled level minus that — `estimated` always.
+   `sensor_delta_l` the settled level minus that — `estimated` always;
+   `sensor_delta_15c_l` the same at 15 °C ([Fuel at 15 °C](#fuel-at-15-c)).
    `position` and `zone` are the fix at the start; `price_suggestion` is
    the `fuel_price` in effect at the start (TNK-05), a suggestion for the
    receipt and nothing more.
@@ -269,6 +271,43 @@ that error, not the step ([glossary](glossary.md), *Sensor resolution*) —
 makes the delta err by twice as much, which is why the receipt's litres
 come first; a rise within the error looks like a top-up, which is why the
 threshold has to exceed it.
+
+## Fuel at 15 °C
+
+Fuel expands with its temperature, so a level sensor reads more litres on
+a hot afternoon than the same fuel holds at night. Beside a refuelling's
+`sensor_delta_l` and a trip's `delta_fuel_l` stands the same delta at
+15 °C — `sensor_delta_15c_l`, `delta_fuel_15c_l` — as a plausibility
+figure (VER-08, ADR-0040). It feeds nothing: not a trip's consumption,
+not a period's metrics, not receipt matching or the plausibility check
+against a receipt, which stay on the raw values and the receipts (VER-01).
+
+1. **The formula.** V₁₅ = V / (1 + β·(T − 15)), β the vehicle's
+   `beta_per_k` (petrol 9.5·10⁻⁴ /K, diesel 8.0·10⁻⁴ /K). The delta is V₁₅
+   of the later reading at its time minus V₁₅ of the earlier at its own:
+   for a refuelling the settled level at `settled_at` and the level
+   before; for a trip the two readings `delta_fuel_l` is taken from.
+2. **The temperature.** T is the `outside_temperature` through a
+   first-order low-pass filter with time constant `temperature_tau_s`
+   (default 3 h), exact for a value that holds until the next sample:
+   between two samples the filtered value y moves toward the held value x
+   as y ← x + (y − x)·e^(−Δt/τ).
+3. **A fixed window.** The filter runs over [t − 5τ, t] only, started at
+   the value in effect at the window's start, or without one at its first
+   sample. Its answer is then a function of L0 alone, the same whether a
+   derivation reads the whole stream or from its cursor; a live run whose
+   cursor lies inside the window reads the window from L0 itself. What the
+   cut-off drops weighs e⁻⁵ ≈ 0.7 % of a temperature difference.
+4. **Nothing across a gap.** A dropout or capture gap inside the window
+   restarts the filter at the next sample. One after the last sample, or
+   no value in effect at the window's start and no sample in it, leaves no
+   temperature — and the delta `null`, as it is without an
+   `outside_temperature` role or without either fuel reading.
+
+**Limitations.** The outside temperature stands in for the fuel's, which
+it reaches only slowly; fresh fuel from an underground tank is nearer
+15 °C than the air on a summer day. The figure says how much of a delta
+the weather can explain, not what the tank holds.
 
 ## Charging sessions
 

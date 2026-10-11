@@ -48,7 +48,7 @@ COLUMNS: dict[str, tuple[str, ...]] = {
     "trip": ENVELOPE + (
         "distance_km", "distance_quality", "distance_source",
         "start_position", "end_position", "start_zone", "end_zone",
-        "outside_temperature_c", "delta_soc_pct", "delta_fuel_l",
+        "outside_temperature_c", "delta_soc_pct", "delta_fuel_l", "delta_fuel_15c_l",
         "fuel_consumed_l", "fuel_consumed_quality", "fuel_consumed_source", "fuel_consumed_error_l",
         "fuel_l_per_100km", "fuel_l_per_100km_quality", "fuel_l_per_100km_error_pct",
         "battery_consumed_kwh", "battery_consumed_quality", "battery_consumed_error_kwh",
@@ -56,7 +56,7 @@ COLUMNS: dict[str, tuple[str, ...]] = {
         "refined_by", "movements_while_plugged"),
     "refuelling": ENVELOPE + (
         "position", "zone", "level_before_l", "level_after_l", "settled_at",
-        "sensor_delta_l", "sensor_delta_quality", "price_suggestion", "flap_opened_at",
+        "sensor_delta_l", "sensor_delta_15c_l", "sensor_delta_quality", "price_suggestion", "flap_opened_at",
         *_CONFIRMATION,
         "quantity_l", "quantity_quality", "price", "unit_price", "price_quality",
         "full", "place", "fuel", "note", *_PLAUSIBILITY),

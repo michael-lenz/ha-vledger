@@ -69,6 +69,9 @@ class Stream:
     #: The cursor the stream was read from, when it was: what came before is
     #: only seeded.
     since: str | None = None
+    #: The directory it was read from, for what must read beyond the cursor
+    #: (ADR-0040, point 2); ``None`` for a stream not loaded from disk.
+    base: Path | None = None
 
     def thresholds(self) -> dict:
         thr = dict(vconfig.DEFAULT_THRESHOLDS)
@@ -199,7 +202,7 @@ def load(base: Path, subject: Subject, *, since: str | None = None,
     the last value of every role before it. The gaps are judged
     against ``now``, by default the stream's own last line — a stream read
     beside another is judged against that one's (ADR-0027, point 2)."""
-    s = Stream(subject, since=since)
+    s = Stream(subject, since=since, base=base)
     pending_lat: dict[str, float] = {}
     fuel_pct: list[Sample] = []
     seeding = False
