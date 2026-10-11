@@ -566,7 +566,9 @@ def derive(s: Stream, *, completed_only: bool = False) -> list[Trip]:
         if (clock.parse(s.last_t) - clock.parse(last) < timedelta(seconds=t_still)
                 or in_use_now(s)):
             spans = spans[:-1]
-    floor = None
+    # A stream read from a cursor begins where L1's last trip ended: that
+    # end is the floor, as the previous trip's is in a rebuild (ISSUE-0056).
+    floor = s.since
     for first, last, crossed in spans:
         inside_moves = [m for m in moves
                         if clock.parse(first) <= clock.parse(m.t) <= clock.parse(last)]

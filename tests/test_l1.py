@@ -5,7 +5,7 @@ swap whole, and the proof that incremental equals batch."""
 import json
 import shutil
 
-from test_trips import Builder, at
+from test_trips import ROAD, Builder, at
 from vledger import l1, series, trips
 from vledger.cli import main
 from vledger.layout import Subject
@@ -126,6 +126,35 @@ def test_incremental_line_by_line_equals_one_rebuild(tmp_path, capsys):
     incremental = (l1.l1_dir(replay, V) / "trips.jsonl").read_bytes()
     assert batch == incremental
     assert len(read_lines(live, "trip")) == 3
+
+
+def test_a_start_marker_before_the_cursor_moves_no_live_trip(tmp_path, capsys):
+    """ISSUE-0056: the ignition turns on inside one trip's standstill and
+    off at its end, which ends that trip and sets the cursor; a single
+    movement five minutes later is a trip of its own. Read from the
+    cursor, the marker before it must not move that trip's start back
+    across it — the previous trip's end is the floor, as in a rebuild —
+    or the live run drops the trip as not after its cursor."""
+    live = tmp_path / "live"
+    b = Builder(live, capsys)
+    b.state(15, "odometer", 1007, "km").fix(15, *ROAD[0])
+    b.state(29, "ignition", "on").state(45, "ignition", "off")      # the end marker: cursor at 45
+    b.state(50, "odometer", 1015, "km").fix(50, *ROAD[1])
+    b.heartbeat(110)
+
+    replay = tmp_path / "replay"
+    src = live / "vehicle-a7c1" / "l0" / "2026-10.jsonl"
+    dst = replay / "vehicle-a7c1" / "l0" / "2026-10.jsonl"
+    dst.parent.mkdir(parents=True)
+    with open(dst, "a") as f:
+        for line in src.read_text().splitlines(keepends=True):
+            f.write(line)
+            f.flush()
+            l1.incremental(replay, V)
+
+    l1.rebuild(live, V)
+    assert [(e["start"], e["end"]) for e in read_lines(live, "trip")] == [(at(15), at(45)), (at(50), at(50))]
+    assert (l1.l1_dir(live, V) / "trips.jsonl").read_bytes() == (l1.l1_dir(replay, V) / "trips.jsonl").read_bytes()
 
 
 def test_the_verbs(tmp_path, capsys):
