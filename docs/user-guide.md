@@ -311,8 +311,21 @@ as at startup.
 A dashboard card for one vehicle: its last trips, and below them a
 receipt form for each energy it uses. It comes with the integration —
 there is no resource to add and nothing else to install. *Edit dashboard →
-Add card → Vehicle Ledger*, then pick the vehicle and how many trips the
-list shows (10 unless you choose, at most 50).
+Add card → Vehicle Ledger*, then pick the vehicle, which sections to show,
+and how many trips the list shows (10 unless you choose, at least 1, at
+most 50).
+
+Each section has a switch, on unless you turn it off — in YAML
+`show_trips`, `show_refuelling` and `show_charging`. A switch only hides:
+a form for an energy the vehicle does not use never appears. A card for
+a pop-up that only takes refuelling receipts:
+
+```yaml
+type: custom:vledger-card
+device: f60879dacff257c0d34fc8366aa555c4
+show_trips: false
+show_charging: false
+```
 
 - **The trip list** — per trip the start time, where it started and ended
   (the zones, `—` outside one), and the distance in your unit system. A

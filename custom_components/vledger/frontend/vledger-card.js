@@ -92,7 +92,8 @@ class VledgerCard extends HTMLElement {
   }
 
   getCardSize() {
-    return 3 + Math.min(M.tripCount(this._config), 10);
+    const shown = M.sections(this._config, this._kinds ?? M.RECEIPT_KINDS);
+    return 1 + (shown.trips ? 2 + Math.min(M.tripCount(this._config), 10) : 0) + 6 * shown.kinds.length;
   }
 
   static getConfigElement() {
@@ -138,10 +139,14 @@ class VledgerCard extends HTMLElement {
     this._entities = entities;
     this._entry = M.entryOf(this._hass.devices?.[device]);
     this._kinds = M.RECEIPT_KINDS.filter((kind) => entities[kind]);
-    const layout = [device, this._ctx.language, ...this._kinds].join("|");
+    this._shown = M.sections(this._config, this._kinds);
+    const layout = [device, this._ctx.language, this._shown.trips, ...this._shown.kinds].join("|");
     if (layout !== this._layout) {
       this._layout = layout;
       this._build();
+    }
+    if (this._shown.none) {
+      return;
     }
     if (M.rebuilding(this._hass.states, entities)) {
       this._status(s.unavailable);
@@ -158,19 +163,20 @@ class VledgerCard extends HTMLElement {
     const read = ++this._reads;
     const call = (kind, last, waiting) =>
       this._hass.callWS(M.readEvents(this._entry, kind, last, waiting)).then((r) => r.response.events);
+    const { trips: showTrips, kinds } = this._shown;
     try {
       const [trips, ...waiting] = await Promise.all([
-        call("trip", M.tripCount(this._config), false),
-        ...this._kinds.map((kind) => call(kind, CANDIDATES, true)),
+        showTrips ? call("trip", M.tripCount(this._config), false) : null,
+        ...kinds.map((kind) => call(kind, CANDIDATES, true)),
       ]);
       if (read !== this._reads) {
         return;
       }
       this._trips = trips;
-      this._kinds.forEach((kind, i) => { this._candidates[kind] = waiting[i]; });
+      kinds.forEach((kind, i) => { this._candidates[kind] = waiting[i]; });
       this._status("");
       this._drawTrips();
-      this._kinds.forEach((kind) => this._drawCandidates(kind));
+      kinds.forEach((kind) => this._drawCandidates(kind));
     } catch (err) {
       if (read === this._reads) {
         this._key = null; // read again on the next update
@@ -196,9 +202,16 @@ class VledgerCard extends HTMLElement {
   _build() {
     const s = this._strings;
     this._statusNode = h("p", { class: "message" });
-    this._tripsNode = h("div");
+    this._tripsNode = this._shown.trips ? h("div") : null;
     this._formNodes = {};
-    const forms = this._kinds.map((kind) => {
+    this._eventNodes = {};
+    const title = h("h2", {}, this._hass.devices?.[this._config.device]?.name_by_user
+      ?? this._hass.devices?.[this._config.device]?.name ?? s.card_name);
+    if (this._shown.none) {
+      this._frame(title, h("p", { class: "message" }, s.nothing_shown));
+      return;
+    }
+    const forms = this._shown.kinds.map((kind) => {
       this._forms[kind] ??= this._fresh(kind);
       const node = h("div");
       this._formNodes[kind] = node;
@@ -206,11 +219,9 @@ class VledgerCard extends HTMLElement {
       return [h("h3", {}, s[`receipt_${kind}`]), node];
     });
     this._frame(
-      h("h2", {}, this._hass.devices?.[this._config.device]?.name_by_user
-        ?? this._hass.devices?.[this._config.device]?.name ?? s.card_name),
+      title,
       this._statusNode,
-      h("h3", {}, s.trips),
-      this._tripsNode,
+      this._tripsNode ? [h("h3", {}, s.trips), this._tripsNode] : null,
       forms);
     this._drawTrips();
   }
@@ -344,8 +355,9 @@ class VledgerCard extends HTMLElement {
   }
 }
 
-// The card's editor (ADR-0039, point 7): the vehicle and the number of
-// trips, through Home Assistant's own selectors, so no YAML is needed.
+// The card's editor (ADR-0039, point 7; ADR-0041, point 5): the vehicle,
+// the sections, and the number of trips while the list is shown, through
+// Home Assistant's own selectors, so no YAML is needed.
 class VledgerCardEditor extends HTMLElement {
   setConfig(config) {
     this._config = { ...config };
@@ -369,12 +381,23 @@ class VledgerCardEditor extends HTMLElement {
       this._trips = document.createElement("ha-selector");
       this._trips.selector = { number: { min: 1, max: M.MAX_EVENTS, mode: "box" } };
       this._trips.addEventListener("value-changed", (e) => this._changed("trips", e.detail.value));
-      const style = h("style", { textContent: "div { display: grid; gap: 16px; }" });
-      this.replaceChildren(style, h("div", {}, this._device, this._trips));
+      this._switches = Object.fromEntries(["trips", ...M.RECEIPT_KINDS].map((name) => {
+        const node = document.createElement("ha-selector");
+        node.selector = { boolean: {} };
+        node.addEventListener("value-changed", (e) => this._changed(`show_${name}`, e.detail.value));
+        return [name, node];
+      }));
+      const style = h("style", { textContent: "div { display: grid; gap: 16px; } [hidden] { display: none !important; }" });
+      this.replaceChildren(style, h("div", {}, this._device, this._switches.trips, this._trips,
+        M.RECEIPT_KINDS.map((kind) => this._switches[kind])));
     }
+    const shown = M.sections(this._config, M.RECEIPT_KINDS);
+    this._trips.hidden = !shown.trips;
     for (const [node, key, label, value] of [
       [this._device, "device", s.editor_device, this._config.device ?? ""],
       [this._trips, "trips", s.editor_trips, M.tripCount(this._config)],
+      ...["trips", ...M.RECEIPT_KINDS].map((name) => [this._switches[name], `show_${name}`,
+        s[`editor_show_${name}`], name === "trips" ? shown.trips : shown.kinds.includes(name)]),
     ]) {
       node.hass = this._hass;
       node.label = label;

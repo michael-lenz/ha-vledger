@@ -30,6 +30,16 @@ export function tripCount(config) {
   return Number.isFinite(n) ? Math.min(Math.max(n, 1), MAX_EVENTS) : DEFAULT_TRIPS;
 }
 
+// The sections the card draws (ADR-0041): each `show_*` option is true
+// unless set to false, and can only take a section away — a receipt form
+// stays limited to the kinds the vehicle has. What is not drawn is not read.
+export function sections(config, kinds) {
+  const on = (name) => config?.[`show_${name}`] !== false;
+  const shown = { trips: on("trips"), kinds: kinds.filter((kind) => on(kind)) };
+  shown.none = !shown.trips && !shown.kinds.length;
+  return shown;
+}
+
 // --- strings (ADR-0039, point 8; ADR-0001: English the source) ----------
 
 export const STRINGS = {
@@ -38,6 +48,10 @@ export const STRINGS = {
     card_description: "A vehicle's last trips, and receipt entry for its refuellings and charging sessions.",
     editor_device: "Vehicle",
     editor_trips: "Trips in the list",
+    editor_show_trips: "Show the trip list",
+    editor_show_refuelling: "Show the refuelling receipt",
+    editor_show_charging: "Show the charging receipt",
+    nothing_shown: "The card's settings show no section for this vehicle.",
     no_device: "Choose a vehicle in the card's settings.",
     not_a_vehicle: "This device is not a Vehicle Ledger vehicle. Charge points have no trips or receipts.",
     unavailable: "The derivation is being rebuilt; the card follows when it is done.",
@@ -69,6 +83,10 @@ export const STRINGS = {
     card_description: "Die letzten Fahrten eines Fahrzeugs und die Belegerfassung für seine Tank- und Ladevorgänge.",
     editor_device: "Fahrzeug",
     editor_trips: "Fahrten in der Liste",
+    editor_show_trips: "Fahrtenliste anzeigen",
+    editor_show_refuelling: "Tankbeleg anzeigen",
+    editor_show_charging: "Ladebeleg anzeigen",
+    nothing_shown: "Die Einstellungen der Karte zeigen für dieses Fahrzeug keinen Abschnitt.",
     no_device: "Wähle in den Einstellungen der Karte ein Fahrzeug.",
     not_a_vehicle: "Dieses Gerät ist kein Fahrzeug von Vehicle Ledger. Ladepunkte haben keine Fahrten und keine Belege.",
     unavailable: "Die Ableitung wird neu berechnet; die Karte folgt, sobald es fertig ist.",

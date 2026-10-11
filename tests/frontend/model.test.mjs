@@ -122,6 +122,19 @@ test("the read action's call", () => {
   assert.equal(M.tripCount({ trips: "x" }), M.DEFAULT_TRIPS);
 });
 
+test("the sections: every option on unless set false, and none can add a kind the vehicle lacks", () => {
+  const both = ["refuelling", "charging"];
+  assert.deepEqual(M.sections({}, both), { trips: true, kinds: both, none: false });
+  assert.deepEqual(M.sections(undefined, both), { trips: true, kinds: both, none: false });
+  assert.deepEqual(M.sections({ show_trips: false, show_charging: false }, both),
+    { trips: false, kinds: ["refuelling"], none: false });
+  assert.deepEqual(M.sections({ show_charging: true }, ["refuelling"]),
+    { trips: true, kinds: ["refuelling"], none: false });
+  assert.deepEqual(M.sections({ show_trips: false, show_refuelling: false }, ["refuelling"]),
+    { trips: false, kinds: [], none: true });
+  assert.deepEqual(M.sections({ show_trips: false }, []), { trips: false, kinds: [], none: true });
+});
+
 test("the vehicle's entities, its entry, and when to read again", () => {
   const entities = {
     "sensor.v_trip": { entity_id: "sensor.v_trip", device_id: "d1", platform: "vledger", translation_key: "last_trip" },
