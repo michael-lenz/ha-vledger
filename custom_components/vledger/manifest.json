@@ -9,6 +9,6 @@
   "integration_type": "device",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/michael-lenz/ha-vledger/issues",
-  "requirements": ["vledger==0.7.2"],
-  "version": "0.7.2"
+  "requirements": ["vledger==0.7.3"],
+  "version": "0.7.3"
 }
