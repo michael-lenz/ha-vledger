@@ -57,6 +57,12 @@ export const STRINGS = {
     unavailable: "The derivation is being rebuilt; the card follows when it is done.",
     trips: "Trips",
     no_trips: "No trips yet.",
+    column_when: "Start",
+    column_route: "Route",
+    column_distance: "Distance",
+    column_cost: "Cost",
+    cost_fuel: "Fuel",
+    cost_electricity: "Electricity",
     receipt_refuelling: "Refuelling receipt",
     receipt_charging: "Charging receipt",
     event: "Event",
@@ -93,6 +99,12 @@ export const STRINGS = {
     unavailable: "Die Ableitung wird neu berechnet; die Karte folgt, sobald es fertig ist.",
     trips: "Fahrten",
     no_trips: "Noch keine Fahrten.",
+    column_when: "Start",
+    column_route: "Strecke",
+    column_distance: "Distanz",
+    column_cost: "Kosten",
+    cost_fuel: "Kraftstoff",
+    cost_electricity: "Strom",
     receipt_refuelling: "Tankbeleg",
     receipt_charging: "Ladebeleg",
     event: "Ereignis",
@@ -155,6 +167,23 @@ export function formatNumber(value, language, digits = 1) {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   }).format(value);
+}
+
+// An amount in the instance's currency: a key spelled eur holds one, not
+// the euro (ADR-0029). Without a currency, or with one Intl does not know,
+// the number alone.
+export function formatMoney(value, language, currency) {
+  if (typeof value !== "number") {
+    return "—";
+  }
+  try {
+    if (currency) {
+      return new Intl.NumberFormat(language || "en", { style: "currency", currency }).format(value);
+    }
+  } catch {
+    // An unknown code: the number alone, below.
+  }
+  return formatNumber(value, language, 2);
 }
 
 // --- time -------------------------------------------------------------------
@@ -225,6 +254,23 @@ export function tripRow(line, ctx) {
     to: zoneLabel(line.end_zone, strings),
     distance: d.value === null ? "—" : `${formatNumber(d.value, language)} ${d.unit}`,
     flag: qualityFlag(line.distance_quality, strings),
+    ...tripCost(line, ctx),
+  };
+}
+
+// A trip's cost as the list shows it (ADR-0043, point 3): the sum, its
+// flag while it has a value, and the split by energy as the cell's title —
+// only the energies the vehicle uses, which carry a quality.
+function tripCost(line, ctx) {
+  const { language, currency, strings } = ctx;
+  const known = typeof line.cost_eur === "number";
+  const parts = [["fuel_cost_eur", "cost_fuel"], ["electricity_cost_eur", "cost_electricity"]]
+    .filter(([key]) => line[`${key}_quality`] != null)
+    .map(([key, label]) => `${strings[label]}: ${formatMoney(line[key], language, currency)}`);
+  return {
+    cost: formatMoney(line.cost_eur, language, currency),
+    costFlag: known ? qualityFlag(line.cost_eur_quality, strings) : null,
+    costTitle: parts.join(" · "),
   };
 }
 

@@ -329,10 +329,16 @@ show_trips: false
 show_charging: false
 ```
 
-- **The trip list** — per trip the start time, where it started and ended
-  (the zones; *no zone* outside every one, `—` without a position), and
-  the distance in your unit system. A distance that is not measured says
-  so beside it (*estimated*).
+- **The trip list** — a table, one row per trip: the start time, where it
+  started and ended (the zones; *no zone* outside every one, `—` without
+  a position), the distance in your unit system, and the cost in your
+  instance's currency. A distance or cost that is not measured says so
+  beside it (*estimated*); hovering over the cost splits it into fuel and
+  electricity. The cost is what the trip consumed at the last prices known
+  when it started — the last refuelling receipt, the last priced charging
+  session — so a receipt entered later prices the trips after it the next
+  time the card reads. It is `—` while the trip's consumption is not shown
+  or no price is known yet ([derivations.md](derivations.md#a-trips-cost)).
 - **The receipt forms** — the same fields as the form above, and the same
   rules: pick a waiting event or type the time, at least the litres or the
   energy, and a price; the button writes the receipt. The event list
@@ -352,7 +358,9 @@ happens to the card.
 **`vledger.read_events`** is what the card reads through, and works in
 scripts and *Developer tools → Actions* as well. It answers with the last
 events of one kind, newest first, each line as the event entities show it,
-as `vledger l1 read --last` reads them:
+as `vledger l1 read --last` reads them — a trip with its cost added,
+`fuel_cost_eur`, `electricity_cost_eur` and `cost_eur` with their
+`_quality`:
 
 ```yaml
 action: vledger.read_events
@@ -532,6 +540,7 @@ JSON Lines — one event per line, so it composes with `jq` like `l0 read`.
 ```bash
 vledger derive trips --vehicle a7c1
 vledger derive trips --vehicle a7c1 --since 2026-10-01T00:00:00Z | jq '{start, end, distance_km, distance_source}'
+vledger derive trips --vehicle a7c1 | jq '{start, fuel_consumed_l, battery_consumed_kwh, cost_eur}'
 vledger derive refuellings --vehicle a7c1 | jq '{start, zone, level_before_l, level_after_l}'
 vledger derive charging --vehicle a7c1 | jq '{start, chargepoint, delta_soc_pct, grid_kwh, grid_kwh_source, cost_eur}'
 ```
@@ -564,6 +573,9 @@ empty when its source cannot tell it from zero to one step of 0.1 per
 100 km — the quantity within its error of zero, and that error over the
 distance more than a step — while the quantity and the error are always
 there.
+Printed, a trip also carries its cost, `cost_eur`, priced from the
+receipts the vehicle's L1 holds now; `--write` stores none
+([derivations.md](derivations.md#a-trips-cost)).
 Every trip carries its distance with its source and quality (`odometer`
 measured, `trip_counter` measured, `waypoints` estimated), the positions
 and zones at both ends, every fix in between, the mean outside
@@ -749,7 +761,8 @@ vledger export gpx --vehicle a7c1 --since 2026-10-01T00:00:00Z --out october.gpx
 ```
 
 `--kind` is `trip`, `charging`, `refuelling` or `period`; `--since` and
-`--until` pick events by their start. A CSV's columns are the same for a
+`--until` pick events by their start. A trip carries its cost, priced
+from the receipts as they are now, as in the card. A CSV's columns are the same for a
 kind whatever it holds; how nested values become columns, and what a GPX
 track holds, is [l1-format.md](l1-format.md#exports).
 

@@ -259,9 +259,11 @@ def _write_kind(args, kind: str, noun: str) -> int:
 def cmd_derive_trips(args) -> int:
     if args.write:
         return _write_kind(args, "trip", "trip")
-    found = trips.derive_from(_base(args), _subject(args), since=args.since, until=args.until)
-    for trip in found:
-        print(json.dumps(trips.to_dict(trip), ensure_ascii=False))
+    base, subject = _base(args), _subject(args)
+    found = trips.derive_from(base, subject, since=args.since, until=args.until)
+    # Priced from the receipts L1 holds now; --write stores no cost (ADR-0043).
+    for line in trips.with_costs(base, subject, [trips.to_dict(t) for t in found]):
+        print(json.dumps(line, ensure_ascii=False))
     print(f"{len(found)} trip(s)", file=sys.stderr)
     return 0
 

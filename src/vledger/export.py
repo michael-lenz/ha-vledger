@@ -28,7 +28,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
-from vledger import __version__, clock, l1, periods
+from vledger import __version__, clock, l1, periods, trips
 from vledger.layout import Subject
 
 FORMATS = ("csv", "json", "gpx")
@@ -53,7 +53,10 @@ COLUMNS: dict[str, tuple[str, ...]] = {
         "fuel_l_per_100km", "fuel_l_per_100km_quality", "fuel_l_per_100km_error_pct",
         "battery_consumed_kwh", "battery_consumed_quality", "battery_consumed_error_kwh",
         "battery_kwh_per_100km", "battery_kwh_per_100km_quality", "battery_kwh_per_100km_error_pct",
-        "refined_by", "movements_while_plugged"),
+        "refined_by", "movements_while_plugged",
+        # Computed at read time, never in L1 (ADR-0043).
+        "fuel_cost_eur", "fuel_cost_eur_quality", "electricity_cost_eur",
+        "electricity_cost_eur_quality", "cost_eur", "cost_eur_quality"),
     "refuelling": ENVELOPE + (
         "position", "zone", "level_before_l", "level_after_l", "settled_at",
         "sensor_delta_l", "sensor_delta_15c_l", "sensor_delta_quality", "price_suggestion", "flap_opened_at",
@@ -98,9 +101,13 @@ def status(base: Path, subject: Subject) -> str | None:
 def selected(base: Path, subject: Subject, kind: str, since: str | None = None,
              until: str | None = None) -> tuple[list[dict], str | None]:
     """One kind's events as L1 holds them, within ``since`` and ``until``
-    by their start, and :func:`status`'s note."""
+    by their start, and :func:`status`'s note. Trips carry their cost,
+    computed as they are read (ADR-0043)."""
     note = status(base, subject)
-    return within(l1.read(base, subject, kind), since, until), note
+    events = within(l1.read(base, subject, kind), since, until)
+    if kind == "trip":
+        events = trips.with_costs(base, subject, events)
+    return events, note
 
 
 def render(fmt: str, kind: str, events: list[dict]) -> str:

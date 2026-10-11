@@ -917,3 +917,74 @@ def test_a_trip_across_a_gap_is_incomplete_in_its_consumption_too(tmp_path, caps
     assert after and after[0].quality == "incomplete"
     assert after[0].fuel_consumed_quality == "incomplete"
     assert after[0].fuel_l_per_100km_quality in (None, "incomplete")
+
+
+# --- a trip's cost, at read time (ADR-0043) ----------------------------------
+
+PHEV = {"fuel": "petrol", "battery_net_kwh": 18.8, "charging_loss_factor": 1.1}
+
+
+def _trip_line(**kw) -> dict:
+    line = {"start": "2026-10-09T10:00:00.000Z",
+            "fuel_consumed_l": 2.0, "fuel_consumed_quality": "measured", "fuel_l_per_100km": 5.0,
+            "battery_consumed_kwh": 4.0, "battery_consumed_quality": "estimated",
+            "battery_kwh_per_100km": 10.0}
+    line.update(kw)
+    return line
+
+
+def _receipted(start: str, unit: float) -> dict:
+    return {"start": start, "confirmation": "receipt", "unit_price": unit}
+
+
+def _session(start: str, cost: float, kwh: float, quality: str = "receipt") -> dict:
+    return {"start": start, "cost_eur": cost, "cost_quality": quality, "grid_kwh": kwh}
+
+
+def test_a_trip_is_priced_at_the_last_prices_known_at_its_start():
+    refuellings = [_receipted("2026-10-01T08:00:00.000Z", 1.80),
+                   _receipted("2026-10-08T08:00:00.000Z", 1.90),
+                   _receipted("2026-10-09T12:00:00.000Z", 2.50),           # after the start
+                   {"start": "2026-10-09T09:00:00.000Z", "price_suggestion": 1.0}]  # no receipt
+    sessions = [_session("2026-10-05T20:00:00.000Z", 3.0, 10.0),
+                _session("2026-10-07T20:00:00.000Z", 0.0, 0.0),            # no energy: not a price
+                _session("2026-10-10T20:00:00.000Z", 9.0, 10.0)]
+    c = trips.cost(_trip_line(), refuellings, sessions, PHEV)
+    assert c["fuel_cost_eur"] == 3.8 and c["fuel_cost_eur_quality"] == "measured"
+    # 4 kWh from the battery are 4.4 kWh from the grid, at 0.30 per kWh.
+    assert c["electricity_cost_eur"] == 1.32 and c["electricity_cost_eur_quality"] == "estimated"
+    assert c["cost_eur"] == 5.12 and c["cost_eur_quality"] == "estimated"
+
+
+def test_a_late_receipt_changes_the_cost_when_it_is_next_read():
+    line = _trip_line(battery_consumed_kwh=0.0, battery_kwh_per_100km=0.0)
+    assert trips.cost(line, [], [], PHEV)["cost_eur"] is None
+    later = trips.cost(line, [_receipted("2026-10-08T08:00:00.000Z", 1.90)], [], PHEV)
+    assert later["cost_eur"] == 3.8 and later["electricity_cost_eur"] == 0.0
+
+
+def test_an_unshown_consumption_or_a_missing_price_leaves_the_cost_unknown():
+    prices = [_receipted("2026-10-08T08:00:00.000Z", 1.90)], [_session("2026-10-05T20:00:00.000Z", 3.0, 10.0)]
+    c = trips.cost(_trip_line(fuel_l_per_100km=None), *prices, PHEV)
+    assert c["fuel_cost_eur"] is None and c["fuel_cost_eur_quality"] == "incomplete"
+    assert c["electricity_cost_eur"] == 1.32
+    assert c["cost_eur"] is None and c["cost_eur_quality"] == "incomplete"
+    c = trips.cost(_trip_line(), prices[0], [], PHEV)
+    assert c["electricity_cost_eur"] is None and c["cost_eur"] is None
+
+
+def test_an_energy_the_vehicle_does_not_use_stays_out_of_the_sum():
+    line = _trip_line(battery_consumed_kwh=None, battery_kwh_per_100km=None)
+    c = trips.cost(line, [_receipted("2026-10-08T08:00:00.000Z", 1.90)], [], {"fuel": "diesel"})
+    assert c["electricity_cost_eur"] is None and c["electricity_cost_eur_quality"] is None
+    assert c["cost_eur"] == 3.8 and c["cost_eur_quality"] == "measured"
+    c = trips.cost(line, [], [], {})
+    assert c == dict.fromkeys(("fuel_cost_eur", "fuel_cost_eur_quality", "electricity_cost_eur",
+                               "electricity_cost_eur_quality", "cost_eur", "cost_eur_quality"))
+
+
+def test_a_battery_that_gained_is_a_negative_electricity_cost():
+    line = _trip_line(battery_consumed_kwh=-2.0, battery_kwh_per_100km=-5.0)
+    c = trips.cost(line, [_receipted("2026-10-08T08:00:00.000Z", 1.90)],
+                   [_session("2026-10-05T20:00:00.000Z", 3.0, 10.0)], PHEV)
+    assert c["electricity_cost_eur"] == -0.66 and c["cost_eur"] == 3.14

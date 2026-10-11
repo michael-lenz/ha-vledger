@@ -228,6 +228,32 @@ driving cycle, at the stop, and is read as legs instead of steps 2 and 3:
   nothing. A source that reports its average in miles per gallon is not a
   factor away from L/100 km and stays unread.
 
+### A trip's cost
+
+Computed when a trip is read — by `vledger.read_events`, `vledger derive
+trips` and the exports — and never stored in L1 (ADR-0043): a receipt
+entered after the trip prices it the next time it is read, and a finished
+event is not reopened. Prices are the last known at the trip's start,
+from the receipts and sessions L1 holds:
+
+- `fuel_cost_eur` — `fuel_consumed_l` × the `unit_price` of the last
+  refuelling with a receipt starting at or before the trip's start, the
+  rule a period uses when it has no receipt of its own
+  ([Metrics](#metrics)); its quality is the consumption's.
+- `electricity_cost_eur` — `battery_consumed_kwh` × `charging_loss_factor`
+  × `cost_eur` / `grid_kwh` of the last priced charging session starting
+  at or before the trip's start; `estimated` at best. A battery that
+  gained gives a negative cost: that energy is priced again when a later
+  trip spends it.
+- `cost_eur` — their sum, as good as the weaker.
+
+A part is `null` and `incomplete` when its consumption is not shown (its
+rate per 100 km is `null`, step 6) or, for anything but zero, when no
+price is known before the trip; the sum is then `null` too. An energy the
+vehicle does not use — no `fuel`, or no `battery_net_kwh` — is `null`
+without a quality and stays out of the sum. Amounts are in the instance's
+currency ([l1-format.md](l1-format.md#files)).
+
 ## Refuelling candidates
 
 **Reads:** `fuel_level` (litres, or % with `tank_capacity_l`),

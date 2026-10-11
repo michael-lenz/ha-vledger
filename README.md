@@ -58,7 +58,8 @@ behaviour is the design, held as requirements in the project's register
   fuel and battery energy are its own figures beside that, in litres and
   kWh and per 100 km, from the trip computer or the sensor deltas, shown
   when they exceed their possible error or are right to the step they are
-  shown in — an electric trip read from the trip computer is 0 L.
+  shown in — an electric trip read from the trip computer is 0 L. A trip's
+  cost is that consumption at the last prices known when it started.
 
 ## What it is built of
 

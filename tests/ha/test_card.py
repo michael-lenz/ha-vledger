@@ -11,8 +11,10 @@ from custom_components.vledger import card
 from custom_components.vledger.const import DOMAIN
 from homeassistant.components import frontend
 from homeassistant.exceptions import ServiceValidationError
-from test_event_entities import refuelling, trip
+from test_event_entities import consumption, refuelling, trip
 from test_receipt_entry import _act, _settle, _setup, at
+
+from vledger import trips
 
 ROOT = Path(__file__).parents[2] / "custom_components" / DOMAIN
 
@@ -44,9 +46,28 @@ async def test_read_events_answers_the_last_lines_newest_first_as_the_entities_s
     assert line["distance_km"] == 7.25 and line["start_position"] == {"latitude": 51.0, "longitude": 7.0}
     assert not {"kind", "subject", "version", "waypoints"} & line.keys()   # ADR-0016, point 3
     state = hass.states.get("sensor.volvo_last_trip")
-    assert {k: v for k, v in state.attributes.items() if k in line} == line
+    held = {k: v for k, v in line.items() if not k.startswith(trips.COST_KEYS)}
+    assert {k: v for k, v in state.attributes.items() if k in line} == held
     assert len((await _read(hass, vehicle_entry, kind="trip"))["events"]) == 3   # default 10
     assert await _read(hass, vehicle_entry, kind="charging") == {"events": []}   # no such file
+
+
+async def test_read_events_prices_a_trip_as_it_is_read(hass, vehicle_entry, stand_in):
+    """ADR-0043: a trip line carries its cost from the receipts L1 holds
+    when it is read, so a receipt entered after the trip prices it."""
+    stand_in["refuelling"] += [refuelling(0)]
+    stand_in["trip"] += [trip(60, 40.0, **consumption(
+        fuel_consumed_l=2.0, fuel_consumed_quality="measured", fuel_l_per_100km=5.0))]
+    await _setup(hass, vehicle_entry)
+    line = (await _read(hass, vehicle_entry, kind="trip"))["events"][0]
+    assert line["cost_eur"] is None and line["cost_eur_quality"] == "incomplete"
+    await _act(hass, "add_refuelling_receipt", config_entry_id=vehicle_entry.entry_id,
+               from_candidate=at(0), quantity_l=40.0, full=True, total_price=70.0)
+    await _settle(hass, vehicle_entry)
+    line = (await _read(hass, vehicle_entry, kind="trip"))["events"][0]
+    assert line["fuel_cost_eur"] == line["cost_eur"] == 3.5            # 2 L at 1.75
+    assert line["electricity_cost_eur"] is None                        # no battery
+    assert "cost_eur" not in hass.states.get("sensor.volvo_last_trip").attributes
 
 
 async def test_read_events_waiting_is_the_librarys_test(hass, vehicle_entry, stand_in):

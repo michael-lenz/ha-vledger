@@ -28,7 +28,9 @@ rises was broken) and every stream it reads has reached its end
 per line, in order of `start`. Every event carries `kind` (`trip`,
 `charging`, `refuelling`, `period`), `subject`, `start`, `end`, `quality`
 (`measured`, `receipt`, `estimated`, `incomplete`) and `version`, then the
-keys of its kind, exactly as `vledger derive …` prints them. A derived
+keys of its kind, exactly as `vledger derive …` prints them — but for a
+trip's cost, which is computed whenever a trip is read and never stored
+([derivations.md](derivations.md#a-trips-cost), ADR-0043). A derived
 event has no id: it is named by `(kind, subject, start)`, and a receipt
 that matched it is referenced by the receipt's UUID in the event.
 
@@ -205,7 +207,8 @@ kind, the count and the current periods once at start and again after
 every run of the writer, and show nothing else (ARC-05); the month lines,
 read whole, become its external statistics. The action
 `vledger.read_events`, which the Lovelace card reads through, is
-`l1.last` with and without `waiting` (ADR-0039).
+`l1.last` with and without `waiting` (ADR-0039), its trips with their
+cost added by `trips.with_costs` (ADR-0043).
 
 ## Who writes what
 
@@ -294,6 +297,11 @@ anywhere else, and only under the writer's lock, so a rebuild cannot swap
   and one `trkseg` of its waypoints as `trkpt` with `time`, the fix before
   it moved first. A trip without a waypoint is a track with an empty
   segment, so the tracks count the trips.
+
+In CSV and JSON a trip carries its cost beside its line —
+`fuel_cost_eur`, `electricity_cost_eur` and `cost_eur`, each with its
+`_quality` — computed from L1 as the export reads it (ADR-0043), so an
+export still reads nothing but L1.
 
 ## Determinism
 

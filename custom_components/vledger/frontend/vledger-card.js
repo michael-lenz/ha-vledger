@@ -20,8 +20,12 @@ const STYLE = `
   .message { color: var(--secondary-text-color); margin: 4px 0; }
   .error { color: var(--error-color); }
   table { width: 100%; border-collapse: collapse; }
-  td { padding: 4px 4px 4px 0; vertical-align: top; }
-  td.number { text-align: right; white-space: nowrap; }
+  th, td { padding: 4px 4px 4px 0; vertical-align: top; }
+  th {
+    text-align: left; font-weight: 500; font-size: 0.9em; color: var(--secondary-text-color);
+    border-bottom: 1px solid var(--divider-color, #ccc);
+  }
+  th.number, td.number { text-align: right; white-space: nowrap; }
   .flag { color: var(--secondary-text-color); font-size: 0.85em; margin-left: 4px; }
   form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
   label { display: grid; gap: 2px; color: var(--secondary-text-color); font-size: 0.9em; }
@@ -115,6 +119,7 @@ class VledgerCard extends HTMLElement {
       language: this._hass?.locale?.language ?? this._hass?.language,
       timeZone: this._hass?.config?.time_zone,
       unitSystem: this._hass?.config?.unit_system,
+      currency: this._hass?.config?.currency,
       strings: this._strings,
     };
   }
@@ -247,9 +252,16 @@ class VledgerCard extends HTMLElement {
       return h("tr", {},
         h("td", {}, r.when),
         h("td", {}, `${r.from} → ${r.to}`),
-        h("td", { class: "number" }, r.distance, r.flag ? h("span", { class: "flag" }, r.flag) : null));
+        h("td", { class: "number" }, r.distance, r.flag ? h("span", { class: "flag" }, r.flag) : null),
+        h("td", { class: "number", title: r.costTitle }, r.cost,
+          r.costFlag ? h("span", { class: "flag" }, r.costFlag) : null));
     });
-    this._tripsNode.replaceChildren(h("table", {}, h("tbody", {}, rows)));
+    const head = h("tr", {},
+      h("th", {}, s.column_when),
+      h("th", {}, s.column_route),
+      h("th", { class: "number" }, s.column_distance),
+      h("th", { class: "number" }, s.column_cost));
+    this._tripsNode.replaceChildren(h("table", {}, h("thead", {}, head), h("tbody", {}, rows)));
   }
 
   _fresh(kind) {

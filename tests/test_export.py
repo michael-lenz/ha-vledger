@@ -97,8 +97,16 @@ def test_every_key_l1_holds_is_declared(ledger, capsys):
 
 
 def test_json_is_the_events_as_l1_holds_them(ledger, capsys):
+    out, _ = run(capsys, "export", "json", *ledger, "--kind", "refuelling")
+    assert json.loads(out) == list(l1.read(Path(ledger[1]), V, "refuelling"))
+    # A trip carries its cost beside what L1 holds, computed as it is read
+    # (ADR-0043), and L1 keeps none.
     out, _ = run(capsys, "export", "json", *ledger, "--kind", "trip")
-    assert json.loads(out) == list(l1.read(Path(ledger[1]), V, "trip"))
+    held = list(l1.read(Path(ledger[1]), V, "trip"))
+    assert [{k: v for k, v in e.items() if not k.startswith(trips.COST_KEYS)}
+            for e in json.loads(out)] == held
+    assert all(set(trips.COST_KEYS) <= e.keys() for e in json.loads(out))
+    assert not any(k.startswith(trips.COST_KEYS) for e in held for k in e)
     out, err = run(capsys, "export", "json", *ledger, "--kind", "trip", "--since", at(100))
     assert len(json.loads(out)) == 1 and err.strip() == "1 event(s)"
 

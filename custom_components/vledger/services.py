@@ -11,8 +11,6 @@ and it answers with the lines as the event entities show them."""
 
 from __future__ import annotations
 
-from functools import partial
-
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import ATTR_CONFIG_ENTRY_ID
@@ -25,7 +23,7 @@ from homeassistant.core import (
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 
-from vledger import export, l1
+from vledger import export, l1, trips
 
 from .const import (
     DATA_KIND,
@@ -138,11 +136,18 @@ def async_register(hass: HomeAssistant) -> None:
     async def read_events(call: ServiceCall) -> ServiceResponse:
         # The last events of a kind, newest first, each line as the event
         # entities render their attributes (ADR-0039, point 4); which ones
-        # wait for a receipt is the library's l1.is_waiting.
+        # wait for a receipt is the library's l1.is_waiting. A trip carries
+        # its cost, computed as it is read (ADR-0043, point 1).
         capture = vehicle_of(hass, call.data[ATTR_CONFIG_ENTRY_ID]).runtime_data.capture
-        events = await hass.async_add_executor_job(partial(
-            l1.last, capture.base, capture.subject, call.data["kind"], call.data["last"],
-            waiting=call.data["waiting"]))
+
+        def read() -> list[dict]:
+            events = l1.last(capture.base, capture.subject, call.data["kind"], call.data["last"],
+                             waiting=call.data["waiting"])
+            if call.data["kind"] == "trip":
+                events = trips.with_costs(capture.base, capture.subject, events)
+            return events
+
+        events = await hass.async_add_executor_job(read)
         return {"events": [{k: v for k, v in e.items() if k not in NOT_ATTRIBUTES}
                            for e in reversed(events)]}
 

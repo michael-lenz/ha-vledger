@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 // The card's model (ADR-0039, point 9), with Node's own runner and no
-// packages: node --test tests/frontend/
+// packages: node --test tests/frontend/model.test.mjs
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -9,7 +9,7 @@ import * as M from "../../custom_components/vledger/frontend/model.js";
 const en = M.STRINGS.en;
 const metric = { length: "km", volume: "L" };
 const us = { length: "mi", volume: "gal" };
-const ctx = { language: "en", timeZone: "Europe/Berlin", unitSystem: metric, strings: en };
+const ctx = { language: "en", timeZone: "Europe/Berlin", unitSystem: metric, currency: "EUR", strings: en };
 
 test("the German table has exactly the English keys, and every label has a string", () => {
   assert.deepEqual(Object.keys(M.STRINGS.de).sort(), Object.keys(en).sort());
@@ -56,6 +56,7 @@ test("a trip row: local start time, zones, distance, and a flag only when not me
   };
   assert.deepEqual(M.tripRow(line, ctx), {
     start: line.start, when: "2026-10-09 12:00", from: "Home", to: "—", distance: "12.3 km", flag: null,
+    cost: "—", costFlag: null, costTitle: "",
   });
   const estimated = M.tripRow({ ...line, distance_quality: "estimated" }, { ...ctx, unitSystem: us });
   assert.equal(estimated.flag, "estimated");
@@ -65,6 +66,33 @@ test("a trip row: local start time, zones, distance, and a flag only when not me
   assert.equal(de.distance, "—");
   assert.equal(M.qualityFlag("incomplete", M.STRINGS.de), "unvollständig");
   assert.equal(M.qualityFlag("something new", en), "something new");
+});
+
+test("a trip's cost is the sum, flagged while it has a value, split by energy in its title", () => {
+  const line = {
+    start: "2026-10-09T10:00:00Z", distance_km: 40,
+    fuel_cost_eur: 3.8, fuel_cost_eur_quality: "measured",
+    electricity_cost_eur: 1.32, electricity_cost_eur_quality: "estimated",
+    cost_eur: 5.12, cost_eur_quality: "estimated",
+  };
+  const row = M.tripRow(line, ctx);
+  assert.equal(row.cost, "€5.12");
+  assert.equal(row.costFlag, "estimated");
+  assert.equal(row.costTitle, "Fuel: €3.80 · Electricity: €1.32");
+  const de = M.tripRow(line, { ...ctx, language: "de", strings: M.STRINGS.de });
+  assert.equal(de.cost, "5,12\u00a0€");
+  assert.equal(de.costTitle, "Kraftstoff: 3,80\u00a0€ · Strom: 1,32\u00a0€");
+  // Unknown: a dash and no flag; an energy the vehicle does not use is not named.
+  const diesel = M.tripRow({ ...line, electricity_cost_eur: null, electricity_cost_eur_quality: null,
+    fuel_cost_eur: null, fuel_cost_eur_quality: "incomplete", cost_eur: null, cost_eur_quality: "incomplete" }, ctx);
+  assert.deepEqual([diesel.cost, diesel.costFlag, diesel.costTitle], ["—", null, "Fuel: —"]);
+});
+
+test("a cost is in the instance's currency, never the euro by its key's name (ADR-0029)", () => {
+  assert.equal(M.formatMoney(5.12, "de", "CHF"), "5,12\u00a0CHF");
+  assert.equal(M.formatMoney(5.12, "en", undefined), "5.12");
+  assert.equal(M.formatMoney(5.12, "en", "not a code"), "5.12");
+  assert.equal(M.formatMoney(null, "en", "EUR"), "—");
 });
 
 test("outside every zone is no zone, not away from home", () => {
