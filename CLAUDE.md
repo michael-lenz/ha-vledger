@@ -36,10 +36,10 @@ toolkit's rules in full. These are the ones that bind here:
 
   GitHub shows these commits as unverified. That is expected.
 - **Claim first.** `pmtk-task claim <id> --branch <branch>` (or
-  `pmtk-issue`), then `pmtk sync` at once. `claim`, `release` and `done`
-  only write the record; `sync` commits and pushes it, and `add` pushes on
-  its own. When you finish: `pmtk-task done <id> -m '<outcome>'`, then
-  `pmtk sync`. If you stop early, `release` with a note.
+  `pmtk-issue`). `add`, `claim`, `release` and `done` commit and push on
+  their own, from a clone checked out on mainline. When you finish:
+  `pmtk-task done <id> -m '<outcome>'`. If you stop early, `release` with
+  a note.
 - **Decisions come before development.** Claude proposes (`pmtk-adr add`,
   on mainline) and never accepts. Work that rests on a decision waits for
   the owner's acceptance. An accepted decision is superseded or amended,
