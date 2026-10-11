@@ -46,6 +46,9 @@ toolkit's rules in full. These are the ones that bind here:
   never edited.
 - **Found something? Register it**, even when fixing it now:
   `pmtk-issue add "..." --severity high --affects <path> -d '...'`.
+- **Learned something about PMTK itself?** Say so to the owner when the
+  work is done, in a short list, and offer to file each point as an issue
+  or task in `pmtk-pm`. The rule's home is PMTK's own `CLAUDE.md`.
 - **Open with a synopsis.** Asked to act on an item, start the reply with
   its id, one line of what it asks, and the first step. Two or three
   lines at most.
