@@ -146,6 +146,8 @@ receipt is entered, and *unavailable* while L1 is rebuilt:
 | **Last trip battery energy** | a vehicle with a net battery capacity | the kWh it took from the battery | start, end, distance, the kWh used with their possible error |
 | **Last trip battery energy per 100 km** | a vehicle with a net battery capacity | its kWh per 100 km, battery-side | as *Last trip battery energy* |
 | **Waiting for a receipt** | a vehicle with either | how many refuellings and charging sessions are *unconfirmed* or *ambiguous* | the count per kind and confirmation |
+| **Refuellings waiting for a receipt** | a vehicle with a fuel | how many refuellings are *unconfirmed* or *ambiguous* | the two counts |
+| **Charging sessions waiting for a receipt** | a vehicle with a net battery capacity | how many charging sessions are *unconfirmed* or *ambiguous* — a session at a configured charge point never is | the two counts |
 
 Only completed events are shown: a trip under way appears once its
 standstill has elapsed. The attributes are the event's line in L1, key

@@ -224,6 +224,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: VledgerConfigEntry,
                      for d in CONSUMPTION_SENSORS if d.gate in view.receipt_kinds]
         if view.receipt_kinds:
             entities.append(WaitingSensor(view, writer, capture))
+        entities += [KindWaitingSensor(view, writer, capture, kind) for kind in view.receipt_kinds]
         entities += metric_sensors(view, writer, capture, hass.config.currency)
     add_entities(entities)
 
@@ -402,6 +403,33 @@ class WaitingSensor(_L1Sensor):
     def extra_state_attributes(self) -> dict:
         return {f"{kind}_{state}": n
                 for kind, counts in self._view.waiting.items() for state, n in counts.items()}
+
+
+#: Per kind that takes a receipt, its own waiting count's translation key.
+KIND_WAITING_KEYS = {"refuelling": "refuellings_waiting", "charging": "charging_sessions_waiting"}
+
+
+class KindWaitingSensor(_L1Sensor):
+    """How many events of one kind wait for a receipt (ADR-0042): the
+    total's split as a state, so a dashboard or a trigger needs no
+    template. Its attributes are the two confirmations it adds up."""
+
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, view: L1View, writer: L1Writer, capture: Capture, kind: str) -> None:
+        key = KIND_WAITING_KEYS[kind]
+        super().__init__(view, writer, capture, key)
+        self._attr_translation_key = key
+        self._kind = kind
+
+    @property
+    def native_value(self) -> int | None:
+        counts = self._view.waiting.get(self._kind)
+        return None if counts is None else sum(counts.values())
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        return dict(self._view.waiting.get(self._kind, {}))
 
 
 #: The attributes every metric entity shows of its line (ADR-0018, point 5).

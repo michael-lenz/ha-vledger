@@ -59,11 +59,13 @@ async def test_which_entities_a_vehicle_gets(hass, vehicle_entry, phev_entry, ch
     await _setup(hass, vehicle_entry, phev_entry, chargepoint_entry)
     ids = set(hass.states.async_entity_ids("sensor"))
     event_sensors = {"last_trip", "last_refuelling", "last_charging_session", "waiting_for_a_receipt",
+                     "refuellings_waiting_for_a_receipt", "charging_sessions_waiting_for_a_receipt",
                      "last_trip_fuel_per_100_km", "last_trip_fuel_consumed",
                      "last_trip_battery_energy_per_100_km", "last_trip_battery_energy"}
     # Petrol only: no charging session and no battery energy to show.
     assert {i for i in ids if i.removeprefix("sensor.volvo_") in event_sensors} == {
         "sensor.volvo_last_trip", "sensor.volvo_last_refuelling", "sensor.volvo_waiting_for_a_receipt",
+        "sensor.volvo_refuellings_waiting_for_a_receipt",
         "sensor.volvo_last_trip_fuel_per_100_km", "sensor.volvo_last_trip_fuel_consumed"}
     assert {i for i in ids if i.removeprefix("sensor.golf_") in event_sensors} == {
         f"sensor.golf_{k}" for k in event_sensors}
@@ -72,6 +74,7 @@ async def test_which_entities_a_vehicle_gets(hass, vehicle_entry, phev_entry, ch
     trip_state = _state(hass, "sensor.volvo_last_trip")
     assert trip_state.state == "unknown" and "start" not in trip_state.attributes
     assert _state(hass, "sensor.volvo_waiting_for_a_receipt").state == "0"
+    assert _state(hass, "sensor.volvo_refuellings_waiting_for_a_receipt").state == "0"
 
 
 async def test_a_completed_trip_is_shown_as_l1_holds_it(hass, vehicle_entry, tmp_path, freezer):
@@ -108,6 +111,9 @@ async def test_the_last_refuelling_follows_its_receipt(hass, vehicle_entry, tmp_
     assert waiting.attributes["refuelling_unconfirmed"] == 2
     assert waiting.attributes["refuelling_ambiguous"] == 0
     assert "charging_unconfirmed" not in waiting.attributes      # a petrol car
+    kind = _state(hass, "sensor.volvo_refuellings_waiting_for_a_receipt")
+    assert kind.state == "2" and kind.attributes["state_class"] == "measurement"
+    assert kind.attributes["unconfirmed"] == 2 and kind.attributes["ambiguous"] == 0
 
     line = await _act(hass, "add_refuelling_receipt", config_entry_id=vehicle_entry.entry_id,
                       from_candidate=at(60 * 24), quantity_l=41.2, full=True, total_price=72)
@@ -117,6 +123,7 @@ async def test_the_last_refuelling_follows_its_receipt(hass, vehicle_entry, tmp_
     assert s.attributes["state_quality"] == "receipt"
     assert s.attributes["receipt"] == line["id"] and s.attributes["sensor_delta_l"] == 40.0
     assert _state(hass, "sensor.volvo_waiting_for_a_receipt").state == "1"
+    assert _state(hass, "sensor.volvo_refuellings_waiting_for_a_receipt").state == "1"
 
 
 async def test_display_follows_the_unit_system_and_attributes_stay_l1(hass, phev_entry, stand_in):
@@ -138,6 +145,10 @@ async def test_display_follows_the_unit_system_and_attributes_stay_l1(hass, phev
     # A session at a foreign charge point waits for its receipt too.
     waiting = _state(hass, "sensor.golf_waiting_for_a_receipt")
     assert waiting.state == "2" and waiting.attributes["charging_unconfirmed"] == 1
+    # Each kind on its own, adding up to the total.
+    assert _state(hass, "sensor.golf_refuellings_waiting_for_a_receipt").state == "1"
+    charging_waiting = _state(hass, "sensor.golf_charging_sessions_waiting_for_a_receipt")
+    assert charging_waiting.state == "1" and charging_waiting.attributes["unconfirmed"] == 1
 
 
 async def test_unavailable_while_l1_is_rebuilt(hass, vehicle_entry):
@@ -147,6 +158,7 @@ async def test_unavailable_while_l1_is_rebuilt(hass, vehicle_entry):
     await hass.async_block_till_done()
     assert _state(hass, "sensor.volvo_last_trip").state == "unavailable"
     assert _state(hass, "sensor.volvo_waiting_for_a_receipt").state == "unavailable"
+    assert _state(hass, "sensor.volvo_refuellings_waiting_for_a_receipt").state == "unavailable"
     capture.set_recomputing(False)
     await hass.async_block_till_done()
     assert _state(hass, "sensor.volvo_last_trip").state == "unknown"
@@ -237,7 +249,7 @@ def test_every_attribute_has_a_name_in_both_languages():
     from custom_components.vledger.sensor import EVENT_SENSORS
 
     shapes = {"trip": trips.Trip, "refuelling": refuellings.Refuelling, "charging": charging.Session}
-    from custom_components.vledger.sensor import CONSUMPTION_SENSORS
+    from custom_components.vledger.sensor import CONSUMPTION_SENSORS, KIND_WAITING_KEYS
 
     for lang in ("strings.json", "translations/en.json", "translations/de.json"):
         sensors = json.loads((ROOT / lang).read_text())["entity"]["sensor"]
@@ -249,3 +261,5 @@ def test_every_attribute_has_a_name_in_both_languages():
             assert set(d.attributes) | {"state_quality"} <= named, (lang, d.key)
         waiting = set(sensors["unconfirmed_candidates"]["state_attributes"])
         assert waiting == {f"{k}_{s}" for k in receipts.EVENT_KINDS for s in l1.WAITING}
+        for key in KIND_WAITING_KEYS.values():
+            assert set(sensors[key]["state_attributes"]) == set(l1.WAITING), (lang, key)

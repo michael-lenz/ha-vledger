@@ -854,6 +854,28 @@
           }
         }
       },
+      "refuellings_waiting": {
+        "name": "Refuellings waiting for a receipt",
+        "state_attributes": {
+          "unconfirmed": {
+            "name": "Unconfirmed"
+          },
+          "ambiguous": {
+            "name": "Ambiguous"
+          }
+        }
+      },
+      "charging_sessions_waiting": {
+        "name": "Charging sessions waiting for a receipt",
+        "state_attributes": {
+          "unconfirmed": {
+            "name": "Unconfirmed"
+          },
+          "ambiguous": {
+            "name": "Ambiguous"
+          }
+        }
+      },
       "distance_km_month": {
         "name": "Distance this month",
         "state_attributes": {

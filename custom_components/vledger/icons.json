@@ -63,6 +63,12 @@
       "unconfirmed_candidates": {
         "default": "mdi:receipt-text-clock"
       },
+      "refuellings_waiting": {
+        "default": "mdi:gas-station"
+      },
+      "charging_sessions_waiting": {
+        "default": "mdi:ev-station"
+      },
       "distance_km_month": {
         "default": "mdi:map-marker-distance"
       },

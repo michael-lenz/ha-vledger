@@ -142,9 +142,9 @@ async def _press(hass, entity_id):
 async def test_the_forms_follow_the_parameters(hass, vehicle_entry, phev_entry, chargepoint_entry):
     await _setup(hass, vehicle_entry, phev_entry, chargepoint_entry)
     ids = hass.states.async_entity_ids()
-    volvo = [i for i in ids if "volvo_refuelling" in i or "volvo_charging_receipt" in i
-             or "volvo_enter" in i]
-    # The form's entities, not the sensor counting what waits for a receipt.
+    # The form's entities, not the sensors counting what waits for a receipt.
+    volvo = [i for i in ids if ("volvo_refuelling" in i or "volvo_charging_receipt" in i
+                                or "volvo_enter" in i) and not i.startswith("sensor.")]
     golf = [i for i in ids if "golf_" in i and "receipt" in i and not i.startswith("sensor.")]
     assert len(volvo) == 9                         # petrol only: the refuelling form
     assert len(golf) == 16                         # a plug-in hybrid: both forms

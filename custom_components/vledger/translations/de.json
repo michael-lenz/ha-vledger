@@ -854,6 +854,28 @@
           }
         }
       },
+      "refuellings_waiting": {
+        "name": "Tankvorgänge warten auf einen Beleg",
+        "state_attributes": {
+          "unconfirmed": {
+            "name": "Unbestätigt"
+          },
+          "ambiguous": {
+            "name": "Mehrdeutig"
+          }
+        }
+      },
+      "charging_sessions_waiting": {
+        "name": "Ladevorgänge warten auf einen Beleg",
+        "state_attributes": {
+          "unconfirmed": {
+            "name": "Unbestätigt"
+          },
+          "ambiguous": {
+            "name": "Mehrdeutig"
+          }
+        }
+      },
       "distance_km_month": {
         "name": "Strecke im laufenden Monat",
         "state_attributes": {
