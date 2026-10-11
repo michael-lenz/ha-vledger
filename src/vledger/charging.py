@@ -7,8 +7,9 @@ mid-charge does not end it (ADR-0008). A vehicle with no charging state
 assigned gets sessions from its SoC instead: a rise at standstill above the
 charging threshold (LAD-04).
 
-A session is placed at the charge point whose radius holds its position, or
-at ``foreign``. Its grid-side energy comes, in this order, from the charge
+A session is placed at the charge point whose radius holds its position —
+the first fix inside it unless the vehicle moved before that fix, else
+the fix before its start (ADR-0044) — or at ``foreign``. Its grid-side energy comes, in this order, from the charge
 point's meter where exactly one vehicle charged there (LAD-07), the
 charging time times the charge point's declared power (ADR-0038),
 battery-side energy times the charging loss factor, or nowhere (LAD-06);
@@ -243,7 +244,26 @@ def _at_start(s: Stream, samples: list, start: str, end: str):
 
 
 def _position(s: Stream, span: Span) -> dict | None:
-    return series.fix_dict(_at_start(s, s.fixes, span.start, span.end))
+    """The fix that places a session (ADR-0044): the first inside it,
+    provided neither a capture gap nor a movement lies between the start
+    and that fix — a movement of the start's own upload aside, one that
+    comes less than an interval of the fastest movement role after the
+    start. Failing that, the last fix at or before the start, unless a
+    gap lies between."""
+    t0, t1 = clock.parse(span.start), clock.parse(span.end)
+    first = next((f for f in s.fixes if t0 <= clock.parse(f.t) < t1), None)
+    if first is not None and not series.gap_between(s, span.start, first.t):
+        tf = clock.parse(first.t)
+        moved = [m for m in trips.movements(s) if t0 <= clock.parse(m.t) < tf]
+        if moved:
+            window = trips.fastest_interval(s, span.start) or 0.0
+            moved = [m for m in moved if (clock.parse(m.t) - t0).total_seconds() >= window]
+        if not moved:
+            return series.fix_dict(first)
+    before = series.last_at_or_before(s.fixes, span.start)
+    if before is not None and not series.gap_between(s, before.t, span.start):
+        return series.fix_dict(before)
+    return None
 
 
 # --- the meter, and who else charged ------------------------------------------

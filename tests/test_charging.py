@@ -42,12 +42,14 @@ class Stream:
             self.run("heartbeat", *self.b, "--t", at(self.beat), "--lines", "0")
             self.beat += 30
 
-    def state(self, minutes, role, value, unit=None, **attrs):
+    def state(self, minutes, role, value, unit=None, before=None, **attrs):
         self.alive(minutes)
         args = ["state", *self.b, "--t", at(minutes), "--role", role, "--entity", f"x.{role}",
                 "--state", str(value)]
         if unit:
             args += ["--unit", unit]
+        if before is not None:
+            args += ["--reported-before", at(before)]
         for k, v in attrs.items():
             args += ["--attr", f"{k}={v}"]
         return self.run(*args)
@@ -227,6 +229,83 @@ def test_a_foreign_charge(tmp_path, capsys):
     assert s.position["latitude"] == AWAY[0]
     assert (s.grid_kwh, s.grid_kwh_source) == (8.232, "loss_factor")
     assert s.tariff_eur_per_kwh is None and s.cost_eur is None and s.cost_quality is None
+
+
+def arrive_and_plug_in(v, odometer_at, fix_at, measured=True):
+    """A drive from AWAY home, reported every 2 minutes, the charging
+    state turning at 0 and the last upload's odometer and fix after it —
+    the order inside one upload is chance (ADR-0044)."""
+    for i, m in enumerate((-6, -4, -2)):
+        v.state(m, "odometer", 1001 + i, "km", before=m - 2 if measured else None)
+    v.state(0, "charging_state", "Charging")
+    v.state(odometer_at, "odometer", 1004, "km", before=-2 if measured else None)
+    v.state(fix_at, "position", "home", before=-20 if measured else None,
+            latitude=HOME[0], longitude=HOME[1], gps_accuracy=0)
+    v.state(30, "soc", 60, "%").state(31, "charging_state", "Done").heartbeat(61)
+
+
+def test_a_fix_inside_the_session_places_it(tmp_path, capsys):
+    """ADR-0044: arrival and plug-in in one upload, the fix written last."""
+    chargepoint(tmp_path, capsys, "home", HOME, HOME_TARIFFS, meter=False)
+    v = vehicle(tmp_path, capsys, where=AWAY)
+    arrive_and_plug_in(v, odometer_at=0.01, fix_at=0.02)
+    s, = charging.derive_from(tmp_path, V)
+    assert s.chargepoint == "home" and s.position["t"] == at(0.02)
+    assert s.tariff_eur_per_kwh == 0.30 and s.cost_eur is not None
+
+
+def test_a_movement_after_the_starts_upload_keeps_the_fix_before(tmp_path, capsys):
+    """Driven off with the cable still reported: the fix after it is not
+    where it charged."""
+    chargepoint(tmp_path, capsys, "home", HOME, HOME_TARIFFS, meter=False)
+    v = vehicle(tmp_path, capsys, where=AWAY)
+    arrive_and_plug_in(v, odometer_at=5, fix_at=6)
+    s, = charging.derive_from(tmp_path, V)
+    assert s.chargepoint == "foreign" and s.position["latitude"] == AWAY[0]
+
+
+def test_without_measured_intervals_any_movement_before_the_fix_counts(tmp_path, capsys):
+    chargepoint(tmp_path, capsys, "home", HOME, HOME_TARIFFS, meter=False)
+    v = vehicle(tmp_path, capsys, where=AWAY)
+    arrive_and_plug_in(v, odometer_at=0.01, fix_at=0.02, measured=False)
+    s, = charging.derive_from(tmp_path, V)
+    assert s.chargepoint == "foreign"
+
+
+def test_a_fix_inside_after_a_gap_is_not_read_across_it(tmp_path, capsys):
+    chargepoint(tmp_path, capsys, "home", HOME, HOME_TARIFFS, meter=False)
+    v = vehicle(tmp_path, capsys, where=HOME)
+    v.state(0, "charging_state", "Charging")
+    v.run("stop", *v.b, "--t", at(5), "--reason", "shutdown")
+    v.run("start", *v.b, "--t", at(10), "--homeassistant", "2026.9.4", "--snapshot", "[]")
+    v.state(12, "position", "away", latitude=AWAY[0], longitude=AWAY[1], gps_accuracy=0)
+    v.state(30, "soc", 60, "%").state(31, "charging_state", "Done").heartbeat(61)
+    s, = charging.derive_from(tmp_path, V)
+    assert s.chargepoint == "home" and s.position["latitude"] == HOME[0]
+
+
+def test_placement_by_a_fix_inside_is_the_same_live_and_rebuilt(tmp_path, capsys):
+    """ABL-01: the upload window is ranked on the stream up to the start,
+    however the stream was loaded."""
+    live = tmp_path / "live"
+    chargepoint(live, capsys, "home", HOME, HOME_TARIFFS, meter=False)
+    v = vehicle(live, capsys, where=AWAY)
+    arrive_and_plug_in(v, odometer_at=0.01, fix_at=0.02)
+    replay = tmp_path / "replay"
+    for sub in ("chargepoint-home", "vehicle-a7c1"):
+        (replay / sub / "l0").mkdir(parents=True)
+    cp = "chargepoint-home/l0/2026-10.jsonl"
+    (replay / cp).write_bytes((live / cp).read_bytes())
+    src = (live / "vehicle-a7c1" / "l0" / "2026-10.jsonl").read_text().splitlines(keepends=True)
+    with open(replay / "vehicle-a7c1" / "l0" / "2026-10.jsonl", "a") as f:
+        for line in src:
+            f.write(line)
+            f.flush()
+            l1.incremental(replay, V)
+    l1.rebuild(live, V)
+    batch = (l1.l1_dir(live, V) / "charging-sessions.jsonl").read_bytes()
+    assert batch == (l1.l1_dir(replay, V) / "charging-sessions.jsonl").read_bytes()
+    assert [e["chargepoint"] for e in l1.read(live, V, "charging")] == ["home"]
 
 
 def test_two_vehicles_at_one_meter_make_it_unattributable(tmp_path, capsys):

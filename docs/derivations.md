@@ -358,9 +358,16 @@ vehicles' streams. **Parameters:** `battery_net_kwh`,
 3. **SoC.** At the start, the last sample at or before it (for an SoC
    session, the value before the first rise); at the end, the last at or
    before it. `battery_kwh` is ΔSoC × `battery_net_kwh` — `estimated`.
-4. **Where** (LAD-02). The position at the start places the session at the
-   configured charge point whose radius holds it, the nearest if several
-   do, else at `foreign`.
+4. **Where** (LAD-02, ADR-0044). The session's position is the first fix
+   inside it, provided no capture gap and no movement lies between the
+   start and that fix — a movement of the start's own upload aside: one
+   less than an interval of the fastest movement role after the start,
+   ranked from the end of the last trip before the start, as trips rank
+   it (ADR-0024). Without a measured interval, any movement counts.
+   Failing that, the last fix at or before the start, unless a gap lies
+   between. The position places the session at the configured charge
+   point whose radius holds it, the nearest if several do, else at
+   `foreign`; so does no position at all.
 5. **Grid-side energy** (LAD-06), the first that works: the charge point's
    meter difference over the session — `measured`, source `meter` — but
    only when no other vehicle charged at that charge point at any time
@@ -393,8 +400,9 @@ vehicles' streams. **Parameters:** `battery_net_kwh`,
    heartbeat at the latest. A change to a charge point's configuration
    makes a rebuild of every vehicle's L1 due ([l1-format.md](l1-format.md#when-l1-is-rebuilt)).
 
-**Limitations.** A position fix taken before the vehicle arrived places
-the session where that fix was. By SoC, a session ends
+**Limitations.** A vehicle that moved before its first fix inside the
+session, outside the start's upload, is placed by the fix before the
+start, which may predate its arrival. By SoC, a session ends
 with the last rise, so a charge that stopped short of a sample ends early,
 and a rise below the threshold is not a session.
 

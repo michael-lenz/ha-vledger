@@ -628,19 +628,37 @@ def _measured(s: Stream) -> list[tuple[str, str, float]]:
     return out
 
 
-def _fastest(measured: list[tuple[str, str, float]], lo: str | None, hi: str) -> str | None:
-    """The movement role with the shortest median interval measured after
-    ``lo`` and up to ``hi`` — the previous trip's end and the sample
-    (ADR-0024, point 2) — or ``None`` where none is measured."""
+def _medians(measured: list[tuple[str, str, float]], lo: str | None, hi: str) -> dict[str, float]:
+    """Per movement role, the median interval measured after ``lo`` and up
+    to ``hi`` — the previous trip's end and the sample (ADR-0024, point 2)."""
     found: dict[str, list[float]] = {}
     tlo, thi = (clock.parse(lo) if lo else None), clock.parse(hi)
     for t, role, interval in measured:
         tt = clock.parse(t)
         if (tlo is None or tt > tlo) and tt <= thi:
             found.setdefault(role, []).append(interval)
-    if not found:
-        return None
-    return min(found, key=lambda r: (statistics.median(found[r]), r))
+    return {role: statistics.median(v) for role, v in found.items()}
+
+
+def _fastest(measured: list[tuple[str, str, float]], lo: str | None, hi: str) -> str | None:
+    """The movement role with the shortest median interval measured after
+    ``lo`` and up to ``hi`` — the previous trip's end and the sample
+    (ADR-0024, point 2) — or ``None`` where none is measured."""
+    found = _medians(measured, lo, hi)
+    return min(found, key=lambda r: (found[r], r)) if found else None
+
+
+def fastest_interval(s: Stream, t: str) -> float | None:
+    """The median interval of the fastest movement role at ``t``, ranked
+    as ADR-0024 point 2 ranks it: from the end of the last trip before
+    ``t`` to ``t``. ``None`` where the stream measures none. Reads the
+    stream from its beginning up to ``t``, whatever ``s`` was loaded with,
+    so the live path answers as a rebuild does (ABL-01)."""
+    full = series.load(s.base, s.subject, until=t) if s.base else s
+    ends = [x.end for x in derive(full, completed_only=True) if clock.parse(x.end) < clock.parse(t)]
+    lo = max(ends, key=clock.parse) if ends else None
+    found = _medians(_measured(full), lo, t)
+    return min(found.values()) if found else None
 
 
 def _legs(s: Stream, anchor: str | None, exit_window_s: float

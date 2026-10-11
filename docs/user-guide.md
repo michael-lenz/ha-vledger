@@ -628,6 +628,10 @@ a heartbeat at the latest ([derivations.md](derivations.md#charging-sessions)).
 
 Every session carries SoC at both ends, the position, and the charge
 point whose radius holds that position — its subject id, or `foreign`.
+The position is the first fix while charging, so arriving and plugging
+in between two reports of the car still lands at the charge point; a
+fix that only comes after the car moved again is not used, and the one
+before the start places it instead.
 `battery_kwh` is ΔSoC × the net battery capacity, an estimate, and only
 when the capacity is set. `grid_kwh` comes from the charge point's meter
 (`grid_kwh_source` `meter`, measured), read from the charge point's own
