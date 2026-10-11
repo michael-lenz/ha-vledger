@@ -553,10 +553,10 @@
             "name": "Meter attributable"
           },
           "tariff_eur_per_kwh": {
-            "name": "Tariff (EUR/kWh)"
+            "name": "Tariff (per kWh)"
           },
           "cost_eur": {
-            "name": "Cost (EUR)"
+            "name": "Cost"
           },
           "cost_quality": {
             "name": "Cost quality"

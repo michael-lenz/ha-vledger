@@ -553,10 +553,10 @@
             "name": "Zähler zuordenbar"
           },
           "tariff_eur_per_kwh": {
-            "name": "Tarif (EUR/kWh)"
+            "name": "Tarif (pro kWh)"
           },
           "cost_eur": {
-            "name": "Kosten (EUR)"
+            "name": "Kosten"
           },
           "cost_quality": {
             "name": "Qualität der Kosten"

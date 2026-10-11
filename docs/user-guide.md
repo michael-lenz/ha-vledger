@@ -664,7 +664,7 @@ Each line has the distance; the litres and the fuel cost bought, from the
 receipts; the litres actually used, corrected by the fuel level at the
 period's start and end; the grid-side kWh and electricity cost of the
 charging sessions; the battery-side kWh, corrected by the state of charge
-at both ends; kWh and euro per 100 km; the electric share of the energy,
+at both ends; kWh and cost per 100 km; the electric share of the energy,
 and an estimate of the electric share of the distance; charge cycles and
 tank fills. Every value has its quality beside it. An event counts in the
 period it starts in, so a trip across midnight on the last of the month
