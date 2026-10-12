@@ -139,7 +139,8 @@ is kept within the stream — a month that began before capture is read
 from capture's start, one still running at the last line. Nothing is read across a
 capture gap — a restart's snapshot entry that held through the gap is a
 reading at the start line, so the correction survives a restart
-(ADR-0035); without both readings there is no correction, and
+(ADR-0035). A sensor that is `unavailable` at a reading holds its last
+number (ADR-0046). Without both readings there is no correction, and
 `fuel_level_corrected` or `soc_corrected` says so.
 
 **The metrics.** Each comes with `<key>_quality`: the weakest of what it

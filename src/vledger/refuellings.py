@@ -122,7 +122,7 @@ def _settled(s: Stream, end: str, settle_s: float) -> tuple[Sample | None, bool,
     if series.gap_between(s, end, due):
         return None, True, False
     x = series.in_effect(s, "fuel_level", due)
-    if x is not None:
+    if x is not None and not series.dropout_between(s, "fuel_level", x.t, due):
         return x, False, False
     after = next((y for y in s.series.get("fuel_level", [])
                   if clock.parse(y.t) > clock.parse(due)), None)

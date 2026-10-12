@@ -16,6 +16,9 @@ from vledger import clock, geo, l0, layout, units
 from vledger import config as vconfig
 from vledger.layout import Subject
 
+#: The states that are a dropout, not a value: a sensor with nothing to say.
+DROPOUT_STATES = ("unavailable", "unknown")
+
 
 @dataclass(frozen=True)
 class Sample:
@@ -144,12 +147,18 @@ def _seed_lines(base: Path, subject: Subject, since: str) -> tuple[list[dict], s
     ``since``; read backwards from the month file ``since`` falls in, so a
     derivation from a cursor starts from the value the vehicle had, not
     from its first change (ADR-0009, 3; ISSUE-0011) — a snapshot entry at
-    the later of the times :func:`load` reads it. Stops at the first
-    month with nothing new to find. Also the ``t`` of the stream's last
-    line before ``since``, which a start line read next is placed against
+    the later of the times :func:`load` reads it. A role whose last report
+    is a dropout is seeded with the last value before it as well: the value
+    holds through the dropout (ADR-0046), and a read from the cursor must
+    hold the same one a rebuild does. Stops at the first month with nothing
+    new to find. Also the ``t`` of the stream's last line before
+    ``since``, which a start line read next is placed against
     (ADR-0028)."""
     limit = clock.parse(since)
     found: dict[str, dict] = {}
+    #: Roles whose last report is a dropout, each with the value before it
+    #: once found.
+    behind: dict[str, dict | None] = {}
     config = None
     before_since = None
     files = [p for p in layout.l0_files(base, subject) if p.stem <= clock.month_of(since)]
@@ -162,24 +171,37 @@ def _seed_lines(base: Path, subject: Subject, since: str) -> tuple[list[dict], s
             kind = line.get("kind")
             if kind == "config" and config is None:
                 config, new = line, True
-            elif kind == "state" and line.get("role") not in found:
-                found[line["role"]], new = line, True
+            elif kind == "state":
+                new = _found(found, behind, line["role"], line) or new
             elif kind == "start":
                 # The line before this start: in this file, else the previous file's last.
                 before = lines[i - 1]["t"] if i > 0 else (_last_t(files[n - 1]) if n > 0 else None)
                 for entry in line.get("snapshot") or []:
-                    if entry["role"] not in found:
-                        when = (line["t"] if held_through(entry, before)
-                                else snapshot_time(entry, line["t"], before))
-                        found[entry["role"]] = dict(entry, kind="state", t=when)
-                        new = True
+                    when = (line["t"] if held_through(entry, before)
+                            else snapshot_time(entry, line["t"], before))
+                    new = _found(found, behind, entry["role"], dict(entry, kind="state", t=when)) or new
         if not new and config is not None:
             break
-    out = list(found.values())
+    out = list(found.values()) + [x for x in behind.values() if x is not None]
     if config is not None:
         out.append(config)
     out.sort(key=lambda x: clock.parse(x["t"]))
     return out, before_since
+
+
+def _found(found: dict[str, dict], behind: dict[str, dict | None], role: str, line: dict) -> bool:
+    """Take ``line`` as a seed of ``role`` if it is still wanted: the last
+    report, and behind a dropout the last value as well. Whether anything
+    was taken."""
+    if role not in found:
+        found[role] = line
+        if line.get("state") in DROPOUT_STATES:
+            behind[role] = None
+        return True
+    if behind.get(role, line) is None and line.get("state") not in DROPOUT_STATES:
+        behind[role] = line
+        return True
+    return False
 
 
 def repeats(latest, item) -> bool:
@@ -338,16 +360,23 @@ def fix_dict(f: Fix | None) -> dict | None:
 
 def in_effect(s: Stream, role: str, t: str) -> Sample | None:
     """The value a measuring role held at ``t``: its latest sample not
-    after ``t`` — or ``None`` when its latest report by then was a dropout,
-    or a capture gap lies between that sample and ``t``. A dropout says
-    nothing, and nothing is read across a gap (ABL-04)."""
+    after ``t`` — or ``None`` when a capture gap lies between that sample
+    and ``t``. The value holds through a dropout (ADR-0046): a sensor that
+    is ``unavailable`` at ``t`` still holds its last number. Nothing is
+    read across a gap (ABL-04). A reader that treats a dropout as a
+    clearing asks :func:`dropout_between` itself."""
     x = last_at_or_before(s.series.get(role, []), t)
     if x is None:
         return None
-    lo, hi = clock.parse(x.t), clock.parse(t)
-    if any(lo < clock.parse(d) <= hi for d in s.dropouts.get(role, [])):
-        return None
     return None if gap_between(s, x.t, t) else x
+
+
+def dropout_between(s: Stream, role: str, a: str, b: str) -> bool:
+    """Whether a measuring role reported a dropout after ``a`` and not
+    after ``b``: what the settled level of a refuelling (TNK-02) and the
+    outside-temperature filter (ADR-0040, point 3) treat as a clearing."""
+    lo, hi = clock.parse(a), clock.parse(b)
+    return any(lo < clock.parse(d) <= hi for d in s.dropouts.get(role, []))
 
 
 def last_at_or_before(samples: list, t: str):

@@ -133,6 +133,23 @@ def test_a_day_by_hand(tmp_path, capsys):
     assert rolling["end"] == at(400) and rolling["distance_km"] == 60
 
 
+def test_a_dropout_at_the_last_line_holds_the_stock(tmp_path, capsys):
+    """ISSUE-0062, ADR-0046: a sensor that is unavailable at the open
+    periods' end holds its last number, so the stock correction and every
+    figure on it stay what they were."""
+    v = a_day(tmp_path, capsys)
+    before = by_period(periods.derive_from(tmp_path, V))["month"]
+    assert before["fuel_level_corrected"] and before["soc_corrected"]
+    v.state(410, "fuel_level", "unavailable")
+    v.state(411, "soc", "unknown")
+    during = by_period(periods.derive_from(tmp_path, V))["month"]
+    assert during["fuel_level_corrected"] and during["soc_corrected"]
+    assert {k: during[k] for k in periods.METRICS} == {k: before[k] for k in periods.METRICS}
+    v.state(412, "fuel_level", 37, "L").state(413, "soc", 50, "%")
+    after = by_period(periods.derive_from(tmp_path, V))["month"]
+    assert {k: after[k] for k in periods.METRICS} == {k: before[k] for k in periods.METRICS}
+
+
 def test_the_calendar_is_local_to_the_vehicle(tmp_path, capsys):
     first, last = "2026-10-09T10:00:00.000Z", "2027-01-05T10:00:00.000Z"
     spans = periods.spans(first, last, BERLIN, 30)

@@ -66,6 +66,18 @@ def test_a_dropout_restarts_the_filter_and_one_after_the_last_sample_leaves_none
     assert filtered(tmp_path, 10) == 20.0                               # restarted, not pulled from 10
 
 
+def test_a_dropout_before_the_window_clears_the_value_it_starts_from(tmp_path, capsys):
+    """The value in effect holds through a dropout (ADR-0046); the filter
+    alone treats one as a clearing (ADR-0040, 3) — also before the window."""
+    b = builder(tmp_path, capsys)
+    b.state(-100, "outside_temperature", 10, "°C").state(-60, "outside_temperature", "unavailable")
+    b.heartbeat(0)
+    assert series.in_effect(series.load(tmp_path, V), "outside_temperature", at(-50)).value == 10
+    assert filtered(tmp_path, 0) is None                                # not started from the held 10
+    b.state(1, "outside_temperature", 20, "°C")
+    assert filtered(tmp_path, 2) == 20.0
+
+
 def test_a_capture_gap_restarts_the_filter(tmp_path, capsys):
     b = builder(tmp_path, capsys)
     b.state(0, "outside_temperature", 10, "°C")

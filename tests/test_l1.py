@@ -242,6 +242,19 @@ def test_a_snapshot_entry_that_held_through_the_gap_is_read_at_the_start_too(tmp
     assert seeded.series["soc"][-1].t == at(end + 52)
 
 
+def test_a_cursor_behind_a_dropout_is_seeded_with_the_value_before_it(tmp_path, capsys):
+    """ADR-0046: the value holds through a dropout, so a read from a cursor
+    whose role's last report is a dropout seeds that value as a rebuild
+    holds it — and the dropout, for the readers that treat it as a clearing."""
+    b = Builder(tmp_path, capsys)
+    b.heartbeat(0).state(2, "soc", 79, "%").state(4, "soc", "unavailable").heartbeat(10)
+    whole, seeded = series.load(tmp_path, V), series.load(tmp_path, V, since=at(6))
+    assert series.in_effect(whole, "soc", at(8)).value == 79
+    assert series.in_effect(seeded, "soc", at(8)).value == 79
+    assert seeded.dropouts["soc"] == [at(4)] and series.dropout_between(seeded, "soc", at(2), at(8))
+    assert seeded.series["odometer"][0].value == 1000                   # the rest is seeded as before
+
+
 def test_a_cursor_is_seeded_from_a_snapshot_too(tmp_path, capsys):
     """ISSUE-0011: a role whose last value before the cursor came from a
     start line's snapshot still seeds the read from there."""

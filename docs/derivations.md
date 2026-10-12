@@ -23,7 +23,11 @@ and never parses a line itself:
   without a capacity there is no fuel series at all, and the refuelling
   detection says why rather than guess (ISSUE-0009). A state that is not
   a number — `unavailable`, `unknown` — is a **dropout**, not a value:
-  the series holds the last number through it.
+  the series holds the last number through it, and so does every value
+  read from it (ADR-0046) — a stock at a period boundary, a price at a
+  refuelling. Two readers treat a dropout as a clearing and say so: the
+  settled level of a refuelling waits for the first number after it, and
+  the outside-temperature filter restarts at the next sample.
 - **Positions** become fixes: latitude, longitude, accuracy (an accuracy
   of 0 is unknown) and the tracker's zone, from the `position` role or the
   sensor pair `position_latitude` and `position_longitude`.

@@ -62,6 +62,8 @@ def filtered(s: Stream, t: str, tau_s: float) -> float | None:
                if lo < clock.parse(g.start) <= hi]
     events.sort(key=lambda e: (e[0], e[1]))
     first = series.in_effect(s, ROLE, start)
+    if first is not None and series.dropout_between(s, ROLE, first.t, start):
+        first = None     # a dropout before the window clears it (ADR-0040, 3)
     held = y = first.value if first else None
     now = lo
 
