@@ -31,6 +31,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.restore_state import ExtraStoredData, RestoreEntity
 from homeassistant.util import dt as dt_util
 
 from vledger import clock
@@ -45,10 +46,12 @@ from .metrics import (
     ELECTRICITY,
     EVERY,
     FUEL,
+    FUEL_STOCK,
     KWH_PER_100KM,
     L_PER_100KM,
     METRICS,
     PERIODS,
+    SOC_STOCK,
     SUM,
     Metric,
     corrected,
@@ -436,7 +439,82 @@ class KindWaitingSensor(_L1Sensor):
 LINE_ATTRIBUTES = ("start", "end", "open", "gaps")
 
 
-class PeriodMetricSensor(_L1Sensor):
+@dataclass
+class Held(ExtraStoredData):
+    """What a holding sensor remembers (ADR-0047, point 2): the period its
+    value belongs to, the corrections the line had, and the value as shown —
+    kept with Home Assistant's restore state across a restart (point 3)."""
+
+    period: str
+    flags: dict[str, bool]
+    value: float | None
+
+    def as_dict(self) -> dict:
+        return {"period": self.period, "flags": self.flags, "value": self.value}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> Held | None:
+        try:
+            return cls(str(d["period"]), {str(k): bool(v) for k, v in d["flags"].items()}, d["value"])
+        except (KeyError, TypeError, AttributeError):
+            return None
+
+
+class _HoldingSensor(_L1Sensor, RestoreEntity):
+    """A sensor whose metric rests on a stock correction (ADR-0047): while
+    the current line of the same period lacks a correction the value it
+    last showed had, it shows that value instead and ``state_held`` says
+    so. A sensor that never showed a corrected value holds nothing."""
+
+    #: The correction flags the metric rests on; empty for one that is
+    #: shown as its line is.
+    rests_on: tuple[str, ...] = ()
+    _held: Held | None = None
+
+    @property
+    def _line(self) -> dict | None:
+        raise NotImplementedError
+
+    def _shown(self, line: dict) -> float | None:
+        raise NotImplementedError
+
+    def _period_of(self, line: dict) -> str:
+        raise NotImplementedError
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        if self.rests_on and (last := await self.async_get_last_extra_data()) is not None:
+            self._held = Held.from_dict(last.as_dict())
+
+    @property
+    def extra_restore_state_data(self) -> ExtraStoredData | None:
+        return self._held
+
+    def _current(self) -> tuple[float | None, bool]:
+        """The value to show and whether it is the held one."""
+        line = self._line
+        if line is None:
+            return None, False
+        value = self._shown(line)
+        if not self.rests_on:
+            return value, False
+        flags = {k: bool(line.get(k)) for k in self.rests_on}
+        period, held = self._period_of(line), self._held
+        if held is not None and held.period == period and any(
+                held.flags.get(k) and not flags[k] for k in self.rests_on):
+            return held.value, True
+        self._held = Held(period, flags, value)
+        return value, False
+
+    @property
+    def native_value(self) -> float | None:
+        return self._current()[0]
+
+    def _held_attribute(self) -> dict:
+        return {"state_held": self._current()[1]} if self.rests_on else {}
+
+
+class PeriodMetricSensor(_HoldingSensor):
     """One metric of the current month, year or rolling period (ADR-0018):
     a sum restarts with its period, a rate or share is a level."""
 
@@ -446,6 +524,7 @@ class PeriodMetricSensor(_L1Sensor):
         super().__init__(view, writer, capture, key)
         self._metric = metric
         self._period = period
+        self.rests_on = metric.rests_on
         self._attr_translation_key = key
         self._attr_entity_registry_enabled_default = period == "month"
         self._attr_device_class = metric.device_class
@@ -461,9 +540,12 @@ class PeriodMetricSensor(_L1Sensor):
     def _line(self) -> dict | None:
         return self._view.periods.get(self._period)
 
-    @property
-    def native_value(self) -> float | None:
-        return value_of(self._metric, self._line)
+    def _shown(self, line: dict) -> float | None:
+        return value_of(self._metric, line)
+
+    def _period_of(self, line: dict) -> str:
+        # A month or a year is its start; the rolling period is itself.
+        return line["start"] if self._period in ("month", "year") else self._period
 
     @property
     def last_reset(self) -> datetime | None:
@@ -480,6 +562,7 @@ class PeriodMetricSensor(_L1Sensor):
         attrs = {k: line.get(k) for k in LINE_ATTRIBUTES}
         attrs["state_quality"] = line.get(f"{self._metric.key}_quality")
         attrs.update({k: line.get(k) for k in corrected(self._metric.needs)})
+        attrs.update(self._held_attribute())
         return attrs
 
 
@@ -490,6 +573,8 @@ class LifetimeSensorDescription(SensorEntityDescription):
     value: str
     quality: str
     attributes: tuple[str, ...] = ()
+    #: The stock corrections the value rests on (ADR-0047, point 1).
+    rests_on: tuple[str, ...] = ()
 
 
 LIFETIME_SENSORS: tuple[LifetimeSensorDescription, ...] = (
@@ -521,7 +606,8 @@ LIFETIME_SENSORS: tuple[LifetimeSensorDescription, ...] = (
         key="battery_kwh_per_100km_total", translation_key="battery_kwh_per_100km_total", needs=ELECTRICITY,
         state_class=SensorStateClass.MEASUREMENT, device_class=SensorDeviceClass.ENERGY_DISTANCE,
         native_unit_of_measurement=KWH_PER_100KM, suggested_display_precision=1,
-        value="battery_kwh_per_100km", quality="battery_kwh_per_100km_quality", attributes=("soc_corrected",)),
+        value="battery_kwh_per_100km", quality="battery_kwh_per_100km_quality", attributes=("soc_corrected",),
+        rests_on=(SOC_STOCK,)),
     LifetimeSensorDescription(
         key="distance_km_total", translation_key="distance_km_total", needs=EVERY,
         state_class=SensorStateClass.TOTAL, device_class=SensorDeviceClass.DISTANCE,
@@ -531,7 +617,8 @@ LIFETIME_SENSORS: tuple[LifetimeSensorDescription, ...] = (
         key="fuel_consumed_l_total", translation_key="fuel_consumed_l_total", needs=FUEL,
         state_class=SensorStateClass.TOTAL, device_class=SensorDeviceClass.VOLUME,
         native_unit_of_measurement=UnitOfVolume.LITERS, suggested_display_precision=2,
-        value="fuel_consumed_l", quality="fuel_consumed_l_quality", attributes=("fuel_level_corrected",)),
+        value="fuel_consumed_l", quality="fuel_consumed_l_quality", attributes=("fuel_level_corrected",),
+        rests_on=(FUEL_STOCK,)),
     LifetimeSensorDescription(
         key="grid_kwh_total", translation_key="grid_kwh_total", needs=ELECTRICITY,
         state_class=SensorStateClass.TOTAL, device_class=SensorDeviceClass.ENERGY,
@@ -541,11 +628,12 @@ LIFETIME_SENSORS: tuple[LifetimeSensorDescription, ...] = (
         key="battery_kwh_total", translation_key="battery_kwh_total", needs=ELECTRICITY,
         state_class=SensorStateClass.TOTAL, device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR, suggested_display_precision=2,
-        value="battery_kwh", quality="battery_kwh_quality", attributes=("soc_corrected",)),
+        value="battery_kwh", quality="battery_kwh_quality", attributes=("soc_corrected",),
+        rests_on=(SOC_STOCK,)),
 )
 
 
-class LifetimeSensor(_L1Sensor):
+class LifetimeSensor(_HoldingSensor):
     """A value of the lifetime line: the cumulative counters, starting
     values included (VER-11), the tank-to-tank consumption (VER-01), and
     the overall electricity rates and totals (ADR-0025, point 6)."""
@@ -556,14 +644,17 @@ class LifetimeSensor(_L1Sensor):
                  description: LifetimeSensorDescription) -> None:
         super().__init__(view, writer, capture, description.key)
         self.entity_description = description
+        self.rests_on = description.rests_on
 
     @property
     def _line(self) -> dict | None:
         return self._view.periods.get("lifetime")
 
-    @property
-    def native_value(self) -> float | None:
-        return (self._line or {}).get(self.entity_description.value)
+    def _shown(self, line: dict) -> float | None:
+        return line.get(self.entity_description.value)
+
+    def _period_of(self, line: dict) -> str:
+        return "lifetime"
 
     @property
     def extra_state_attributes(self) -> dict | None:
@@ -574,4 +665,5 @@ class LifetimeSensor(_L1Sensor):
         attrs = {k: line.get(k) for k in ("start", "end", "gaps")}
         attrs["state_quality"] = line.get(d.quality)
         attrs.update({k: line.get(k) for k in d.attributes})
+        attrs.update(self._held_attribute())
         return attrs

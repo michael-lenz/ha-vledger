@@ -220,6 +220,16 @@ Every metric entity's attributes are its line's **Start**, **End**,
 fuel metrics add whether the fuel level corrected them, electricity
 metrics whether the state of charge did.
 
+A metric that rests on such a correction — fuel consumed, battery energy,
+the costs per 100 km and the electric shares, in the periods and in total
+— keeps the value it last showed with the correction while the current
+line lacks it, and its attribute **State held** says so. That is the
+minute after a Home Assistant restart, until the vehicle reports again:
+the figures stay where they were instead of jumping by the whole stock
+change and back. A new month shows its own line from the start, and a
+vehicle without a fuel level or battery sensor, which never had the
+correction, sees nothing held.
+
 A charge still running, a trip whose standstill has not yet elapsed, or
 a refuelling whose level has not yet settled is left out of the figures
 entirely — its distance, its energy, its litres and the fuel level and

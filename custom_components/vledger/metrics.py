@@ -26,6 +26,10 @@ CURRENCY = "{currency}"
 #: (ADR-0032), which converts it for display and in the statistics;
 #: L/100km has no device class and is shown as it is (ADR-0018, point 4).
 L_PER_100KM, KWH_PER_100KM = "L/100km", "kWh/100km"
+#: The stock corrections of a period line (ADR-0014): a metric that rests
+#: on one is held by its sensor while the line lacks it (ADR-0047).
+FUEL_STOCK, SOC_STOCK = "fuel_level_corrected", "soc_corrected"
+FUEL_AND_SOC = (FUEL_STOCK, SOC_STOCK)
 
 
 @dataclass(frozen=True)
@@ -40,27 +44,38 @@ class Metric:
     device_class: SensorDeviceClass | None = None
     unit: str | None = None
     precision: int | None = None
+    #: The stock corrections the value rests on (ADR-0047, point 1): the
+    #: fuel level for what was used, the state of charge for the battery
+    #: side, both for the money and the shares. Empty: shown as the line is.
+    rests_on: tuple[str, ...] = ()
 
 
 METRICS: tuple[Metric, ...] = (
     Metric("distance_km", "Distance", EVERY, SUM, SensorDeviceClass.DISTANCE, UnitOfLength.KILOMETERS, 1),
-    Metric("eur_per_100km", "Cost per 100 km", EVERY, RATE, None, f"{CURRENCY}/100km", 2),
+    Metric("eur_per_100km", "Cost per 100 km", EVERY, RATE, None, f"{CURRENCY}/100km", 2,
+           rests_on=FUEL_AND_SOC),
     Metric("fuel_purchased_l", "Fuel purchased", FUEL, SUM, SensorDeviceClass.VOLUME, UnitOfVolume.LITERS, 2),
-    Metric("fuel_consumed_l", "Fuel consumed", FUEL, SUM, SensorDeviceClass.VOLUME, UnitOfVolume.LITERS, 2),
+    Metric("fuel_consumed_l", "Fuel consumed", FUEL, SUM, SensorDeviceClass.VOLUME, UnitOfVolume.LITERS, 2,
+           rests_on=(FUEL_STOCK,)),
     Metric("fuel_cost_eur", "Fuel cost", FUEL, SUM, SensorDeviceClass.MONETARY, CURRENCY, 2),
     Metric("tank_fills", "Tank fills", FUEL, SUM, None, None, 2),
     Metric("grid_kwh", "Grid energy", ELECTRICITY, SUM, SensorDeviceClass.ENERGY, UnitOfEnergy.KILO_WATT_HOUR, 2),
-    Metric("battery_kwh", "Battery energy", ELECTRICITY, SUM, SensorDeviceClass.ENERGY, UnitOfEnergy.KILO_WATT_HOUR, 2),
+    Metric("battery_kwh", "Battery energy", ELECTRICITY, SUM, SensorDeviceClass.ENERGY, UnitOfEnergy.KILO_WATT_HOUR, 2,
+           rests_on=(SOC_STOCK,)),
     Metric("electricity_cost_eur", "Electricity cost", ELECTRICITY, SUM, SensorDeviceClass.MONETARY, CURRENCY, 2),
     Metric("grid_kwh_per_100km", "Grid energy per 100 km", ELECTRICITY, RATE,
            SensorDeviceClass.ENERGY_DISTANCE, KWH_PER_100KM, 1),
     Metric("battery_kwh_per_100km", "Battery energy per 100 km", ELECTRICITY, RATE,
-           SensorDeviceClass.ENERGY_DISTANCE, KWH_PER_100KM, 1),
+           SensorDeviceClass.ENERGY_DISTANCE, KWH_PER_100KM, 1, rests_on=(SOC_STOCK,)),
     Metric("charge_cycles", "Charge cycles", ELECTRICITY, SUM, None, None, 2),
-    Metric("fuel_eur_per_100km", "Fuel cost per 100 km", BOTH, RATE, None, f"{CURRENCY}/100km", 2),
-    Metric("electricity_eur_per_100km", "Electricity cost per 100 km", BOTH, RATE, None, f"{CURRENCY}/100km", 2),
-    Metric("electric_energy_share", "Electric share of energy", BOTH, SHARE, None, "%", 1),
-    Metric("electric_distance_share", "Electric share of distance", BOTH, SHARE, None, "%", 1),
+    Metric("fuel_eur_per_100km", "Fuel cost per 100 km", BOTH, RATE, None, f"{CURRENCY}/100km", 2,
+           rests_on=(FUEL_STOCK,)),
+    Metric("electricity_eur_per_100km", "Electricity cost per 100 km", BOTH, RATE, None, f"{CURRENCY}/100km", 2,
+           rests_on=(SOC_STOCK,)),
+    Metric("electric_energy_share", "Electric share of energy", BOTH, SHARE, None, "%", 1,
+           rests_on=FUEL_AND_SOC),
+    Metric("electric_distance_share", "Electric share of distance", BOTH, SHARE, None, "%", 1,
+           rests_on=FUEL_AND_SOC),
 )
 
 

@@ -909,6 +909,7 @@
       "eur_per_100km_month": {
         "name": "Kosten pro 100 km im laufenden Monat",
         "state_attributes": {
+          "state_held": { "name": "Zustand gehalten" },
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
@@ -919,6 +920,7 @@
       "eur_per_100km_year": {
         "name": "Kosten pro 100 km im laufenden Jahr",
         "state_attributes": {
+          "state_held": { "name": "Zustand gehalten" },
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
@@ -929,6 +931,7 @@
       "eur_per_100km_rolling": {
         "name": "Kosten pro 100 km im gleitenden Zeitraum",
         "state_attributes": {
+          "state_held": { "name": "Zustand gehalten" },
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
@@ -972,6 +975,7 @@
       "fuel_consumed_l_month": {
         "name": "Verbrauchter Kraftstoff im laufenden Monat",
         "state_attributes": {
+          "state_held": { "name": "Zustand gehalten" },
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
@@ -983,6 +987,7 @@
       "fuel_consumed_l_year": {
         "name": "Verbrauchter Kraftstoff im laufenden Jahr",
         "state_attributes": {
+          "state_held": { "name": "Zustand gehalten" },
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
@@ -994,6 +999,7 @@
       "fuel_consumed_l_rolling": {
         "name": "Verbrauchter Kraftstoff im gleitenden Zeitraum",
         "state_attributes": {
+          "state_held": { "name": "Zustand gehalten" },
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
@@ -1104,6 +1110,7 @@
       "battery_kwh_month": {
         "name": "Batterieenergie im laufenden Monat",
         "state_attributes": {
+          "state_held": { "name": "Zustand gehalten" },
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
@@ -1115,6 +1122,7 @@
       "battery_kwh_year": {
         "name": "Batterieenergie im laufenden Jahr",
         "state_attributes": {
+          "state_held": { "name": "Zustand gehalten" },
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
@@ -1126,6 +1134,7 @@
       "battery_kwh_rolling": {
         "name": "Batterieenergie im gleitenden Zeitraum",
         "state_attributes": {
+          "state_held": { "name": "Zustand gehalten" },
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
@@ -1203,6 +1212,7 @@
       "battery_kwh_per_100km_month": {
         "name": "Batterieenergie pro 100 km im laufenden Monat",
         "state_attributes": {
+          "state_held": { "name": "Zustand gehalten" },
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
@@ -1214,6 +1224,7 @@
       "battery_kwh_per_100km_year": {
         "name": "Batterieenergie pro 100 km im laufenden Jahr",
         "state_attributes": {
+          "state_held": { "name": "Zustand gehalten" },
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
@@ -1225,6 +1236,7 @@
       "battery_kwh_per_100km_rolling": {
         "name": "Batterieenergie pro 100 km im gleitenden Zeitraum",
         "state_attributes": {
+          "state_held": { "name": "Zustand gehalten" },
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
@@ -1269,6 +1281,7 @@
       "fuel_eur_per_100km_month": {
         "name": "Kraftstoffkosten pro 100 km im laufenden Monat",
         "state_attributes": {
+          "state_held": { "name": "Zustand gehalten" },
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
@@ -1281,6 +1294,7 @@
       "fuel_eur_per_100km_year": {
         "name": "Kraftstoffkosten pro 100 km im laufenden Jahr",
         "state_attributes": {
+          "state_held": { "name": "Zustand gehalten" },
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
@@ -1293,6 +1307,7 @@
       "fuel_eur_per_100km_rolling": {
         "name": "Kraftstoffkosten pro 100 km im gleitenden Zeitraum",
         "state_attributes": {
+          "state_held": { "name": "Zustand gehalten" },
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
@@ -1305,6 +1320,7 @@
       "electricity_eur_per_100km_month": {
         "name": "Stromkosten pro 100 km im laufenden Monat",
         "state_attributes": {
+          "state_held": { "name": "Zustand gehalten" },
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
@@ -1317,6 +1333,7 @@
       "electricity_eur_per_100km_year": {
         "name": "Stromkosten pro 100 km im laufenden Jahr",
         "state_attributes": {
+          "state_held": { "name": "Zustand gehalten" },
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
@@ -1329,6 +1346,7 @@
       "electricity_eur_per_100km_rolling": {
         "name": "Stromkosten pro 100 km im gleitenden Zeitraum",
         "state_attributes": {
+          "state_held": { "name": "Zustand gehalten" },
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
@@ -1341,6 +1359,7 @@
       "electric_energy_share_month": {
         "name": "Elektrischer Energieanteil im laufenden Monat",
         "state_attributes": {
+          "state_held": { "name": "Zustand gehalten" },
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
@@ -1353,6 +1372,7 @@
       "electric_energy_share_year": {
         "name": "Elektrischer Energieanteil im laufenden Jahr",
         "state_attributes": {
+          "state_held": { "name": "Zustand gehalten" },
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
@@ -1365,6 +1385,7 @@
       "electric_energy_share_rolling": {
         "name": "Elektrischer Energieanteil im gleitenden Zeitraum",
         "state_attributes": {
+          "state_held": { "name": "Zustand gehalten" },
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
@@ -1377,6 +1398,7 @@
       "electric_distance_share_month": {
         "name": "Elektrischer Streckenanteil im laufenden Monat",
         "state_attributes": {
+          "state_held": { "name": "Zustand gehalten" },
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
@@ -1389,6 +1411,7 @@
       "electric_distance_share_year": {
         "name": "Elektrischer Streckenanteil im laufenden Jahr",
         "state_attributes": {
+          "state_held": { "name": "Zustand gehalten" },
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
@@ -1401,6 +1424,7 @@
       "electric_distance_share_rolling": {
         "name": "Elektrischer Streckenanteil im gleitenden Zeitraum",
         "state_attributes": {
+          "state_held": { "name": "Zustand gehalten" },
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
@@ -1470,6 +1494,9 @@
       "battery_kwh_per_100km_total": {
         "name": "Batterieenergie pro 100 km insgesamt",
         "state_attributes": {
+          "state_held": {
+            "name": "Zustand gehalten"
+          },
           "start": {
             "name": "Beginn"
           },
@@ -1519,6 +1546,9 @@
       "fuel_consumed_l_total": {
         "name": "Verbrauchter Kraftstoff insgesamt",
         "state_attributes": {
+          "state_held": {
+            "name": "Zustand gehalten"
+          },
           "start": {
             "name": "Beginn"
           },
@@ -1568,6 +1598,9 @@
       "battery_kwh_total": {
         "name": "Batterieenergie insgesamt",
         "state_attributes": {
+          "state_held": {
+            "name": "Zustand gehalten"
+          },
           "start": {
             "name": "Beginn"
           },

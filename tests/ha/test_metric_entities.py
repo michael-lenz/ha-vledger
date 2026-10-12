@@ -185,6 +185,105 @@ async def test_the_overall_consumption_and_totals_are_the_lifetime_lines(hass, p
     assert {"start", "end", "gaps", "state_quality"} <= set(s.attributes)
 
 
+async def _rewrite(hass, entry, subject_id):
+    await hass.async_add_executor_job(l1.write_periods, Path(entry.options["base_path"]),
+                                      Subject("vehicle", subject_id))
+    await entry.runtime_data.view.async_refresh()
+
+
+async def test_a_metric_resting_on_a_missing_correction_holds_its_last_corrected_value(
+        hass, phev_entry, period_lines):
+    """ADR-0047: while the line lacks a correction the sensor's last value
+    had, the sensor shows that value and says so; a metric resting on
+    nothing follows the line."""
+    corrected = line("month", MONTH_START, "2026-10-31T23:00:00.000Z", distance_km=60.0,
+                     fuel_consumed_l=6.0, battery_kwh=2.0, eur_per_100km=18.815,
+                     electric_energy_share=0.0361)
+    corrected.update(fuel_level_corrected=True, soc_corrected=True)
+    lifetime = line("lifetime", "2026-07-01T08:00:00.000Z", "2026-10-09T10:00:00.000Z",
+                    fuel_consumed_l=412.3, battery_kwh=1080.8)
+    lifetime.update(fuel_level_corrected=True, soc_corrected=True)
+    period_lines += [corrected, lifetime]
+    await _setup(hass, phev_entry)
+    s = _state(hass, "sensor.golf_fuel_consumed_this_month")
+    assert float(s.state) == 6.0 and s.attributes["state_held"] is False
+    assert "state_held" not in _state(hass, "sensor.golf_distance_this_month").attributes
+
+    # The correction went missing: what rests on it holds, the rest follows the line.
+    period_lines[0] = dict(corrected, distance_km=61.0, fuel_consumed_l=23.0, battery_kwh=2.1,
+                           eur_per_100km=68.583, electric_energy_share=0.0097,
+                           fuel_level_corrected=False)
+    period_lines[1] = dict(lifetime, fuel_consumed_l=429.3, fuel_level_corrected=False)
+    await _rewrite(hass, phev_entry, "b8d2")
+    s = _state(hass, "sensor.golf_fuel_consumed_this_month")
+    assert float(s.state) == 6.0 and s.attributes["state_held"] is True
+    assert s.attributes["fuel_level_corrected"] is False
+    s = _state(hass, "sensor.golf_cost_per_100_km_this_month")
+    assert float(s.state) == 18.815 and s.attributes["state_held"] is True
+    s = _state(hass, "sensor.golf_electric_share_of_energy_this_month")
+    assert float(s.state) == 3.61 and s.attributes["state_held"] is True
+    s = _state(hass, "sensor.golf_battery_energy_this_month")
+    assert float(s.state) == 2.1 and s.attributes["state_held"] is False    # the SoC still corrects it
+    assert float(_state(hass, "sensor.golf_distance_this_month").state) == 61.0
+    s = _state(hass, "sensor.golf_fuel_consumed_in_total")
+    assert float(s.state) == 412.3 and s.attributes["state_held"] is True
+
+    # Back: the line's value, and that is what is remembered now.
+    period_lines[0] = dict(corrected, distance_km=61.0, fuel_consumed_l=7.0)
+    period_lines[1] = dict(lifetime, fuel_consumed_l=413.3)
+    await _rewrite(hass, phev_entry, "b8d2")
+    s = _state(hass, "sensor.golf_fuel_consumed_this_month")
+    assert float(s.state) == 7.0 and s.attributes["state_held"] is False
+    assert float(_state(hass, "sensor.golf_fuel_consumed_in_total").state) == 413.3
+
+    # A new month shows its own line from the start, correction or not.
+    period_lines[0] = line("month", "2026-10-31T23:00:00.000Z", "2026-11-30T23:00:00.000Z",
+                           fuel_consumed_l=1.0)
+    period_lines[0]["fuel_level_corrected"] = False
+    await _rewrite(hass, phev_entry, "b8d2")
+    s = _state(hass, "sensor.golf_fuel_consumed_this_month")
+    assert float(s.state) == 1.0 and s.attributes["state_held"] is False
+
+
+async def test_a_correction_that_was_never_there_is_not_missing(hass, vehicle_entry, period_lines):
+    """ADR-0047, point 4: a petrol car has no state of charge to correct
+    the cost per 100 km with; its line is shown as it is."""
+    month = line("month", MONTH_START, "2026-10-31T23:00:00.000Z", eur_per_100km=9.5)
+    month.update(fuel_level_corrected=True, soc_corrected=False)
+    period_lines.append(month)
+    await _setup(hass, vehicle_entry)
+    s = _state(hass, "sensor.volvo_cost_per_100_km_this_month")
+    assert float(s.state) == 9.5 and s.attributes["state_held"] is False
+    period_lines[0] = dict(month, eur_per_100km=9.6)
+    await _rewrite(hass, vehicle_entry, "a7c1")
+    s = _state(hass, "sensor.volvo_cost_per_100_km_this_month")
+    assert float(s.state) == 9.6 and s.attributes["state_held"] is False
+    period_lines[0] = dict(month, eur_per_100km=25.0, fuel_level_corrected=False)
+    await _rewrite(hass, vehicle_entry, "a7c1")
+    s = _state(hass, "sensor.volvo_cost_per_100_km_this_month")
+    assert float(s.state) == 9.6 and s.attributes["state_held"] is True
+
+
+async def test_the_held_value_survives_a_restart(hass, vehicle_entry, period_lines):
+    """ADR-0047, point 3: the minute after a restart shows the value from
+    before it — the remembered value comes back with the restore state."""
+    month = line("month", MONTH_START, "2026-10-31T23:00:00.000Z", fuel_consumed_l=10.6)
+    period_lines.append(month)
+    await _setup(hass, vehicle_entry)
+    assert float(_state(hass, "sensor.volvo_fuel_consumed_this_month").state) == 10.6
+    # The restart: the entities go away with their restore state and come
+    # back to a line whose snapshot was unavailable — no correction yet.
+    period_lines[0] = dict(month, fuel_consumed_l=16.8, fuel_level_corrected=False)
+    assert await hass.config_entries.async_reload(vehicle_entry.entry_id)
+    await _settle(hass, vehicle_entry)
+    s = _state(hass, "sensor.volvo_fuel_consumed_this_month")
+    assert float(s.state) == 10.6 and s.attributes["state_held"] is True
+    period_lines[0] = dict(month, fuel_consumed_l=10.6)
+    await _rewrite(hass, vehicle_entry, "a7c1")
+    s = _state(hass, "sensor.volvo_fuel_consumed_this_month")
+    assert float(s.state) == 10.6 and s.attributes["state_held"] is False
+
+
 async def test_a_trip_reaches_the_month_through_l1(hass, vehicle_entry, tmp_path, freezer):
     freezer.move_to(T0)
     hass.states.async_set("sensor.volvo_odometer", "1000", KM)
@@ -217,18 +316,22 @@ def test_every_metric_has_a_name_and_an_icon():
         LIFETIME_SENSORS,
         METRICS,
         PERIODS,
+        Metric,
         corrected,
     )
 
     assert {m.key for m in METRICS} == set(periods.METRICS)
     keys = {f"{m.key}_{p}": m for m in METRICS for p in PERIODS}
-    keys.update({d.key: None for d in LIFETIME_SENSORS})
+    keys.update({d.key: d for d in LIFETIME_SENSORS})
     icons = json.loads((ROOT / "icons.json").read_text())["entity"]["sensor"]
     assert set(keys) <= set(icons)
     for lang in ("strings.json", "translations/en.json", "translations/de.json"):
         sensors = json.loads((ROOT / lang).read_text())["entity"]["sensor"]
         for key, m in keys.items():
             assert sensors[key]["name"], (lang, key)
-            if m is not None:
-                named = set(sensors[key]["state_attributes"])
-                assert {"start", "end", "open", "gaps", "state_quality", *corrected(m.needs)} == named
+            named = set(sensors[key]["state_attributes"])
+            # A sensor that can hold its value names the attribute that says so (ADR-0047).
+            assert ("state_held" in named) == bool(m.rests_on), (lang, key)
+            if isinstance(m, Metric):
+                held = {"state_held"} if m.rests_on else set()
+                assert {"start", "end", "open", "gaps", "state_quality", *corrected(m.needs), *held} == named
