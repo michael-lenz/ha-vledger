@@ -122,7 +122,14 @@ def reading_time(t: str, spanning: list[dict], first_t: str, last_t: str,
         for e in spanning:
             if clock.parse(e["start"]) < at < clock.parse(e["end"]):
                 at, moved = clock.parse(e["end"]), True
-    at = min([at, *(clock.parse(x) for x in under_way if clock.parse(x) < at)])
+    back = min([at, *(clock.parse(x) for x in under_way if clock.parse(x) < at)])
+    if back < at:
+        # Not before the end of a completed event the one under way
+        # overlaps: the completed one is counted, and the overlap is an
+        # upload's milliseconds (ADR-0048, point 2).
+        ends = [clock.parse(e["end"]) for e in spanning
+                if clock.parse(e["start"]) < back < clock.parse(e["end"])]
+        at = min(max([back, *ends]), at)
     at = min(max(at, clock.parse(first_t)), clock.parse(last_t))
     return clock.to_text(at)
 
@@ -150,14 +157,15 @@ def under_way(base: Path, subject: Subject, events: dict[str, list[dict]]) -> li
     elapsed, a session waiting for another stream (ADR-0027), a refuelling
     whose T_settle has not (ADR-0033, point 2; ADR-0034, point 2). That is
     its start — for a refuelling the instant before, since its start is the
-    first sample that shows the rise. Each kind is read from its cursor on,
-    as the live writer reads it, and what starts after the cursor is what
-    L1 does not hold."""
+    first sample that shows the rise; for a per-cycle vehicle reported
+    running or in use, the departure of the drive under way (ADR-0048,
+    point 1). Each kind is read from its cursor on, as the live writer
+    reads it, and what starts after the cursor is what L1 does not hold."""
     # Each of them imports this module, if only through trips.
     from vledger import charging, refuellings, trips
 
     out = []
-    for kind, begun in (("trip", lambda s: [x.start for x in trips.derive(s)]),
+    for kind, begun in (("trip", trips.begun),
                         ("charging", charging.begun),
                         ("refuelling", lambda s: [_before(x.start) for x in refuellings.derive(s)])):
         cursor = l1.through_of(events.get(kind, []))

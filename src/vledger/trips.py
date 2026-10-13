@@ -328,6 +328,28 @@ def in_use_now(s: Stream) -> bool:
     return bool(known) and known[-1] == "in_use"
 
 
+def in_use_since(s: Stream, t: str, still: timedelta) -> bool:
+    """Whether the vehicle is in use at the stream's last line in a span
+    that began less than ``still`` after ``t`` — the use that keeps a trip
+    ending at ``t`` going. A use that began later is the next trip's, and
+    ends no earlier trip (ADR-0048, point 3)."""
+    if not in_use_now(s):
+        return False
+    first = in_use_spans(s)[-1][0]
+    return clock.parse(first) - clock.parse(t) < still
+
+
+def running_now(s: Stream) -> bool:
+    """Whether the stream ends with the vehicle reported running or in use
+    — the engine running, the ignition on, or in use (ADR-0048, point 1):
+    what tells a departure from a door."""
+    for role, positive in (("engine", "running"), ("ignition", "on")):
+        known = [x.state for x in s.domain.get(role, []) if x.state is not None]
+        if known and known[-1] == positive:
+            return True
+    return in_use_now(s)
+
+
 def _moving_until(moves: list[Movement], intervals: dict[str, float]) -> str:
     """The time the vehicle stopped moving: the last movement, unless it is a
     slower role's late report (ADR-0021, point 4). A role is slower when its
@@ -564,7 +586,7 @@ def derive(s: Stream, *, completed_only: bool = False) -> list[Trip]:
     if completed_only and spans and s.last_t:
         first, last, crossed = spans[-1]
         if (clock.parse(s.last_t) - clock.parse(last) < timedelta(seconds=t_still)
-                or in_use_now(s)):
+                or in_use_since(s, last, timedelta(seconds=t_still))):
             spans = spans[:-1]
     # A stream read from a cursor begins where L1's last trip ended: that
     # end is the floor, as the previous trip's is in a rebuild (ISSUE-0056).
@@ -773,7 +795,7 @@ def _derive_per_cycle(s: Stream, *, completed_only: bool) -> list[Trip]:
             nxt += [t for t in in_use_first if clock.parse(t) > clock.parse(last)]
             pending = min(nxt, key=clock.parse) if nxt else None
             complete = bool(s.last_t) and not (
-                clock.parse(s.last_t) - clock.parse(last) < still or in_use_now(s)
+                clock.parse(s.last_t) - clock.parse(last) < still or in_use_since(s, last, still)
                 or (pending and clock.parse(pending) - clock.parse(last) < still))
         if completed_only and not complete:
             break
@@ -786,6 +808,40 @@ def _derive_per_cycle(s: Stream, *, completed_only: bool) -> list[Trip]:
         if not complete:
             break
         anchor = last
+    return out
+
+
+def _pending_departure(s: Stream) -> str | None:
+    """The departure of the leg a per-cycle vehicle's next arrival will
+    close, by the leg rule (ADR-0024, step 3) after the last arrival: the
+    latest departing unlock, else the earliest other marker or first in-use
+    report. ``None`` where nothing departed since."""
+    window = float(s.thresholds()["exit_window_s"])
+    done = derive(s)
+    anchor = done[-1].end if done else s.since
+    legs, departures, in_use_first = _legs(s, anchor, window)
+    previous = legs[-1].arrival if legs else anchor
+    after = lambda t: previous is None or clock.parse(t) > clock.parse(previous)
+    unlocks = [k.t for k in departures if k.role == "lock" and after(k.t)]
+    if unlocks:
+        return unlocks[-1]
+    others = [k.t for k in departures if k.role != "lock" and after(k.t)]
+    others += [t for t in in_use_first if after(t)]
+    return min(others, key=clock.parse) if others else None
+
+
+def begun(s: Stream) -> list[str]:
+    """The start of every trip that has begun by the stream's last line,
+    complete or not, in order — and, for a per-cycle vehicle, the
+    departure of a drive under way: a departure after the last arrival
+    while the vehicle is reported running or in use (ADR-0048, point 1).
+    A sampled vehicle's drive is a trip as soon as it moves. What
+    :func:`periods.under_way` reads the stock no later than."""
+    out = [x.start for x in derive(s)]
+    if s.parameters().get("movement_reporting") == "per_cycle" and running_now(s):
+        pending = _pending_departure(s)
+        if pending is not None and (not out or clock.parse(pending) > clock.parse(out[-1])):
+            out.append(pending)
     return out
 
 

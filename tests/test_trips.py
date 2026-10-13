@@ -601,6 +601,69 @@ def upload(b, minute, km, odo):
     b.state(minute, "odometer", odo, "km", before=minute - 2)
 
 
+def test_a_drive_under_way_has_begun_at_its_departure_once_the_vehicle_runs(tmp_path, capsys):
+    """ADR-0048, point 1: a departure with the engine running or the car in
+    use is a drive under way; an unlock alone is a door."""
+    b = cycle_builder(tmp_path, capsys)
+    b.heartbeat(0)
+    b.state(5, "lock", "unlocked", before=4)
+    b.heartbeat(8)
+    assert trips.begun(series.load(tmp_path, V)) == []                 # unlocked, not running
+    b.state(9, "engine", "on", before=7)
+    b.heartbeat(20)
+    assert trips.begun(series.load(tmp_path, V)) == [at(5)]            # running: begun at the unlock
+    b.state(52, "engine", "off", before=50)
+    upload(b, 52, 30.0, 1030)
+    b.heartbeat(55)
+    assert trips.begun(series.load(tmp_path, V)) == [at(5)]            # now a leg, not yet complete
+    assert trips.derive_from(tmp_path, V, completed_only=True) == []
+    b.heartbeat(90)
+    [t] = trips.derive_from(tmp_path, V, completed_only=True)
+    assert (t.start, t.end) == (at(5), at(52))
+    assert trips.begun(series.load(tmp_path, V)) == [at(5)]
+    # The next departure, in use this time, and nothing yet arrived.
+    b.state(100, "in_use", "car_in_use", before=70)
+    b.heartbeat(110)
+    assert trips.begun(series.load(tmp_path, V)) == [at(5), at(100)]
+    # Read from the cursor, as the live path reads it: the departure alone.
+    assert trips.begun(series.load(tmp_path, V, since=at(52))) == [at(100)]
+
+
+def test_being_in_use_ends_no_earlier_trip(tmp_path, capsys):
+    """ADR-0048, point 3: a use that began long after the arrival is the
+    next trip's, and the trip before it stays complete in a rebuild."""
+    b = cycle_builder(tmp_path, capsys)
+    b.heartbeat(0)
+    b.state(5, "lock", "unlocked", before=4)
+    b.state(10, "in_use", "car_in_use", before=-20)
+    upload(b, 52, 30.0, 1030)
+    b.state(70, "in_use", "available", before=40)
+    b.heartbeat(120)
+    [t] = trips.derive_from(tmp_path, V, completed_only=True)
+    b.state(900, "in_use", "car_in_use", before=870)                  # 14 hours later
+    b.heartbeat(910)
+    assert [x.end for x in trips.derive_from(tmp_path, V, completed_only=True)] == [t.end]
+    # A use that began within T_still of the arrival keeps the trip open.
+    b2 = cycle_builder(tmp_path / "soon", capsys)
+    b2.heartbeat(0)
+    b2.state(5, "lock", "unlocked", before=4)
+    upload(b2, 52, 30.0, 1030)
+    b2.state(60, "in_use", "car_in_use", before=30)
+    b2.heartbeat(120)
+    assert trips.derive_from(tmp_path / "soon", V, completed_only=True) == []
+
+
+def test_being_in_use_ends_no_earlier_sampled_trip_either(tmp_path, capsys):
+    b = Builder(tmp_path, capsys, roles=CYCLE_ROLES)
+    b.heartbeat(0)
+    end = plain_drive(b, 0)
+    b.heartbeat(end + 60)
+    [t] = trips.derive_from(tmp_path, V, completed_only=True)
+    b.state(end + 600, "in_use", "car_in_use", before=end + 570)
+    b.heartbeat(end + 610)
+    assert [x.end for x in trips.derive_from(tmp_path, V, completed_only=True)] == [t.end]
+
+
 def test_legs_with_a_short_stop_are_one_trip_and_a_long_stop_splits(tmp_path, capsys):
     b = cycle_builder(tmp_path, capsys)
     b.heartbeat(0)

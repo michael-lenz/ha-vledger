@@ -175,7 +175,8 @@ sensor pair), and `in_use`; markers `ignition`, `plug_state`,
    share, `…_error_pct`, where the quantity is not zero. A trip across a
    gap is `incomplete` in all of them.
 7. **Complete** once T_still has elapsed after the last movement, by the
-   stream.
+   stream — a use reported from within T_still of it keeps the trip open,
+   one that began later belongs to the next trip (ADR-0048, point 3).
 
 **Per-cycle vehicles** (ADR-0024). A vehicle whose `movement_reporting`
 is `per_cycle` uploads odometer, trip counter and position once per
@@ -211,7 +212,13 @@ driving cycle, at the stop, and is read as legs instead of steps 2 and 3:
    values.
 5. **Complete** once the stream's last line is T_still past the last
    arrival, no departure followed within T_still, and the vehicle is not
-   reported in use.
+   reported in use by a span that began within T_still of the arrival — a
+   use that began later is the next trip's (ADR-0048, point 3).
+6. **Under way.** A departure after the last arrival, with the engine
+   running, the ignition on or the vehicle in use at the stream's last
+   line, is a drive under way from that departure (ADR-0048, point 1): the
+   periods read the stock no later than it, as for a trip not yet
+   complete. An unlock alone is a door.
 
 **Limitations.**
 

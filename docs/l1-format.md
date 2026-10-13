@@ -131,8 +131,10 @@ the value in effect there, the reading moved forward to the end of any
 trip or charging session under way across the boundary, and to the
 `settled_at` of any refuelling, then back to the start of any of them
 that had begun by then and is not yet an event — still charging, a trip
-whose standstill has not elapsed, a session waiting for another stream, a
-refuelling within T_settle, read as it stood before its first rise — so
+whose standstill has not elapsed, a per-cycle vehicle's drive under way
+from its departure (ADR-0048), a session waiting for another stream, a
+refuelling within T_settle, read as it stood before its first rise — but
+not before the end of a completed event the one under way overlaps — so
 that an event counts nowhere until it is complete, and then its distance,
 energy, litres and stock change all at once (ADR-0033, ADR-0034). It
 is kept within the stream — a month that began before capture is read

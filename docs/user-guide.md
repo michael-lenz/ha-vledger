@@ -236,7 +236,10 @@ entirely — its distance, its energy, its litres and the fuel level and
 state of charge it changed — until it is complete. So while you charge,
 for the standstill time after a trip (half an hour unless configured
 otherwise) and for the settling time after a fill (six minutes), the
-month's figures hold still, and then step once.
+month's figures hold still, and then step once. A vehicle that reports
+its movement once per driving cycle holds still from the moment it
+departs with the engine running or reported in use, not only from the
+upload at the stop.
 
 What they keep as statistics:
 

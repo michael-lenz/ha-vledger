@@ -204,6 +204,44 @@ def test_an_event_not_yet_in_l1_moves_the_stock_reading_back_to_its_start():
                                 ["2026-10-31T23:45:00.000Z"]) == "2026-10-31T23:45:00.000Z"
 
 
+def test_the_move_back_stops_at_the_end_of_a_completed_event_it_overlaps():
+    """ADR-0048, point 2: a session begun a millisecond before the trip's
+    end does not pull the reading before the trip's settled values."""
+    spanning = [{"start": "2026-10-31T22:50:00.000Z", "end": "2026-10-31T23:40:00.000Z"}]
+    first, last = "2026-10-01T00:00:00.000Z", "2026-11-30T00:00:00.000Z"
+    assert periods.reading_time("2026-10-31T23:00:00.000Z", spanning, first, last,
+                                ["2026-10-31T23:39:59.999Z"]) == spanning[0]["end"]
+    # Begun before the completed event: no overlap to speak of, read at its start.
+    assert periods.reading_time("2026-10-31T23:00:00.000Z", spanning, first, last,
+                                ["2026-10-31T22:40:00.000Z"]) == "2026-10-31T22:40:00.000Z"
+
+
+def test_a_per_cycle_drive_under_way_is_not_read_into_the_stock(tmp_path, capsys):
+    """ADR-0048, point 1: the SoC a per-cycle vehicle reports while it
+    drives is read no later than the departure, so the figures hold still
+    and step once when the trip completes."""
+    from test_trips import PER_CYCLE, Builder, upload
+    roles = {"trip_distance": {"entity": "sensor.trip"}, "soc": {"entity": "sensor.s"},
+             "lock": {"entity": "lock.v", "map": {"locked": ["locked"]}},
+             "engine": {"entity": "binary_sensor.engine", "map": {"running": ["on"]}}}
+    b = Builder(tmp_path, capsys, roles=roles, parameters=dict(PER_CYCLE, battery_net_kwh=10))
+    b.heartbeat(0)
+    b.state(5, "lock", "unlocked", before=4).state(6, "engine", "on", before=4)
+    for i, soc in enumerate((78, 76, 74)):
+        b.state(8 + 2 * i, "soc", soc, "%", before=6 + 2 * i)
+    b.heartbeat(14)
+    m = month(tmp_path)
+    assert m["battery_kwh"] == 0 and m["soc_corrected"] is True and m["distance_km"] == 0
+    b.state(52, "engine", "off", before=50)
+    upload(b, 52, 30.0, 1030)
+    b.heartbeat(55)
+    m = month(tmp_path)
+    assert m["battery_kwh"] == 0 and m["distance_km"] == 0                # a leg, not yet complete
+    b.heartbeat(90)
+    m = month(tmp_path)
+    assert m["distance_km"] == 30 and m["battery_kwh"] == 0.6             # 80 → 74 % of 10 kWh
+
+
 def charged_then_driven(base, capsys, charging_state=True):
     """A metered charge at home, SoC 50 → 60 % at 0.30 (1.25 kWh, cost
     0.38 as the session rounds it), then a 30 km trip back to 50 %."""
