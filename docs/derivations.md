@@ -436,7 +436,10 @@ The periods are computed from the event files after every derivation
 level and SoC read at the boundaries for the stock correction, never
 across a gap and never inside an event not yet complete (ADR-0033,
 ADR-0034), and
-each metric flagged with the weakest of what it rests on. Fuel consumption is tank to tank between receipts, corrected by the
+each metric flagged with the weakest of what it rests on. The fuel a
+period consumed is the sum of its trips' trip-computer figures where
+every trip has one, else the level's stock correction, the source named
+on the line (ADR-0049). Fuel consumption is tank to tank between receipts, corrected by the
 level sensor, with its error bound beside it. The definitions are
 [l1-format.md](l1-format.md#periods). The same arithmetic over a span
 chosen freely is the report, `vledger report metrics`, computed from the

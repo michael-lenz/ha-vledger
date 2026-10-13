@@ -55,6 +55,7 @@ from .metrics import (
     SUM,
     Metric,
     corrected,
+    corrections,
     energies,
     unit_of,
     value_of,
@@ -498,7 +499,7 @@ class _HoldingSensor(_L1Sensor, RestoreEntity):
         value = self._shown(line)
         if not self.rests_on:
             return value, False
-        flags = {k: bool(line.get(k)) for k in self.rests_on}
+        flags = corrections(line, self.rests_on)
         period, held = self._period_of(line), self._held
         if held is not None and held.period == period and any(
                 held.flags.get(k) and not flags[k] for k in self.rests_on):

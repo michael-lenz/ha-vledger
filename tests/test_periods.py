@@ -242,6 +242,46 @@ def test_a_per_cycle_drive_under_way_is_not_read_into_the_stock(tmp_path, capsys
     assert m["distance_km"] == 30 and m["battery_kwh"] == 0.6             # 80 → 74 % of 10 kWh
 
 
+def test_the_fuel_a_period_consumed_is_its_trips_trip_computer_sum_where_complete(tmp_path, capsys):
+    """ADR-0049, point 1: two legs the computer measured at 1.75 and 0.8 L
+    while the level fell 3.5 L and 1 L; one trip the computer missed turns
+    the period back to the level's stock."""
+    from test_trips import CYCLE_ROLES, PER_CYCLE, Builder, upload
+    from test_trips import at as t_at  # the builder's own clock
+    roles = dict(CYCLE_ROLES, trip_consumption={"entity": "sensor.avg"}, fuel_level={"entity": "sensor.f"})
+    b = Builder(tmp_path, capsys, roles=roles, parameters=dict(
+        PER_CYCLE, fuel="petrol", fuel_level_resolution_l=1.0, tank_capacity_l=40))
+    b.state(-30, "trip_distance", 100.0, "km").state(-30, "trip_consumption", 6.0, "L/100 km")
+    b.heartbeat(0)
+    b.state(10, "lock", "unlocked", before=9).state(12, "lock", "locked", before=11)
+    upload(b, 40, 125.0, 1025)
+    b.state(40, "trip_consumption", 6.2, "L/100 km", before=38)
+    b.state(43, "fuel_level", 17.0, "L", before=38)
+    b.heartbeat(100)
+    b.state(160, "lock", "unlocked", before=159)
+    upload(b, 180, 10.0, 1035)
+    b.state(180, "trip_consumption", 8.0, "L/100 km", before=178)
+    b.state(183, "fuel_level", 16.0, "L", before=43)
+    b.heartbeat(230)
+    m = month(tmp_path)
+    assert m["distance_km"] == 35 and m["fuel_level_corrected"] is True
+    assert (m["fuel_consumed_l"], m["fuel_consumed_l_quality"]) == (2.55, "measured")   # not 20.5 − 16 = 4.5
+    assert m["fuel_consumed_source"] == "trip_computer"
+    # A third trip the computer missed: no average line and a capture gap
+    # before the end, nothing to hold through — the stock is the figure.
+    b.heartbeat(290)
+    b.state(300, "lock", "unlocked", before=299)
+    b.run("stop", *b.b, "--t", t_at(310), "--reason", "reload")
+    b.run("start", *b.b, "--t", t_at(312), "--homeassistant", "2026.9.4", "--snapshot", "[]")
+    upload(b, 320, 30.0, 1055)
+    b.state(323, "fuel_level", 14.0, "L", before=183)
+    b.heartbeat(380)
+    m = month(tmp_path)
+    assert m["distance_km"] == 55
+    assert (m["fuel_consumed_l"], m["fuel_consumed_l_quality"]) == (6.5, "estimated")   # 20.5 − 14
+    assert m["fuel_consumed_source"] == "fuel_level"
+
+
 def charged_then_driven(base, capsys, charging_state=True):
     """A metered charge at home, SoC 50 → 60 % at 0.30 (1.25 kWh, cost
     0.38 as the session rounds it), then a 30 km trip back to 50 %."""

@@ -909,6 +909,23 @@ def test_the_trip_computer_measures_the_fuel_and_a_reset_zeroes_the_start(tmp_pa
     assert (second.fuel_l_per_100km, second.fuel_l_per_100km_error_pct) == (8.0, 0.6)
 
 
+def test_an_unchanged_average_is_a_reading(tmp_path, capsys):
+    """ADR-0049, point 3: a 100 m move at an average that did not change
+    writes no average line (ADR-0011); the figure is still the computer's."""
+    roles = dict(CYCLE_ROLES, trip_consumption={"entity": "sensor.avg"})
+    b = Builder(tmp_path, capsys, roles=roles, parameters=dict(
+        PER_CYCLE, fuel="petrol", fuel_level_resolution_l=1.0))
+    b.state(-30, "trip_distance", 13.8, "km").state(-30, "trip_consumption", 0.0, "L/100 km")
+    b.heartbeat(0)
+    b.state(10, "lock", "unlocked", before=9).state(12, "lock", "locked", before=11)
+    upload(b, 14, 13.9, 1001)                              # the counter moved, the average did not
+    b.state(16, "fuel_level", 19.5, "L", before=12)        # the level says 1 L
+    b.heartbeat(60)
+    [t] = trips.derive_from(tmp_path, V, completed_only=True)
+    assert t.delta_fuel_l == -1.0
+    assert (t.fuel_consumed_l, t.fuel_consumed_source, t.fuel_consumed_quality) == (0.0, "trip_computer", "measured")
+
+
 def test_an_electric_leg_from_the_trip_computer_is_zero_not_unknown(tmp_path, capsys):
     """ISSUE-0043's leg: after the counter's reset at the departure, 10 km at
     an average of 0.0 is no fuel, give or take 0.005 L. That error over the

@@ -245,6 +245,19 @@ async def test_a_metric_resting_on_a_missing_correction_holds_its_last_corrected
     assert float(s.state) == 1.0 and s.attributes["state_held"] is False
 
 
+async def test_a_fuel_figure_from_the_trip_computer_needs_no_stock_correction(hass, vehicle_entry, period_lines):
+    """ADR-0049, point 2: with the trip computer the fuel stock is not
+    missing, it is not needed — the sensor follows the line."""
+    month = line("month", MONTH_START, "2026-10-31T23:00:00.000Z", fuel_consumed_l=2.55)
+    month.update(fuel_level_corrected=True, fuel_consumed_source="trip_computer")
+    period_lines.append(month)
+    await _setup(hass, vehicle_entry)
+    period_lines[0] = dict(month, fuel_consumed_l=2.7, fuel_level_corrected=False)
+    await _rewrite(hass, vehicle_entry, "a7c1")
+    s = _state(hass, "sensor.volvo_fuel_consumed_this_month")
+    assert float(s.state) == 2.7 and s.attributes["state_held"] is False
+
+
 async def test_a_correction_that_was_never_there_is_not_missing(hass, vehicle_entry, period_lines):
     """ADR-0047, point 4: a petrol car has no state of charge to correct
     the cost per 100 km with; its line is shown as it is."""

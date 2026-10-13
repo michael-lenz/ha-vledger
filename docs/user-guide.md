@@ -678,7 +678,8 @@ vledger derive periods --vehicle a7c1 | jq 'select(.period == "lifetime") | {con
 ```
 
 Each line has the distance; the litres and the fuel cost bought, from the
-receipts; the litres actually used, corrected by the fuel level at the
+receipts; the litres actually used — the trip computer's sum where every
+trip of the period reports one, else corrected by the fuel level at the
 period's start and end; the grid-side kWh and electricity cost of the
 charging sessions; the battery-side kWh, corrected by the state of charge
 at both ends; kWh and cost per 100 km; the electric share of the energy,

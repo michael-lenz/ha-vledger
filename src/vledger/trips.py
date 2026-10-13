@@ -39,7 +39,7 @@ from vledger.series import Fix, Sample, Stream
 
 MEASURED, ESTIMATED, INCOMPLETE = "measured", "estimated", "incomplete"
 #: Where a trip's fuel figure was read (ADR-0025, point 2).
-TRIP_COMPUTER, FUEL_LEVEL = "trip_computer", "fuel_level"
+TRIP_COMPUTER, FUEL_LEVEL = periods.TRIP_COMPUTER, periods.FUEL_LEVEL   # one spelling (ADR-0049)
 #: One step of a trip's rate per 100 km, L or kWh (ADR-0026, point 1): the
 #: precision the rate entities display, and the trip computer's own display
 #: step. A figure whose error over the distance is within it is shown
@@ -452,15 +452,19 @@ def _trip_computer(s: Stream, start: str, end: str, settle_s: float
     end minus that before the start — zero where the counter went down in
     between, its reset. The error is half the average's display step over
     the distance at each reading. ``None`` without both roles, or without
-    a reading on either side of the trip."""
+    a reading on either side of the trip — the distance's end reading at or
+    after the start, since the distance is what moved; the average's the
+    value in effect at the settled end, whenever it was sampled: an
+    unchanged average writes no line (ADR-0011) and is a reading still
+    (ADR-0049, point 3), and only a capture gap unreads it (ABL-04)."""
     dist, avg = s.series.get("trip_distance", []), s.series.get("trip_consumption", [])
     if not dist or not avg:
         return None
     settled = _settled(end, settle_s)
     d0, a0 = _start_value(s, dist, start), _start_value(s, avg, start)
-    d1, a1 = series.last_at_or_before(dist, settled), series.last_at_or_before(avg, settled)
+    d1, a1 = series.last_at_or_before(dist, settled), series.in_effect(s, "trip_consumption", settled)
     if (d0 is None or a0 is None or d1 is None or a1 is None
-            or clock.parse(d1.t) < clock.parse(start) or clock.parse(a1.t) < clock.parse(start)):
+            or clock.parse(d1.t) < clock.parse(start)):
         return None
     reset = any(b.value < a.value for a, b in pairwise(series.between(dist, d0.t, d1.t)))
     before = 0.0 if reset else d0.value * a0.value / 100

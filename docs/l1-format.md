@@ -154,7 +154,7 @@ the weakest of the line's.
 |---|---|
 | `distance_km` | Σ the trips' distance |
 | `fuel_purchased_l`, `fuel_cost_eur` | what was bought: receipt quantities and prices; an unreceipted candidate by its `sensor_delta_l` at its `price_suggestion`, `estimated`, its cost `incomplete` without a price |
-| `fuel_consumed_l` | `fuel_purchased_l` + (level at start − level at end); always `estimated` |
+| `fuel_consumed_l` | Σ the trips' `fuel_consumed_l` where every trip of the period has one from the trip computer, `measured`; else `fuel_purchased_l` + (level at start − level at end), `estimated` (ADR-0049) |
 | `grid_kwh`, `electricity_cost_eur` | Σ the sessions' `grid_kwh` and `cost_eur` as they carry them — priced at the tariff of their start, never re-priced here |
 | `battery_kwh` | Σ the sessions' `battery_kwh` + (SoC at start − SoC at end) × the net battery capacity; `null` without a capacity |
 | `grid_kwh_per_100km`, `battery_kwh_per_100km` | on the whole distance, also with two energy carriers |
@@ -166,6 +166,7 @@ the weakest of the line's.
 | `charge_cycles` | Σ the sessions' ΔSoC / 100 %; SoC gained outside a session does not count |
 | `tank_fills` | `fuel_purchased_l` / the tank capacity; `null` without one |
 | `fuel_level_corrected`, `soc_corrected` | whether the stock correction could be made |
+| `fuel_consumed_source` | where `fuel_consumed_l` came from: `trip_computer` or `fuel_level` |
 | `gaps` | the capture gaps overlapping the period: counts across them are lower bounds |
 
 There are no litres per 100 km per period: fuel consumption is

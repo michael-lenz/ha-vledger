@@ -27,6 +27,9 @@ from vledger.layout import Subject
 from vledger.series import Stream
 
 RECEIPT, MEASURED, ESTIMATED, INCOMPLETE = "receipt", "measured", "estimated", "incomplete"
+#: Where a period's ``fuel_consumed_l`` comes from (ADR-0049): the sum of its
+#: trips' trip-computer figures, or the level's stock correction.
+TRIP_COMPUTER, FUEL_LEVEL = "trip_computer", "fuel_level"
 #: Strongest first; an aggregate is as good as its weakest input (ADR-0014, 4).
 ORDER = (RECEIPT, MEASURED, ESTIMATED, INCOMPLETE)
 
@@ -255,7 +258,14 @@ def metrics(s: Stream, events: dict[str, list[dict]], period: str, start: str, e
     l0_, l1_ = _stock(s, "fuel_level", t0), _stock(s, "fuel_level", t1)
     fuel_corrected = l0_ is not None and l1_ is not None
     consumed = litres + (l0_ - l1_ if fuel_corrected else 0.0)
-    consumed_q = weakest(litres_q, ESTIMATED)
+    consumed_q, consumed_from = weakest(litres_q, ESTIMATED), FUEL_LEVEL
+    # The trips' trip-computer figures where every trip has one: the sum of
+    # the finer measurement instead of the level's stock (ADR-0049, point 1).
+    computed = [e.get("fuel_consumed_l") for e in trips if e.get("fuel_consumed_source") == TRIP_COMPUTER]
+    if trips and len(computed) == len(trips) and all(x is not None for x in computed):
+        consumed = sum(computed)
+        consumed_q = weakest(*(e.get("fuel_consumed_quality") for e in trips))
+        consumed_from = TRIP_COMPUTER
 
     # Electricity: grid-side as charged, battery-side corrected for the SoC
     # stock (VER-03).
@@ -347,6 +357,7 @@ def metrics(s: Stream, events: dict[str, list[dict]], period: str, start: str, e
         line[key] = value
         line[key + "_quality"] = q if value is not None else None
     line["fuel_level_corrected"] = fuel_corrected
+    line["fuel_consumed_source"] = consumed_from
     line["soc_corrected"] = soc_corrected
     line["gaps"] = gaps
     if period == LIFETIME:

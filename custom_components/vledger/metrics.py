@@ -102,6 +102,14 @@ def corrected(needs: str) -> tuple[str, ...]:
             BOTH: ("fuel_level_corrected", "soc_corrected")}.get(needs, ())
 
 
+def corrections(line: dict, rests_on: tuple[str, ...]) -> dict[str, bool]:
+    """Per correction a metric rests on, whether the line has it. The fuel
+    stock counts as had while the line's fuel comes from the trip computer:
+    the correction is not missing, it is not needed (ADR-0049, point 2)."""
+    computed = line.get("fuel_consumed_source") == "trip_computer"
+    return {k: bool(line.get(k)) or (k == FUEL_STOCK and computed) for k in rests_on}
+
+
 def value_of(metric: Metric, line: dict | None) -> float | None:
     """The metric's value as shown: L1's, a share in per cent (ADR-0018, point 4)."""
     value = (line or {}).get(metric.key)
