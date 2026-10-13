@@ -102,7 +102,10 @@ vehicle: its trips are then read as legs from the departure (an unlock,
 the engine starting, the trip counter resetting) to the upload at the stop,
 and a stop is measured to the minute. The **exit window** (5 minutes) is
 how close to an arrival an unlock counts as getting out rather than
-setting off. The **fuel level sensor resolution** and the **state of
+setting off; an unlock later than that counts as setting off only if the
+engine, the ignition, an in-use report or a movement follows within
+T_still — opening the car to plug it in starts no trip. The **fuel level
+sensor resolution** and the **state of
 charge sensor resolution** (1 %) say what each sensor is good to, not its
 display step — a level shown to 0.1 L can be off by a litre — and they
 bound every figure read from a sensor delta: a trip's consumption from
@@ -576,7 +579,8 @@ odometer reports a trip's last kilometres after a faster trip counter has
 stopped, the trip ends with the counter; the odometer's value still gives
 the distance. A vehicle set to report per driving cycle is read as legs
 instead: each from its departure to the upload at its stop, and legs whose
-stops are shorter than T_still make one trip ([glossary](glossary.md),
+stops are shorter than T_still make one trip; an unlock that nothing
+follows within T_still was a door, not a departure ([glossary](glossary.md),
 *Leg*). Every trip carries its own consumption: `fuel_consumed_l` with
 its source (`trip_computer` where the trip computer's average is
 assigned, else `fuel_level`), quality and possible error, and

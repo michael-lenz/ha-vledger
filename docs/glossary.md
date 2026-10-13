@@ -76,14 +76,27 @@ derivation finds in L0.
 zones, distance, waypoints and mean outside temperature.
 
 **Standstill.** A span of at least **T_still** in which no movement role
-changes and the vehicle is not reported in use.
+changes and the vehicle is not reported in use by a span that began
+within T_still of its last movement — a use that began later is the next
+trip's (ADR-0048).
 
 **Leg.** On a vehicle that reports once per driving cycle (ADR-0024): one
 drive from its **departure** — an unlock, an engine start, the trip
 counter's reset — to its **arrival**, the upload of odometer, trip counter
 and position at the stop. An unlock just before or after an arrival is the
-driver getting out. Legs whose stops are shorter than T_still are one
-trip; a stop is measured from the arrival to the next departure.
+driver getting out, and one that T_still later has produced no sign of
+driving — another marker, an in-use report, a movement — was a door
+(ADR-0050). Legs whose stops are shorter than T_still are one trip; a
+stop is measured from the arrival to the next departure. A departure the
+engine, the ignition or an in-use report has confirmed is a drive under
+way before its arrival exists, and the periods read the stock no later
+than it (ADR-0048).
+
+**Dropout.** A state that is not a value — `unavailable`, `unknown`. A
+measuring role holds its last number through one, and so does every
+value read from it (ADR-0046); only a capture gap unreads a value. The
+settled level of a refuelling waits for the first number after a
+dropout, and the outside-temperature filter restarts after one.
 
 **In use.** The vehicle's own report that it is being used — on the
 reference vehicle the integration's car connection, `car_in_use`. A span in
@@ -198,8 +211,10 @@ time zone — or the **rolling period** (default 30 days, ending at the
 stream's last line) the metrics are reported for; the **lifetime** is the
 whole of capture. Purchase figures (litres
 refuelled, fuel cost) count what was bought in the period; rates (cost per
-100 km, kWh/100 km) use what was consumed, corrected for the change in
-fuel level and SoC stock between the period's start and end. A cost is an
+100 km, kWh/100 km) use what was consumed: electricity corrected for the
+change in SoC stock between the period's start and end, fuel as the sum
+of the trips' trip-computer figures where every trip has one, else
+corrected for the change in fuel level stock likewise (ADR-0049). A cost is an
 amount in the instance's currency, whatever its key says ([l1-format.md](l1-format.md#files)).
 
 **Electric energy share.** Electricity's share of the energy put in, by the
