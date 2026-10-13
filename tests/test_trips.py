@@ -664,6 +664,50 @@ def test_being_in_use_ends_no_earlier_sampled_trip_either(tmp_path, capsys):
     assert [x.end for x in trips.derive_from(tmp_path, V, completed_only=True)] == [t.end]
 
 
+def test_an_unlock_without_a_sign_of_driving_was_a_door(tmp_path, capsys):
+    """ADR-0050: unlocked six minutes after the arrival to plug the car in —
+    outside the exit window, inside T_still — and nothing drives: the trip
+    completes T_still after that unlock, and the next day's leg starts at
+    its own unlock, not at this one."""
+    b = cycle_builder(tmp_path, capsys)
+    b.heartbeat(0)
+    b.state(5, "lock", "unlocked", before=4).state(6, "engine", "on", before=4)
+    b.state(7, "lock", "locked", before=5)                   # locks itself on driving off
+    b.state(40, "engine", "off", before=38)
+    upload(b, 40, 25.0, 1025)
+    b.state(46, "lock", "unlocked", before=45)              # 6 min after: a door, we will learn
+    b.state(47, "plug_state", "on", before=45).state(47, "lock", "locked", before=46)
+    b.heartbeat(70)
+    assert trips.derive_from(tmp_path, V, completed_only=True) == []   # not T_still past the unlock yet
+    b.heartbeat(77)
+    [t] = trips.derive_from(tmp_path, V, completed_only=True)
+    assert (t.start, t.end) == (at(5), at(40))
+    b.state(600, "plug_state", "off", before=598)
+    b.state(601, "lock", "unlocked", before=599).state(602, "engine", "on", before=600)
+    b.state(603, "lock", "locked", before=601)
+    upload(b, 640, 50.0, 1050)
+    b.heartbeat(700)
+    _first, second = trips.derive_from(tmp_path, V, completed_only=True)
+    assert (second.start, second.refined_by["start"]) == (at(601), "lock")
+
+
+def test_an_unlock_the_engine_follows_is_a_departure(tmp_path, capsys):
+    """The same unlock with the engine running after it keeps the stop short:
+    the legs are one trip, as ADR-0024 reads them."""
+    b = cycle_builder(tmp_path, capsys)
+    b.heartbeat(0)
+    b.state(5, "lock", "unlocked", before=4).state(6, "engine", "on", before=4)
+    b.state(7, "lock", "locked", before=5)
+    b.state(40, "engine", "off", before=38)
+    upload(b, 40, 25.0, 1025)
+    b.state(46, "lock", "unlocked", before=45).state(48, "engine", "on", before=46)
+    b.state(90, "engine", "off", before=88)
+    upload(b, 90, 40.0, 1040)
+    b.heartbeat(150)
+    [t] = trips.derive_from(tmp_path, V, completed_only=True)
+    assert (t.start, t.end, t.distance_km) == (at(5), at(90), 40)
+
+
 def test_legs_with_a_short_stop_are_one_trip_and_a_long_stop_splits(tmp_path, capsys):
     b = cycle_builder(tmp_path, capsys)
     b.heartbeat(0)

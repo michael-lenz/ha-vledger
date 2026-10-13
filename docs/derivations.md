@@ -199,7 +199,10 @@ driving cycle, at the stop, and is read as legs instead of steps 2 and 3:
    `running`, the ignition `on`, the plug `unplugged`, and the trip
    counter going down. An unlock within `exit_window_s` (300 s) of an
    arrival, either side, is the driver getting out: it separates nothing
-   and departs nothing.
+   and departs nothing. An unlock that T_still later has produced no
+   sign of driving — another marker, an in-use report, a movement — was
+   a door and departs nothing either (ADR-0050); until the stream has
+   reached that line it is a departure like any other.
 3. **Legs.** A leg's departure is the latest departing unlock after the
    previous arrival; without one, the earliest of the other markers and
    the first in-use report after it; without any, the leg's start is

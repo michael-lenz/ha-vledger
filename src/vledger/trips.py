@@ -687,11 +687,11 @@ def fastest_interval(s: Stream, t: str) -> float | None:
     return min(found.values()) if found else None
 
 
-def _legs(s: Stream, anchor: str | None, exit_window_s: float
+def _legs(s: Stream, anchor: str | None, exit_window_s: float, still: timedelta
           ) -> tuple[list[Leg], list[Marker], list[str]]:
     """The legs of a per-cycle stream after ``anchor`` — the previous trip's
-    end, an arrival — the departure markers that are not exits, and the
-    first report of every span in use after it (ADR-0024).
+    end, an arrival — the departure markers that are not exits or doors,
+    and the first report of every span in use after it (ADR-0024).
 
     Only a sample of the fastest movement role opens an arrival, joining
     the current one while no departure marker lies between. A slower
@@ -700,10 +700,14 @@ def _legs(s: Stream, anchor: str | None, exit_window_s: float
     between those, else it opens its own. A sample with no departure
     between it and the anchor belongs to the arrival the anchor is, which
     is already read. An unlock within ``exit_window_s`` of an arrival is
-    getting out."""
+    getting out; one that ``still`` later has produced no sign of driving
+    — another marker, an in-use report, a movement — was a door
+    (ADR-0050), and until the stream has reached that line it is a
+    departure as any other."""
     after = (lambda t: True) if anchor is None else (lambda t: clock.parse(t) > clock.parse(anchor))
     moves = [m for m in movements(s) if m.role != "in_use" and after(m.t)]
     marks = [k for k in _departure_markers(s) if after(k.t)]
+    in_use_first = [first for first, _, _ in in_use_spans(s) if after(first)]
     measured = _measured(s)
     window = timedelta(seconds=exit_window_s)
     fast = {}
@@ -714,9 +718,18 @@ def _legs(s: Stream, anchor: str | None, exit_window_s: float
     def near(a: str, b: str) -> bool:
         return abs(clock.parse(a) - clock.parse(b)) <= window
 
+    signs = sorted([k.t for k in marks if k.role != "lock"] + in_use_first + [m.t for m in moves],
+                   key=clock.parse)
+
+    def door(k: Marker) -> bool:
+        t = clock.parse(k.t)
+        if s.last_t is None or clock.parse(s.last_t) < t + still:
+            return False                     # the stream does not know yet
+        return not any(t < clock.parse(x) <= t + still for x in signs)
+
     anchors = [m.t for m in moves if fast[m]] + ([anchor] if anchor else [])
     departures = [k for k in marks
-                  if not (k.role == "lock" and any(near(k.t, a) for a in anchors))]
+                  if not (k.role == "lock" and (any(near(k.t, a) for a in anchors) or door(k)))]
 
     def departs_between(a: str | None, b: str) -> bool:
         return any(_after_before(k.t, a, b) or k.t == b for k in departures)
@@ -748,7 +761,6 @@ def _legs(s: Stream, anchor: str | None, exit_window_s: float
         arrivals.sort(key=lambda a: clock.parse(a[0].t))
     for a in arrivals:
         a.sort(key=lambda m: clock.parse(m.t))
-    in_use_first = [first for first, _, _ in in_use_spans(s) if after(first)]
     legs: list[Leg] = []
     previous = anchor
     for a in arrivals:
@@ -780,7 +792,7 @@ def _derive_per_cycle(s: Stream, *, completed_only: bool) -> list[Trip]:
     out: list[Trip] = []
     anchor = s.since
     while True:
-        legs, departures, in_use_first = _legs(s, anchor, window)
+        legs, departures, in_use_first = _legs(s, anchor, window, still)
         if not legs:
             break
         group = [legs[0]]
@@ -820,10 +832,11 @@ def _pending_departure(s: Stream) -> str | None:
     close, by the leg rule (ADR-0024, step 3) after the last arrival: the
     latest departing unlock, else the earliest other marker or first in-use
     report. ``None`` where nothing departed since."""
-    window = float(s.thresholds()["exit_window_s"])
+    thr = s.thresholds()
     done = derive(s)
     anchor = done[-1].end if done else s.since
-    legs, departures, in_use_first = _legs(s, anchor, window)
+    legs, departures, in_use_first = _legs(s, anchor, float(thr["exit_window_s"]),
+                                           timedelta(seconds=float(thr["t_still_s"])))
     previous = legs[-1].arrival if legs else anchor
     after = lambda t: previous is None or clock.parse(t) > clock.parse(previous)
     unlocks = [k.t for k in departures if k.role == "lock" and after(k.t)]
