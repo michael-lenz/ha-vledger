@@ -79,6 +79,7 @@ class Session:
     kwh_per_pct: float | None          # grid-side kWh per % SoC, not from the factor (LAD-09)
     charging_loss_kwh: float | None    # grid − battery, only with a capacity (LAD-09)
     movements_while_charging: int      # contradictions, reported (ADR-0012, point 5)
+    gaps: int                          # capture gaps inside the session, whatever their length (ADR-0054)
     version: str
 
 
@@ -98,7 +99,9 @@ def _by_charging_state(s: Stream) -> tuple[list[Span], str | None]:
         if x.state == "charging" and known != "charging":
             start = x.t
         elif x.state != "charging" and known == "charging" and start is not None:
-            out.append(Span(start, x.t, "charging_state", series.gap_between(s, start, x.t)))
+            # Crossed by a gap long enough to hide a standstill (ADR-0054).
+            out.append(Span(start, x.t, "charging_state",
+                            series.long_gap_inside(s, start, x.t, float(s.thresholds()["t_still_s"]))))
             start = None
         known = x.state
     return out, start
@@ -374,8 +377,11 @@ def _session(s: Stream, span: Span, cp: ChargePoint | None, position: dict | Non
     per_pct = round(grid / delta, 4) if observed and delta else None
     loss = round(grid - battery, 3) if observed and battery is not None else None
 
+    # Movements inside the session, the stop's own reports aside — its
+    # upload, and a slow role's late report of it (ADR-0057, point 3).
     t0, t1 = clock.parse(span.start), clock.parse(span.end)
-    moving = sum(1 for m in moves if t0 < clock.parse(m.t) < t1)
+    late = t0 + timedelta(seconds=trips.late_report_window(s, span.start))
+    moving = sum(1 for m in moves if late < clock.parse(m.t) < t1)
 
     return Session(
         kind="charging", subject=s.subject.id, start=span.start, end=span.end,
@@ -390,6 +396,7 @@ def _session(s: Stream, span: Span, cp: ChargePoint | None, position: dict | Non
         tariff_eur_per_kwh=price, cost_eur=cost, cost_quality=cost_q,
         kwh_per_pct=per_pct, charging_loss_kwh=loss,
         movements_while_charging=moving,
+        gaps=len(series.gaps_inside(s, span.start, span.end)),
         version=__version__,
     )
 

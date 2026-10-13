@@ -267,8 +267,8 @@ def test_the_fuel_a_period_consumed_is_its_trips_trip_computer_sum_where_complet
     assert m["distance_km"] == 35 and m["fuel_level_corrected"] is True
     assert (m["fuel_consumed_l"], m["fuel_consumed_l_quality"]) == (2.55, "measured")   # not 20.5 − 16 = 4.5
     assert m["fuel_consumed_source"] == "trip_computer"
-    # A third trip the computer missed: no average line and a capture gap
-    # before the end, nothing to hold through — the stock is the figure.
+    # A late upload across a capture gap joins the second trip, and its
+    # average cannot be read across the gap — the stock is the figure.
     b.heartbeat(290)
     b.state(300, "lock", "unlocked", before=299)
     b.run("stop", *b.b, "--t", t_at(310), "--reason", "reload")

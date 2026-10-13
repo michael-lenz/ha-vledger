@@ -10,6 +10,7 @@ derivation parses a line itself.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, is_dataclass, replace
+from datetime import timedelta
 from pathlib import Path
 
 from vledger import clock, geo, l0, layout, units
@@ -18,6 +19,10 @@ from vledger.layout import Subject
 
 #: The states that are a dropout, not a value: a sensor with nothing to say.
 DROPOUT_STATES = ("unavailable", "unknown")
+#: How far apart the lines of one upload can lie: a per-cycle vehicle's
+#: stop reaches the stream as a burst of lines milliseconds apart (ADR-0048,
+#: point 2), and what reads "the line in the same upload" reads this far.
+BURST_S = 5.0
 
 
 @dataclass(frozen=True)
@@ -58,8 +63,9 @@ class Stream:
     fixes: list[Fix] = field(default_factory=list)
     domain: dict[str, list[DomainSample]] = field(default_factory=dict)
     unmapped: dict[str, set[str]] = field(default_factory=dict)
-    #: Per measuring role, the times it reported something that is not a
-    #: number (unavailable, unknown): a sensor dropping out, not a value.
+    #: Per role, the times it reported a dropout (unavailable, unknown): a
+    #: sensor dropping out, not a value — for a measuring role anything that
+    #: is not a number, for the position and an enumerated role the two states.
     dropouts: dict[str, list[str]] = field(default_factory=dict)
     #: Per measuring role whose lines could not become a series, why.
     unconverted: dict[str, str] = field(default_factory=dict)
@@ -253,6 +259,9 @@ def load(base: Path, subject: Subject, *, since: str | None = None,
                 return
             add(s.series.setdefault(role, []), Sample(t, v, line.get("reported_before")))
         elif role == "position":
+            if line.get("state") in DROPOUT_STATES:
+                add(s.dropouts.setdefault(role, []), t)
+                return
             fix = _position_from(dict(line, t=t))
             if fix:
                 add(s.fixes, fix)
@@ -267,6 +276,8 @@ def load(base: Path, subject: Subject, *, since: str | None = None,
         elif role in vconfig.DOMAIN_STATES:
             mapping = ((s.config or {}).get("roles", {}).get(role) or {}).get("map") or {}
             raw = line.get("state")
+            if raw in DROPOUT_STATES:
+                add(s.dropouts.setdefault(role, []), t)
             state = vconfig.domain_state(role, raw, mapping)
             if vconfig.unlisted(role, raw, mapping):
                 s.unmapped.setdefault(role, set()).add(raw)
@@ -344,8 +355,33 @@ def _fuel_from_percent(s: Stream, samples: list[Sample]) -> None:
 
 def gap_between(s: Stream, a: str, b: str) -> bool:
     """Whether a capture gap lies between ``a`` and ``b``."""
+    return bool(gaps_inside(s, a, b))
+
+
+def gaps_inside(s: Stream, a: str, b: str) -> list[l0.Gap]:
+    """The capture gaps that lie between ``a`` and ``b``, in order."""
     ta, tb = clock.parse(a), clock.parse(b)
-    return any(clock.parse(g.start) < tb and clock.parse(g.end) > ta for g in s.gaps)
+    return [g for g in s.gaps if clock.parse(g.start) < tb and clock.parse(g.end) > ta]
+
+
+def long_gap_inside(s: Stream, a: str, b: str, at_least_s: float) -> bool:
+    """Whether a capture gap of ``at_least_s`` or longer lies between ``a``
+    and ``b`` — one that could hide a standstill (ADR-0054)."""
+    return any(g.seconds >= at_least_s for g in gaps_inside(s, a, b))
+
+
+def fix_near(s: Stream, t: str, window_s: float = BURST_S) -> Fix | None:
+    """The fix of the upload a line at ``t`` belongs to: the first fix not
+    earlier than ``t`` within ``window_s``, else the last fix at or before
+    ``t`` (ADR-0048, point 2, applied to a reading's position)."""
+    lo, hi = clock.parse(t), clock.parse(t) + timedelta(seconds=window_s)
+    for f in s.fixes:
+        tf = clock.parse(f.t)
+        if lo <= tf <= hi:
+            return f
+        if tf > hi:
+            break
+    return last_at_or_before(s.fixes, t)
 
 
 def fix_dict(f: Fix | None) -> dict | None:

@@ -193,8 +193,10 @@ capacity, which would be circular.
 
 **Quality flag.** On every derived value, one of `measured` (from a sensor),
 `receipt` (from a receipt), `estimated` (computed under an assumption) or
-`incomplete` (spans a capture gap). A value computed from several inherits
-the weakest.
+`incomplete` (spans a capture gap that could hide a standstill: any gap
+for a sampled vehicle's trip, one of T_still or longer for a per-cycle
+trip or a charging session, ADR-0054). A value computed from several
+inherits the weakest.
 
 **Tank-to-tank consumption.** Fuel consumption over an interval between two
 refuelling receipts: (level after A − level after B + litres receipted

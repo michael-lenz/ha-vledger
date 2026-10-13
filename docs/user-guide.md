@@ -600,8 +600,11 @@ temperature, and ΔSoC and Δfuel as estimates — Δfuel also at 15 °C,
 `delta_fuel_15c_l`, when an outside temperature role is assigned. A trip that spans a capture
 gap is `incomplete`, and so is one whose standstill a gap falls into —
 its end is unknown; a gap after the standstill has elapsed leaves the
-completed trip as it was. Nothing is read across a gap: the distance
-driven inside one belongs to no trip.
+completed trip as it was. A vehicle that reports per driving cycle, and
+a charging session of any vehicle, is `incomplete` only for a gap of
+T_still or longer; a shorter one — a restart of a minute — is counted in
+the event's `gaps` and changes nothing. Nothing is read across a gap:
+the distance driven inside one belongs to no trip.
 
 What the sampling cannot show, a trip cannot show either: with positions
 and the odometer every 15 minutes, a stop of 20 minutes may look like 35
@@ -667,8 +670,9 @@ meter or the charging power gives the grid-side energy, `kwh_per_pct` is the gri
 `charging_loss_kwh` grid- minus battery-side energy — never derived from
 the loss factor, and the capacity is never calibrated from them.
 `movements_while_charging` counts moving samples inside the session, as
-trips count them while plugged. A session across a capture gap is
-`incomplete`.
+trips count them while plugged — the stop's own upload and a slow role's
+late report of it aside. A session across a capture gap of
+T_still or longer is `incomplete`; `gaps` counts every gap inside it.
 
 ### Periods
 

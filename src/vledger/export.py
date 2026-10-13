@@ -53,7 +53,7 @@ COLUMNS: dict[str, tuple[str, ...]] = {
         "fuel_l_per_100km", "fuel_l_per_100km_quality", "fuel_l_per_100km_error_pct",
         "battery_consumed_kwh", "battery_consumed_quality", "battery_consumed_error_kwh",
         "battery_kwh_per_100km", "battery_kwh_per_100km_quality", "battery_kwh_per_100km_error_pct",
-        "refined_by", "movements_while_plugged",
+        "refined_by", "movements_while_plugged", "gaps", "fuel_refuelled_l",
         # Computed at read time, never in L1 (ADR-0043).
         "fuel_cost_eur", "fuel_cost_eur_quality", "electricity_cost_eur",
         "electricity_cost_eur_quality", "cost_eur", "cost_eur_quality"),
@@ -68,7 +68,7 @@ COLUMNS: dict[str, tuple[str, ...]] = {
         "chargepoint", "chargepoint_name", "battery_kwh",
         "grid_kwh", "grid_kwh_quality", "grid_kwh_source", "meter_attributable",
         "tariff_eur_per_kwh", "cost_eur", "cost_quality", "kwh_per_pct",
-        "charging_loss_kwh", "movements_while_charging",
+        "charging_loss_kwh", "movements_while_charging", "gaps",
         *_CONFIRMATION,
         "sensor_grid_kwh", "sensor_grid_kwh_quality", "sensor_grid_kwh_source",
         "place", "provider", "note", *_PLAUSIBILITY),

@@ -385,6 +385,48 @@ def test_a_soc_rise_while_driving_is_no_session(tmp_path, capsys):
     assert charging.derive_from(tmp_path, V) == []
 
 
+def test_a_short_gap_inside_a_session_leaves_it_measured_and_counted(tmp_path, capsys):
+    """ADR-0054: a restart of a minute inside a two-hour charge hides no
+    standstill; the session is measured and says gaps: 1."""
+    v = vehicle(tmp_path, capsys)
+    v.state(0, "charging_state", "Charging")
+    for i in range(1, 4):
+        v.state(10 * i, "soc", 40 + 10 * i, "%")
+    v.run("stop", *v.b, "--t", at(35), "--reason", "shutdown")
+    v.run("start", *v.b, "--t", at(36), "--homeassistant", "2026.9.4", "--snapshot", "[]")
+    for i in range(4, 7):
+        v.state(10 * i, "soc", 40 + 10 * i, "%")
+    v.state(61, "charging_state", "Done")
+    v.heartbeat(120)
+    [s] = charging.derive_from(tmp_path, V)
+    assert (s.quality, s.gaps, s.delta_soc_pct) == ("measured", 1, 60)
+
+
+def test_the_stops_late_odometer_report_is_no_movement_while_charging(tmp_path, capsys):
+    """ADR-0056, point 3: the odometer polled every six minutes reports the
+    stop four minutes into the charge; a drive after the window counts."""
+    v = vehicle(tmp_path, capsys)
+    for m in (-40, -34, -28, -22, -16, -10):                 # the odometer's cadence, measured
+        v.state(m, "odometer", 1000 + (m + 40) // 2, "km", before=m - 6)
+    v.state(0, "charging_state", "Charging")
+    v.state(4, "odometer", 1016, "km", before=-2)              # the stop's late report
+    v.state(10, "soc", 50, "%").state(20, "soc", 60, "%")
+    v.state(61, "charging_state", "Done")
+    v.heartbeat(120)
+    [s] = charging.derive_from(tmp_path, V)
+    assert s.movements_while_charging == 0
+    v2 = vehicle(tmp_path / "drove", capsys)
+    for m in (-40, -34, -28, -22, -16, -10):
+        v2.state(m, "odometer", 1000 + (m + 40) // 2, "km", before=m - 6)
+    v2.state(0, "charging_state", "Charging")
+    v2.state(10, "soc", 50, "%").state(20, "soc", 60, "%")
+    v2.state(40, "odometer", 1030, "km", before=34)            # a drive while "charging"
+    v2.state(61, "charging_state", "Done")
+    v2.heartbeat(120)
+    [s] = charging.derive_from(tmp_path / "drove", V)
+    assert s.movements_while_charging == 1
+
+
 def test_a_session_across_a_capture_gap_is_incomplete(tmp_path, capsys):
     v = vehicle(tmp_path, capsys)
     v.state(0, "charging_state", "Charging").state(10, "soc", 50, "%")

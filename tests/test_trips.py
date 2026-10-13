@@ -708,6 +708,194 @@ def test_an_unlock_the_engine_follows_is_a_departure(tmp_path, capsys):
     assert (t.start, t.end, t.distance_km) == (at(5), at(90), 40)
 
 
+def test_the_end_reading_stops_at_the_charge_that_began_at_the_arrival(tmp_path, capsys):
+    """ADR-0051: the SoC after the trip is the sample before the charge, not
+    the one T_settle past the odometer's late report."""
+    b = Builder(tmp_path, capsys, roles=dict(CYCLE_ROLES, soc={"entity": "sensor.s"}), parameters=PER_CYCLE)
+    b.heartbeat(0)
+    b.state(5, "lock", "unlocked", before=4).state(6, "engine", "on", before=4).state(7, "lock", "locked", before=5)
+    b.state(6, "trip_distance", 0.0, "km", before=4)
+    b.state(-10, "soc", 90, "%", before=-12).state(20, "soc", 80, "%", before=18).state(30, "soc", 70, "%", before=28)
+    b.state(40, "engine", "off", before=38).state(40, "charging_state", "Charging", before=38)
+    b.state(40, "trip_distance", 20.0, "km", before=38)
+    b.state(42, "soc", 72, "%", before=40).state(44, "soc", 75, "%", before=42)
+    b.state(49, "odometer", 1020, "km", before=40)          # the slow poll, late
+    b.state(52, "soc", 80, "%", before=50)
+    b.heartbeat(100)
+    [t] = trips.derive_from(tmp_path, V)
+    assert (t.end, t.distance_km) == (at(40), 20)
+    assert t.delta_soc_pct == -20                             # 90 → 70, not 90 → 80 at 52
+    # Without a charging state the rise itself is the bound.
+    b2 = Builder(tmp_path / "soc", capsys, roles=dict(CYCLE_ROLES, soc={"entity": "sensor.s"}), parameters=PER_CYCLE)
+    b2.heartbeat(0)
+    b2.state(5, "lock", "unlocked", before=4).state(6, "engine", "on", before=4).state(7, "lock", "locked", before=5)
+    b2.state(6, "trip_distance", 0.0, "km", before=4)
+    b2.state(-10, "soc", 90, "%", before=-12).state(30, "soc", 70, "%", before=28)
+    b2.state(40, "engine", "off", before=38).state(40, "trip_distance", 20.0, "km", before=38)
+    b2.state(42, "soc", 72, "%", before=40).state(44, "soc", 75, "%", before=42)
+    b2.heartbeat(100)
+    [t] = trips.derive_from(tmp_path / "soc", V)
+    assert t.delta_soc_pct == -20
+
+
+def test_the_fuel_reading_stops_at_the_fill_after_the_arrival(tmp_path, capsys):
+    """ADR-0051 for the level: a pump right after the arrival is not the trip's."""
+    b = Builder(tmp_path, capsys, roles=dict(CYCLE_ROLES, fuel_level={"entity": "sensor.f"}),
+                parameters=dict(PER_CYCLE, fuel="petrol", fuel_level_resolution_l=1.0))
+    b.heartbeat(0)
+    b.state(5, "lock", "unlocked", before=4).state(6, "engine", "on", before=4).state(7, "lock", "locked", before=5)
+    b.state(6, "trip_distance", 0.0, "km", before=4)
+    b.state(40, "engine", "off", before=38).state(40, "fuel_level", 18.0, "L", before=38)
+    b.state(40, "trip_distance", 20.0, "km", before=38)
+    b.state(44, "fuel_level", 30.0, "L", before=40).state(46, "fuel_level", 40.0, "L", before=44)
+    b.heartbeat(100)
+    [t] = trips.derive_from(tmp_path, V)
+    assert t.delta_fuel_l == -2.5                             # 20.5 → 18, not 20.5 → 40
+
+
+def test_a_dropout_return_measures_no_sampling_interval(tmp_path, capsys):
+    """ADR-0052: the odometer that comes back from three dropouts two minutes
+    later is not the fastest role; the trip counter is, and the trip ends
+    at its upload, not at the odometer's late report."""
+    b = cycle_builder(tmp_path, capsys)
+    b.heartbeat(0)
+    for m in (10, 20, 30):
+        b.state(m, "odometer", "unavailable", before=m - 8).state(m + 2, "odometer", 1000, "km", before=m)
+    b.state(16, "trip_distance", 0.0, "km", before=12).state(20, "trip_distance", 0.0, "km", before=16)
+    b.state(100, "lock", "unlocked", before=99).state(101, "engine", "on", before=99).state(102, "lock", "locked", before=100)
+    b.state(140, "engine", "off", before=138).state(140, "trip_distance", 25.0, "km", before=136)
+    b.state(150, "odometer", 1025, "km", before=140)
+    b.heartbeat(200)
+    [t] = trips.derive_from(tmp_path, V)
+    assert (t.start, t.end, t.distance_km) == (at(100), at(140), 25)
+
+
+def test_a_fill_inside_a_trip_is_added_back_to_the_level_delta(tmp_path, capsys):
+    """ADR-0053: the level rose 38.9 L over a trip that stopped at a pump for
+    41.5 L; the trip burnt 2.6 L, with the level's error twice."""
+    from test_refuellings import STATION, to_the_station
+    b = Builder(tmp_path, capsys, roles={"fuel_level": {"entity": "sensor.f"}},
+                parameters={"fuel": "petrol", "fuel_level_resolution_l": 1.0})
+    b.heartbeat(0)
+    to_the_station(b)                                         # odometer 1022 at 45, 18.9 L at 46
+    b.state(52, "fuel_level", 40.0, "L").state(54, "fuel_level", 60.0, "L").state(58, "fuel_level", 60.4, "L")
+    b.state(70, "odometer", 1030, "km").fix(70, STATION[0] + 0.05, STATION[1])
+    b.state(71, "fuel_level", 59.4, "L")
+    b.heartbeat(100).heartbeat(130)
+    [t] = trips.derive_from(tmp_path, V, completed_only=True)
+    assert t.distance_km == 30 and t.delta_fuel_l == 38.9
+    assert (t.fuel_consumed_l, t.fuel_refuelled_l, t.fuel_consumed_error_l) == (2.6, 41.5, 4.0)
+    assert (t.fuel_consumed_source, t.fuel_consumed_quality) == ("fuel_level", "estimated")
+
+
+def test_a_short_gap_inside_a_per_cycle_trip_leaves_it_measured(tmp_path, capsys):
+    """ADR-0054: a reload of a second inside a leg hides no standstill; one
+    of T_still hides one and leaves the trip incomplete. Both are counted."""
+    b = cycle_builder(tmp_path, capsys)
+    b.heartbeat(0)
+    b.state(5, "lock", "unlocked", before=4).state(6, "engine", "on", before=4).state(7, "lock", "locked", before=5)
+    b.run("stop", *b.b, "--t", at(20), "--reason", "reload")
+    b.run("start", *b.b, "--t", at(20.01), "--homeassistant", "2026.9.4", "--snapshot", "[]")
+    b.state(40, "engine", "off", before=38)
+    upload(b, 40, 25.0, 1025)
+    b.heartbeat(100)
+    [t] = trips.derive_from(tmp_path, V, completed_only=True)
+    assert (t.quality, t.gaps, t.distance_km) == ("measured", 1, 25)
+    b2 = cycle_builder(tmp_path / "long", capsys)
+    b2.heartbeat(0)
+    b2.state(5, "lock", "unlocked", before=4).state(6, "engine", "on", before=4).state(7, "lock", "locked", before=5)
+    b2.run("stop", *b2.b, "--t", at(20), "--reason", "reload")
+    b2.run("start", *b2.b, "--t", at(55), "--homeassistant", "2026.9.4", "--snapshot", "[]")
+    b2.state(60, "engine", "off", before=58)
+    upload(b2, 60, 25.0, 1025)
+    b2.heartbeat(120)
+    [t] = trips.derive_from(tmp_path / "long", V, completed_only=True)
+    assert (t.quality, t.gaps) == ("incomplete", 1)
+
+
+def test_a_short_move_takes_the_counter_within_the_odometers_step(tmp_path, capsys):
+    """ADR-0055: 100 m moved is 0.1 km by the counter, where the odometer's
+    step is 1 km; a counter the odometer does not bound yields to it."""
+    b = cycle_builder(tmp_path, capsys)
+    b.state(-30, "trip_distance", 13.8, "km", before=-32)
+    b.heartbeat(0)
+    b.state(5, "lock", "unlocked", before=4).state(6, "engine", "on", before=4).state(7, "lock", "locked", before=5)
+    b.state(9, "engine", "off", before=7)
+    upload(b, 9, 13.9, 1001)                                  # 0.1 km by the counter, 1 by the odometer
+    b.heartbeat(60)
+    [t] = trips.derive_from(tmp_path, V, completed_only=True)
+    assert (t.distance_km, t.distance_source) == (0.1, "trip_counter")
+    b.state(100, "lock", "unlocked", before=99).state(101, "engine", "on", before=99).state(102, "lock", "locked", before=100)
+    b.state(130, "engine", "off", before=128)
+    upload(b, 130, 20.0, 1002)                                # 6.1 km by the counter, 1 by the odometer
+    b.heartbeat(200)
+    _first, second = trips.derive_from(tmp_path, V, completed_only=True)
+    assert (second.distance_km, second.distance_source) == (1.0, "odometer")
+
+
+def test_a_short_first_leg_keeps_its_unlock_and_a_plug_pulled_hours_before_departs_nothing(tmp_path, capsys):
+    """ADR-0056: unlocked four minutes before a two-minute first leg's
+    arrival with the engine started between — a departure, not an exit;
+    and the plug pulled in the morning, which nothing followed, is no
+    start for the afternoon's trip."""
+    b = cycle_builder(tmp_path, capsys)
+    b.heartbeat(0)
+    b.state(5, "plug_state", "off", before=4)                 # unplugged, then nothing for hours
+    b.heartbeat(60).heartbeat(120).heartbeat(180).heartbeat(240).heartbeat(300)
+    b.state(345, "trip_distance", 0.0, "km", before=343)
+    b.state(346, "lock", "unlocked", before=345).state(348, "engine", "on", before=346).state(348, "lock", "locked", before=346)
+    b.state(350, "engine", "off", before=348).state(350, "trip_distance", 0.9, "km", before=348)
+    b.state(352, "odometer", 1001, "km", before=346)          # the six-minute poll
+    b.state(354, "engine", "on", before=352)
+    b.state(370, "engine", "off", before=368).state(370, "trip_distance", 17.3, "km", before=368)
+    b.state(372, "odometer", 1017, "km", before=366)
+    b.heartbeat(430)
+    [t] = trips.derive_from(tmp_path, V, completed_only=True)
+    assert (t.start, t.refined_by["start"], t.end, t.distance_km) == (at(346), "lock", at(370), 17.3)
+
+
+def test_an_ignition_nothing_follows_for_an_hour_is_still_the_departure(tmp_path, capsys):
+    """ADR-0057, point 1: an ignition that came on after an eight-minute
+    stop, with no sign for 56 minutes but the arrival, departed; the legs
+    are one trip of 76 km, not a 21 km trip and a leg lost to the next."""
+    b = Builder(tmp_path, capsys, roles={"trip_distance": {"entity": "sensor.trip"}}, parameters=PER_CYCLE)
+    b.heartbeat(0)
+    b.state(5, "ignition", "on", before=3).state(5, "trip_distance", 0.0, "km", before=3)
+    b.state(45, "ignition", "off", before=43).state(45, "trip_distance", 21.0, "km", before=43)
+    b.state(46, "odometer", 1021, "km", before=40)
+    b.state(53, "ignition", "on", before=51)
+    b.state(109, "ignition", "off", before=107).state(109, "trip_distance", 75.7, "km", before=107)
+    b.state(111, "ignition", "on", before=109)
+    b.state(119, "odometer", 1076, "km", before=113)
+    b.state(133, "ignition", "off", before=131).state(133, "trip_distance", 96.7, "km", before=131)
+    b.state(135, "odometer", 1097, "km", before=129)
+    b.heartbeat(200)
+    [t] = trips.derive_from(tmp_path, V, completed_only=True)
+    assert (t.start, t.end, t.distance_km) == (at(5), at(133), 96.7)
+
+
+def test_the_arrival_upload_is_no_movement_while_plugged(tmp_path, capsys):
+    """ISSUE-0073: plug and charging lines precede the upload's movement
+    lines by milliseconds; that is the stop, not a drive while plugged."""
+    b = cycle_builder(tmp_path, capsys)
+    b.heartbeat(0)
+    b.state(5, "lock", "unlocked", before=4).state(6, "engine", "on", before=4).state(7, "lock", "locked", before=5)
+    b.state(40, "engine", "off", before=38).state(40, "plug_state", "on", before=38)
+    b.state(40, "charging_state", "Charging", before=38)
+    upload(b, 40, 25.0, 1025)
+    b.state(49, "odometer", 1025, "km", before=40)
+    b.heartbeat(100)
+    [t] = trips.derive_from(tmp_path, V, completed_only=True)
+    assert t.movements_while_plugged == 0
+    b2 = Builder(tmp_path / "sampled", capsys)
+    b2.heartbeat(0)
+    end = plain_drive(b2, 0)
+    b2.state(end, "plug_state", "on")                         # the same minute as the last sample
+    b2.heartbeat(end + 60)
+    [t] = trips.derive_from(tmp_path / "sampled", V, completed_only=True)
+    assert t.movements_while_plugged == 0
+
+
 def test_legs_with_a_short_stop_are_one_trip_and_a_long_stop_splits(tmp_path, capsys):
     b = cycle_builder(tmp_path, capsys)
     b.heartbeat(0)
@@ -766,7 +954,7 @@ def test_a_slower_roles_report_before_the_next_departure_joins_the_arrival(tmp_p
     b.heartbeat(100)
     [t] = trips.derive_from(tmp_path, V)
     assert (t.start, t.end) == (at(10), at(40))
-    assert t.distance_km == 25 and t.distance_source == "odometer"
+    assert t.distance_km == 25 and t.distance_source == "trip_counter"      # agrees with the odometer: the finer one (ADR-0055)
 
 
 def test_a_trip_is_complete_only_when_no_departure_follows_within_t_still(tmp_path, capsys):

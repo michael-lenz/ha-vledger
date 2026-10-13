@@ -250,6 +250,12 @@
       "last_trip": {
         "name": "Letzte Fahrt",
         "state_attributes": {
+          "gaps": {
+            "name": "Aufzeichnungslücken"
+          },
+          "fuel_refuelled_l": {
+            "name": "Während der Fahrt getankt"
+          },
           "start": {
             "name": "Beginn"
           },
@@ -492,6 +498,9 @@
       "last_charging_session": {
         "name": "Letzter Ladevorgang",
         "state_attributes": {
+          "gaps": {
+            "name": "Aufzeichnungslücken"
+          },
           "start": {
             "name": "Beginn"
           },

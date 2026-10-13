@@ -158,7 +158,7 @@ def derive(s: Stream, *, completed_only: bool = False) -> list[Refuelling]:
     for a, b in _rises_across_a_stop(s, threshold):
         # The level after is the later reading itself: T_settle has long
         # elapsed, and no reading falls inside it (ADR-0022, point 2).
-        fix = series.last_at_or_before(s.fixes, a.t)
+        fix = series.fix_near(s, a.t)       # the upload's own fix (ISSUE-0075)
         price = series.in_effect(s, "fuel_price", a.t)
         out.append(Refuelling(
             kind="refuelling", subject=s.subject.id, start=a.t, end=b.t,
@@ -178,7 +178,7 @@ def derive(s: Stream, *, completed_only: bool = False) -> list[Refuelling]:
         if waiting and completed_only:
             continue
         crossed = gap_after or any(series.gap_between(s, a.t, b.t) for a, b in steps)
-        fix = series.last_at_or_before(s.fixes, start)
+        fix = series.fix_near(s, start)     # the upload's own fix (ISSUE-0075)
         price = series.in_effect(s, "fuel_price", start)
         out.append(Refuelling(
             kind="refuelling", subject=s.subject.id, start=start, end=end,

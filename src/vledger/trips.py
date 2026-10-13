@@ -32,7 +32,7 @@ from datetime import timedelta
 from itertools import pairwise
 from pathlib import Path
 
-from vledger import __version__, clock, geo, l0, l1, periods, series, temperature
+from vledger import __version__, clock, geo, l0, l1, periods, series, stats, temperature
 from vledger import config as vconfig
 from vledger.layout import Subject
 from vledger.series import Fix, Sample, Stream
@@ -115,6 +115,7 @@ class Trip:
     fuel_consumed_quality: str | None  # measured from the trip computer, else estimated
     fuel_consumed_source: str | None   # trip_computer or fuel_level
     fuel_consumed_error_l: float | None
+    fuel_refuelled_l: float | None     # the litres a fill inside the trip added, read from the level (ADR-0053)
     fuel_l_per_100km: float | None
     fuel_l_per_100km_quality: str | None
     fuel_l_per_100km_error_pct: float | None
@@ -126,6 +127,7 @@ class Trip:
     battery_kwh_per_100km_error_pct: float | None
     refined_by: dict                   # {"start": role | None, "end": role | None}
     movements_while_plugged: int       # contradictions, reported (ADR-0012, point 5)
+    gaps: int                          # capture gaps inside the trip, whatever their length (ADR-0054)
     version: str
 
 
@@ -378,12 +380,15 @@ def _while_plugged(s: Stream, moves: list[Movement]) -> int:
     known = {role: [(clock.parse(x.t), x.state) for x in s.domain.get(role, [])
                     if x.state is not None]
              for role in NOT_DRIVING}
+    burst = timedelta(seconds=series.BURST_S)
     n = 0
     for m in moves:
         tm = clock.parse(m.t)
         for role, state in NOT_DRIVING.items():
             i = bisect_right(known[role], tm, key=lambda k: k[0])
-            if i and known[role][i - 1][1] == state:
+            # The plug line of the arrival's own upload precedes its movement
+            # lines by milliseconds: that is the stop, not a drive (ISSUE-0073).
+            if i and known[role][i - 1][1] == state and tm - known[role][i - 1][0] > burst:
                 n += 1
                 break
     return n
@@ -401,20 +406,31 @@ def _start_value(s: Stream, samples: list, start: str):
 
 
 def _distance(s: Stream, start: str, end: str, waypoints: list[Fix]) -> tuple[float | None, str | None, str | None]:
-    """FAH-04: odometer difference, else a monotone trip counter, else the
+    """FAH-04 as ADR-0055 reads it: the trip counter where it is monotone over
+    the trip and within one odometer step of the odometer's difference, else
+    the odometer's difference, else the monotone counter alone, else the
     straight lines between waypoints."""
     odo = s.series.get("odometer", [])
     before = _start_value(s, odo, start)
     at_end = series.last_at_or_before(odo, end)
-    if before and at_end and at_end.value >= before.value:
-        return round(at_end.value - before.value, 3), MEASURED, "odometer"
+    by_odometer = (round(at_end.value - before.value, 3)
+                   if before and at_end and at_end.value >= before.value else None)
     counter = s.series.get("trip_distance", [])
     before = _start_value(s, counter, start)
     inside = series.between(counter, start, end)
+    by_counter = None
     if before and inside:
         values = [before.value] + [x.value for x in inside]
         if all(b >= a for a, b in pairwise(values)):
-            return round(values[-1] - values[0], 3), MEASURED, "trip_counter"
+            by_counter = round(values[-1] - values[0], 3)
+    if by_odometer is not None and by_counter is not None:
+        step = _odometer_step(odo)
+        if step is not None and abs(by_counter - by_odometer) <= step:
+            return by_counter, MEASURED, "trip_counter"
+    if by_odometer is not None:
+        return by_odometer, MEASURED, "odometer"
+    if by_counter is not None:
+        return by_counter, MEASURED, "trip_counter"
     if len(waypoints) >= 2:
         km = sum(geo.distance_km(a.latitude, a.longitude, b.latitude, b.longitude)
                  for a, b in pairwise(waypoints))
@@ -425,12 +441,42 @@ def _distance(s: Stream, start: str, end: str, waypoints: list[Fix]) -> tuple[fl
 def _readings(s: Stream, role: str, start: str, end: str, settle_s: float
               ) -> tuple[Sample, Sample] | None:
     """The samples a trip's delta is taken from: the value before it and
-    the value once settled after it — ``None`` without both."""
-    before = _start_value(s, s.series.get(role, []), start)
-    after = series.last_at_or_before(s.series.get(role, []), _settled(end, settle_s))
+    the value once settled after it — the latest sample not later than
+    T_settle past the arrival ``end``, and not later than a charge or a
+    fill begun since (ADR-0051): for the SoC the sample before the next
+    ``charging`` marker, for either role the sample before its next rise.
+    ``None`` without both."""
+    samples = s.series.get(role, [])
+    before = _start_value(s, samples, start)
+    after = series.last_at_or_before(samples, _end_limit(s, role, end, settle_s))
     if before is None or after is None or clock.parse(after.t) < clock.parse(start):
         return None
     return before, after
+
+
+def _end_limit(s: Stream, role: str, end: str, settle_s: float) -> str:
+    """The latest time a trip's value after may be read at (ADR-0051):
+    ``settle_s`` past ``end``, or the instant before the first ``charging``
+    marker or rise of the role that follows the arrival — the arrival's
+    own upload included, whose charging line may precede its last line by
+    milliseconds."""
+    settled = _settled(end, settle_s)
+    lo, hi = clock.parse(end) - timedelta(seconds=series.BURST_S), clock.parse(settled)
+    bounds = []
+    if role == "soc":
+        bounds += [clock.parse(k.t) for k in markers(s, {"charging_state": "charging"})
+                   if lo < clock.parse(k.t) <= hi]
+    samples = s.series.get(role, [])
+    for a, b in pairwise(samples):
+        tb = clock.parse(b.t)
+        if lo < tb <= hi and b.value > a.value:
+            bounds.append(tb)
+            break
+        if tb > hi:
+            break
+    if not bounds:
+        return settled
+    return clock.to_text(min(bounds) - timedelta(milliseconds=1))
 
 
 def _delta(s: Stream, role: str, start: str, end: str, settle_s: float) -> float | None:
@@ -473,6 +519,17 @@ def _trip_computer(s: Stream, start: str, end: str, settle_s: float
     return d1.value * a1.value / 100 - before, error
 
 
+def _refuelled_inside(s: Stream, start: str, until: str) -> list[float]:
+    """The sensor deltas of the refuelling candidates that lie inside a
+    trip: begun at or after ``start``, settled by ``until`` (ADR-0053)."""
+    from vledger import refuellings  # it imports this module
+
+    lo, hi = clock.parse(start), clock.parse(until)
+    return [e.sensor_delta_l for e in refuellings.derive(s, completed_only=True)
+            if e.sensor_delta_l is not None and e.settled_at is not None
+            and lo <= clock.parse(e.start) and clock.parse(e.settled_at) <= hi]
+
+
 def _rate(used: float | None, error: float | None, km: float | None
           ) -> tuple[float | None, float | None]:
     """(the rate per 100 km, its error as a share of it): the rate over a
@@ -487,21 +544,27 @@ def _rate(used: float | None, error: float | None, km: float | None
     return round(used / km * 100, 3) + 0.0, share   # + 0.0: no negative zero
 
 
-def _consumption(s: Stream, start: str, end: str, settle_s: float, crossed: bool,
-                 km: float | None, km_quality: str | None, delta_soc: float | None,
-                 delta_fuel: float | None) -> dict:
+def _consumption(s: Stream, start: str, end: str, values_until: str, settle_s: float,
+                 crossed: bool, km: float | None, km_quality: str | None,
+                 delta_soc: float | None, delta_fuel: float | None) -> dict:
     """The consumption keys of a trip (ADR-0025): fuel from the trip
-    computer, else from the level with the resolution known; the battery
-    side from the SoC delta; a trip across a gap is incomplete in all."""
+    computer, read up to the arrival's last sample like the distance, else
+    from the level with the resolution known, read from the arrival
+    (ADR-0051); the battery side from the SoC delta; a trip across a gap
+    is incomplete in all."""
     p = s.parameters()
     gap = INCOMPLETE if crossed else None
     fuel = fuel_q = source = fuel_err = None
-    computed = _trip_computer(s, start, end, settle_s)
+    computed = _trip_computer(s, start, values_until, settle_s)
     res = p.get("fuel_level_resolution_l")
+    refuelled = None
     if computed is not None:
         (fuel, fuel_err), fuel_q, source = computed, periods.weakest(MEASURED, gap), TRIP_COMPUTER
     elif delta_fuel is not None and res:
-        fuel, fuel_err = -delta_fuel, 2 * float(res)
+        # The level delta is bought minus burnt: add back what went in (ADR-0053).
+        fills = _refuelled_inside(s, start, _end_limit(s, "fuel_level", end, settle_s))
+        refuelled = round(sum(fills), 3) if fills else None
+        fuel, fuel_err = -delta_fuel + sum(fills), 2 * float(res) * (1 + len(fills))
         fuel_q, source = periods.weakest(ESTIMATED, gap), FUEL_LEVEL
     fuel_rate, fuel_share = _rate(fuel, fuel_err, km)
     battery = battery_q = battery_err = None
@@ -518,6 +581,7 @@ def _consumption(s: Stream, start: str, end: str, settle_s: float, crossed: bool
     return {
         "fuel_consumed_l": r(fuel), "fuel_consumed_quality": fuel_q,
         "fuel_consumed_source": source, "fuel_consumed_error_l": r(fuel_err),
+        "fuel_refuelled_l": refuelled,
         "fuel_l_per_100km": fuel_rate,
         "fuel_l_per_100km_quality": periods.weakest(fuel_q, km_quality) if fuel_rate is not None else None,
         "fuel_l_per_100km_error_pct": fuel_share if fuel_rate is not None else None,
@@ -528,6 +592,19 @@ def _consumption(s: Stream, start: str, end: str, settle_s: float, crossed: bool
                                           if battery_rate is not None else None),
         "battery_kwh_per_100km_error_pct": battery_share if battery_rate is not None else None,
     }
+
+
+def _odometer_step(odo: list[Sample]) -> float | None:
+    """The odometer's step: the place of its finest decimal — 1 km for one
+    that reports whole kilometres, 0.1 for tenths (ADR-0055). ``None``
+    without a sample."""
+    if not odo:
+        return None
+    places = 0
+    for x in odo:
+        text = f"{x.value:.6f}".rstrip("0").rstrip(".")
+        places = max(places, len(text.split(".")[1]) if "." in text else 0)
+    return 10 ** -places
 
 
 def _trip(s: Stream, start: str, end: str, values_until: str, crossed: bool,
@@ -542,9 +619,10 @@ def _trip(s: Stream, start: str, end: str, values_until: str, crossed: bool,
     end_fix = waypoints[-1] if waypoints else None
     km, kq, ksrc = _distance(s, start, values_until, waypoints)
     temp = series.mean(series.between(s.series.get("outside_temperature", []), start, end))
-    delta_soc = _delta(s, "soc", start, values_until, settle)
-    delta_fuel = _delta(s, "fuel_level", start, values_until, settle)
-    fuel_readings = _readings(s, "fuel_level", start, values_until, settle) or (None, None)
+    # The deltas are read from the arrival, not from a late report (ADR-0051).
+    delta_soc = _delta(s, "soc", start, end, settle)
+    delta_fuel = _delta(s, "fuel_level", start, end, settle)
+    fuel_readings = _readings(s, "fuel_level", start, end, settle) or (None, None)
     return Trip(
         kind="trip", subject=s.subject.id, start=start, end=end,
         quality=INCOMPLETE if crossed else MEASURED,
@@ -557,9 +635,10 @@ def _trip(s: Stream, start: str, end: str, values_until: str, crossed: bool,
         delta_soc_pct=delta_soc,
         delta_fuel_l=delta_fuel,
         delta_fuel_15c_l=temperature.Source(s).delta_15c(*fuel_readings),
-        **_consumption(s, start, values_until, settle, crossed, km, kq, delta_soc, delta_fuel),
+        **_consumption(s, start, end, values_until, settle, crossed, km, kq, delta_soc, delta_fuel),
         refined_by=refined_by,
         movements_while_plugged=_while_plugged(s, moves),
+        gaps=len(series.gaps_inside(s, start, values_until)),
         version=__version__,
     )
 
@@ -643,13 +722,21 @@ def _after_before(t: str, lo: str | None, hi: str) -> bool:
 
 def _measured(s: Stream) -> list[tuple[str, str, float]]:
     """(time, role, interval) of every movement-role sample whose interval
-    the stream measures (ADR-0011), in time order."""
+    the stream measures (ADR-0011), in time order. A value that replaces a
+    dropout measures the dropout, not the role's cadence, and is left out
+    (ADR-0052)."""
+    def real(role: str, x) -> bool:
+        # The value it replaces was a dropout, reported when the sensor
+        # dropped out: that is what reported_before then names.
+        if not x.reported_before:
+            return False
+        lo, hi = clock.parse(x.reported_before), clock.parse(x.t)
+        return not any(lo <= clock.parse(d) < hi for d in s.dropouts.get(role, []))
+
     out = []
     for role in ("odometer", "trip_distance"):
-        out += [(x.t, role, _interval(x.t, x.reported_before))
-                for x in s.series.get(role, []) if x.reported_before]
-    out += [(f.t, "position", _interval(f.t, f.reported_before))
-            for f in s.fixes if f.reported_before]
+        out += [(x.t, role, _interval(x.t, x.reported_before)) for x in s.series.get(role, []) if real(role, x)]
+    out += [(f.t, "position", _interval(f.t, f.reported_before)) for f in s.fixes if real("position", f)]
     out.sort(key=lambda x: clock.parse(x[0]))
     return out
 
@@ -687,6 +774,20 @@ def fastest_interval(s: Stream, t: str) -> float | None:
     return min(found.values()) if found else None
 
 
+def late_report_window(s: Stream, t: str) -> float:
+    """How late a slow movement role may still report a stop at ``t``: the
+    95th percentile of the real sampling intervals of the movement roles
+    measured up to ``t`` (ADR-0052), at least an upload's burst
+    (ADR-0057, point 3)."""
+    found: dict[str, list[float]] = {}
+    limit = clock.parse(t)
+    for tt, role, interval in _measured(s):
+        if clock.parse(tt) <= limit:
+            found.setdefault(role, []).append(interval)
+    summaries = [stats.intervals_of(v) for v in found.values()]
+    return max([series.BURST_S, *(x.p95_s for x in summaries if x is not None)])
+
+
 def _legs(s: Stream, anchor: str | None, exit_window_s: float, still: timedelta
           ) -> tuple[list[Leg], list[Marker], list[str]]:
     """The legs of a per-cycle stream after ``anchor`` — the previous trip's
@@ -721,15 +822,40 @@ def _legs(s: Stream, anchor: str | None, exit_window_s: float, still: timedelta
     signs = sorted([k.t for k in marks if k.role != "lock"] + in_use_first + [m.t for m in moves],
                    key=clock.parse)
 
+    def driven(after, until) -> bool:
+        return any(after < clock.parse(x) <= until for x in signs)
+
     def door(k: Marker) -> bool:
+        # An unlock nothing drove after within T_still is a door (ADR-0050);
+        # another marker is one only when a later marker precedes the next
+        # movement — a drive ends in an arrival, a door in the next
+        # departure (ADR-0057, point 1).
         t = clock.parse(k.t)
-        if s.last_t is None or clock.parse(s.last_t) < t + still:
-            return False                     # the stream does not know yet
-        return not any(t < clock.parse(x) <= t + still for x in signs)
+        if s.last_t is None or clock.parse(s.last_t) < t + still or driven(t, t + still):
+            return False
+        if k.role == "lock":
+            return True
+        next_move = next((clock.parse(m.t) for m in moves if clock.parse(m.t) > t), None)
+        return any(t < clock.parse(x.t) and (next_move is None or clock.parse(x.t) < next_move)
+                   for x in marks if x is not k) and next_move is not None
 
     anchors = [m.t for m in moves if fast[m]] + ([anchor] if anchor else [])
-    departures = [k for k in marks
-                  if not (k.role == "lock" and (any(near(k.t, a) for a in anchors) or door(k)))]
+
+    departed_signs = sorted([k.t for k in marks if k.role != "lock"] + in_use_first, key=clock.parse)
+
+    def exit_(k: Marker) -> bool:
+        # An unlock near an arrival is getting out — before the arrival only
+        # when no departure marker or in-use report lies between; the
+        # arrival's own upload is no such sign (ADR-0057, point 2).
+        t = clock.parse(k.t)
+        for a in anchors:
+            ta = clock.parse(a)
+            if abs(ta - t) <= window and not (
+                    ta > t and any(t < clock.parse(x) < ta for x in departed_signs)):
+                return True
+        return False
+
+    departures = [k for k in marks if not door(k) and not (k.role == "lock" and exit_(k))]
 
     def departs_between(a: str | None, b: str) -> bool:
         return any(_after_before(k.t, a, b) or k.t == b for k in departures)
@@ -817,8 +943,10 @@ def _derive_per_cycle(s: Stream, *, completed_only: bool) -> list[Trip]:
             break
         first = group[0]
         start = first.departure or first.arrival
-        crossed = series.gap_between(s, start, group[-1].last)
-        moves = [m for leg in group for m in leg.moves]
+        # A gap too short to hide a standstill leaves the trip measured (ADR-0054).
+        crossed = series.long_gap_inside(s, start, group[-1].last, still.total_seconds())
+        # The last arrival's uploads are the stop, not drives while plugged.
+        moves = [m for leg in group[:-1] for m in leg.moves]
         out.append(_trip(s, start, last, group[-1].last, crossed,
                          {"start": first.departed_by, "end": None}, moves, settle))
         if not complete:

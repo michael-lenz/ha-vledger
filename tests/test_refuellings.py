@@ -47,6 +47,18 @@ def test_a_refuelling_at_a_station(tmp_path, capsys):
     assert r.price_suggestion == 1.799
 
 
+def test_a_refuelling_carries_the_fix_of_its_own_upload(tmp_path, capsys):
+    """ISSUE-0075: the fix reported in the same upload as the first rise,
+    milliseconds after it, is the candidate's position."""
+    b = builder(tmp_path, capsys)
+    to_the_station(b)
+    b.state(52, "fuel_level", 40.0, "L").fix(52, STATION[0] + 0.01, STATION[1], zone="other_station")
+    b.state(54, "fuel_level", 60.0, "L")
+    b.heartbeat(100)
+    [r] = refuellings.derive_from(tmp_path, V, completed_only=True)
+    assert r.position["t"] == at(52) and r.zone == "other_station"
+
+
 def test_a_partial_fill_counts_and_a_rise_below_the_threshold_does_not(tmp_path, capsys):
     b = builder(tmp_path, capsys)
     to_the_station(b)

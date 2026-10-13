@@ -250,6 +250,12 @@
       "last_trip": {
         "name": "Last trip",
         "state_attributes": {
+          "gaps": {
+            "name": "Capture gaps"
+          },
+          "fuel_refuelled_l": {
+            "name": "Fuel added inside the trip"
+          },
           "start": {
             "name": "Start"
           },
@@ -492,6 +498,9 @@
       "last_charging_session": {
         "name": "Last charging session",
         "state_attributes": {
+          "gaps": {
+            "name": "Capture gaps"
+          },
           "start": {
             "name": "Start"
           },

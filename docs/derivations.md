@@ -70,7 +70,9 @@ Every derived value carries one (ABL-03), from strongest to weakest:
 | `incomplete` | something it rests on is missing — a capture gap inside it, a price that is not there |
 
 An event's envelope `quality` is `incomplete` when the event crosses a
-capture gap, `receipt` when it was made from a receipt alone, else
+capture gap that could hide a standstill — any gap for a sampled
+vehicle's trip, one of T_still or longer for a per-cycle trip or a
+charging session (ADR-0054) — `receipt` when it was made from a receipt alone, else
 `measured`; a period's is the weakest of its metrics. A value computed
 from several carries the weakest of them.
 
@@ -136,22 +138,32 @@ sensor pair), and `in_use`; markers `ignition`, `plug_state`,
    the previous trip's end and this trip's last movement, a window the
    live path and a rebuild see alike. The late value still counts: the
    distance, the waypoints and the deltas read up to it.
-4. **Distance** (FAH-04), the first that works: the odometer at the end
-   minus the odometer before the first movement — `measured`, source
-   `odometer`; else a trip counter that only rose over the trip —
-   `measured`, `trip_counter`; else the straight lines between the
-   waypoints — `estimated`, `waypoints`. The value before the trip is the
-   last sample before its first movement, unless a gap lies between them.
+4. **Distance** (FAH-04 as ADR-0055 reads it), the first that works: the
+   trip counter's difference where the counter only rose over the trip
+   and lies within one odometer step — the place of the odometer's
+   finest decimal, 1 km on one that reports whole kilometres — of the
+   odometer's difference, `measured`, source `trip_counter`; else the
+   odometer at the end minus the odometer before the first movement —
+   `measured`, `odometer`; else the monotone counter alone; else the
+   straight lines between the waypoints — `estimated`, `waypoints`. The
+   value before the trip is the last sample before its first movement,
+   unless a gap lies between them.
 5. **The rest.** Waypoints are the fix before it moved, then every fix
    inside the trip; start and end position and zone are the first and
    last of them. `outside_temperature_c` is the mean of the samples
-   inside it. `delta_soc_pct` and `delta_fuel_l` are the value once
-   `t_settle_s` has passed after the end minus the value before the start
-   — `estimated` always (FAH-05); `delta_fuel_15c_l` is the fuel delta at
-   15 °C ([Fuel at 15 °C](#fuel-at-15-c)). `movements_while_plugged` counts
-   movement events inside the trip while plug or charging state says the
-   vehicle could not drive: sample timing or a wrong mapping, reported and
-   never corrected (ADR-0012, point 5).
+   inside it. `delta_soc_pct` and `delta_fuel_l` are the value after the
+   trip minus the value before the start — `estimated` always (FAH-05);
+   the value after is the latest sample not later than `t_settle_s` past
+   the trip's end, its arrival, and not later than a charging session or
+   refuelling begun since (ADR-0051): for the SoC the sample before the
+   next `charging` marker, for either the sample before its next rise.
+   `delta_fuel_15c_l` is the fuel delta at 15 °C ([Fuel at
+   15 °C](#fuel-at-15-c)). `movements_while_plugged` counts movement
+   events inside the trip while plug or charging state says the vehicle
+   could not drive — the upload that plugged it in aside, whose plug line
+   precedes its movement lines by milliseconds — sample timing or a wrong
+   mapping, reported and never corrected (ADR-0012, point 5). `gaps`
+   counts the capture gaps inside the trip, whatever their length.
 6. **Consumption** (ADR-0025, ADR-0026) — the trip's own figure, never the
    vehicle's, which is tank to tank ([Metrics](#metrics)). The fuel the
    trip used, `fuel_consumed_l`, comes from the **trip computer** where
@@ -160,8 +172,11 @@ sensor pair), and `in_use`; markers `ignition`, `plug_state`,
    that at the settled end minus that before the start — zero where the
    counter went down in between, its reset — `measured`, source
    `trip_computer`, with an error of half the average's display step over
-   the distance at each reading. Else it is −`delta_fuel_l`, `estimated`,
-   source `fuel_level`, error 2 × `fuel_level_resolution_l`; without that
+   the distance at each reading. Else it is −`delta_fuel_l` plus the
+   `sensor_delta_l` of every refuelling candidate inside the trip — the
+   level delta is bought minus burnt (ADR-0053); `fuel_refuelled_l` says
+   how much — `estimated`, source `fuel_level`, error
+   2 × `fuel_level_resolution_l` once more per fill; without that
    parameter the level gives no figure. `battery_consumed_kwh` is
    −`delta_soc_pct` / 100 × `battery_net_kwh`, `estimated`, error
    2 × `soc_resolution_pct` / 100 × the capacity, negative when the
@@ -173,7 +188,8 @@ sensor pair), and `in_use`; markers `ignition`, `plug_state`,
    it is shown in is shown whatever its sign, so an electric trip read
    from the trip computer is 0, not `null` — and carry the error as a
    share, `…_error_pct`, where the quantity is not zero. A trip across a
-   gap is `incomplete` in all of them.
+   gap is `incomplete` in all of them — for a sampled vehicle any gap,
+   for a per-cycle vehicle one of T_still or longer (ADR-0054).
 7. **Complete** once T_still has elapsed after the last movement, by the
    stream — a use reported from within T_still of it keeps the trip open,
    one that began later belongs to the next trip (ADR-0048, point 3).
@@ -190,7 +206,9 @@ driving cycle, at the stop, and is read as legs instead of steps 2 and 3:
    before it when no departure lies between them, else to the next one
    when none lies between those, else it opens its own: a slow poll
    reports the upload before or after the fast one, whichever way the
-   next departure falls. Without measured intervals every event after a
+   next departure falls. A value that replaces a dropout measures the
+   dropout, not the role's cadence, and is left out of the intervals
+   (ADR-0052). Without measured intervals every event after a
    departure opens an arrival. The arrival's time is its fastest event,
    its values are read up to its last. Trips are read one after another,
    each from the previous one's end — the live path's cursor — so a late
@@ -199,10 +217,15 @@ driving cycle, at the stop, and is read as legs instead of steps 2 and 3:
    `running`, the ignition `on`, the plug `unplugged`, and the trip
    counter going down. An unlock within `exit_window_s` (300 s) of an
    arrival, either side, is the driver getting out: it separates nothing
-   and departs nothing. An unlock that T_still later has produced no
-   sign of driving — another marker, an in-use report, a movement — was
-   a door and departs nothing either (ADR-0050); until the stream has
-   reached that line it is a departure like any other.
+   and departs nothing — before the arrival only when no departure
+   marker or in-use report lies between, since a first leg can be
+   shorter than the window (ADR-0057). An unlock that T_still later has
+   produced no sign of driving — another marker, an in-use report, a
+   movement — was a door and departs nothing either (ADR-0050); a marker
+   of another role is a door only when, with no such sign within
+   T_still, a later departure marker precedes the next movement — a
+   drive ends in an arrival, a door in the next departure (ADR-0057).
+   Until the stream knows, a marker is a departure like any other.
 3. **Legs.** A leg's departure is the latest departing unlock after the
    previous arrival; without one, the earliest of the other markers and
    the first in-use report after it; without any, the leg's start is
@@ -210,9 +233,10 @@ driving cycle, at the stop, and is read as legs instead of steps 2 and 3:
 4. **Trips.** Consecutive legs whose stops — from an arrival to the next
    departure — are each shorter than T_still are one trip, from the first
    departure to the last arrival; a capture gap in a stop ends the trip,
-   one inside it makes it `incomplete`. `refined_by.start` names the role
-   that departed, `refined_by.end` is `null`. Steps 4 to 6 above give the
-   values.
+   one of T_still or longer inside it makes it `incomplete` — a shorter
+   one hides no standstill, is counted in `gaps` and leaves it `measured`
+   (ADR-0054). `refined_by.start` names the role that departed,
+   `refined_by.end` is `null`. Steps 4 to 6 above give the values.
 5. **Complete** once the stream's last line is T_still past the last
    arrival, no departure followed within T_still, and the vehicle is not
    reported in use by a span that began within T_still of the arrival — a
@@ -288,7 +312,8 @@ currency ([l1-format.md](l1-format.md#files)).
 4. **Values.** `level_before_l` is the sample before the first rise,
    `sensor_delta_l` the settled level minus that — `estimated` always;
    `sensor_delta_15c_l` the same at 15 °C ([Fuel at 15 °C](#fuel-at-15-c)).
-   `position` and `zone` are the fix at the start; `price_suggestion` is
+   `position` and `zone` are the fix of the start's own upload — the
+   first fix within seconds after it, else the last before; `price_suggestion` is
    the `fuel_price` in effect at the start (TNK-05), a suggestion for the
    receipt and nothing more.
 5. **Complete** once the level after has been read, by the stream. No
@@ -362,7 +387,9 @@ vehicles' streams. **Parameters:** `battery_net_kwh`,
    to the next change away from it; `unavailable` and `unknown` hold, so
    a dropout mid-charge does not end it. A session still charging at the
    stream's last line is not complete, and neither is one whose end a
-   stream it reads has not reached yet (step 8).
+   stream it reads has not reached yet (step 8). A capture gap of T_still
+   or longer inside a session makes it `incomplete`; a shorter one is
+   counted in `gaps` and leaves it `measured` (ADR-0054).
 2. **Without a charging state** (LAD-04): a run of SoC rises at standstill
    whose total exceeds `charging_threshold_pct`. A run is broken by a
    sample that does not rise, a movement, a capture gap, or T_still
