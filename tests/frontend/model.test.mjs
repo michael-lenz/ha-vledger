@@ -93,6 +93,8 @@ test("a cost is in the instance's currency, never the euro by its key's name (AD
   assert.equal(M.formatMoney(5.12, "en", undefined), "5.12");
   assert.equal(M.formatMoney(5.12, "en", "not a code"), "5.12");
   assert.equal(M.formatMoney(null, "en", "EUR"), "—");
+  assert.equal(M.formatMoney(1.749, "de", "EUR", 3), "1,749\u00a0€");
+  assert.equal(M.formatMoney(1.749, "en", undefined, 3), "1.749");
 });
 
 test("outside every zone is no zone, not away from home", () => {
@@ -160,15 +162,130 @@ test("the read action's call", () => {
 
 test("the sections: every option on unless set false, and none can add a kind the vehicle lacks", () => {
   const both = ["refuelling", "charging"];
-  assert.deepEqual(M.sections({}, both), { trips: true, kinds: both, none: false });
-  assert.deepEqual(M.sections(undefined, both), { trips: true, kinds: both, none: false });
+  assert.deepEqual(M.sections({}, both), { trips: true, energy: [], kinds: both, none: false });
+  assert.deepEqual(M.sections(undefined, both), { trips: true, energy: [], kinds: both, none: false });
   assert.deepEqual(M.sections({ show_trips: false, show_charging: false }, both),
-    { trips: false, kinds: ["refuelling"], none: false });
+    { trips: false, energy: [], kinds: ["refuelling"], none: false });
   assert.deepEqual(M.sections({ show_charging: true }, ["refuelling"]),
-    { trips: true, kinds: ["refuelling"], none: false });
+    { trips: true, energy: [], kinds: ["refuelling"], none: false });
   assert.deepEqual(M.sections({ show_trips: false, show_refuelling: false }, ["refuelling"]),
-    { trips: false, kinds: [], none: true });
-  assert.deepEqual(M.sections({ show_trips: false }, []), { trips: false, kinds: [], none: true });
+    { trips: false, energy: [], kinds: [], none: true });
+  assert.deepEqual(M.sections({ show_trips: false }, []), { trips: false, energy: [], kinds: [], none: true });
+});
+
+test("the list of refuellings and charging sessions is off unless chosen, and lists the kinds the vehicle has", () => {
+  const both = ["refuelling", "charging"];
+  // Off when missing, so an existing configuration renders as before (ADR-0058, point 4).
+  assert.deepEqual(M.sections({ show_energy: "yes" }, both).energy, []);
+  assert.deepEqual(M.sections({ show_energy: false }, both).energy, []);
+  assert.deepEqual(M.sections({ show_energy: true, show_refuelling: false }, both),
+    { trips: true, energy: both, kinds: ["charging"], none: false });
+  assert.deepEqual(M.sections({ show_energy: true }, ["charging"]).energy, ["charging"]);
+  // The list alone is something to show; with no energy kind it lists nothing.
+  assert.equal(M.sections({ show_trips: false, show_energy: true, show_refuelling: false }, ["refuelling"]).none, false);
+  assert.equal(M.sections({ show_trips: false, show_energy: true }, []).none, true);
+
+  assert.equal(M.energyCount({}), M.DEFAULT_ENERGY_EVENTS);
+  assert.equal(M.energyCount({ energy_events: 0 }), 1);
+  assert.equal(M.energyCount({ energy_events: "25" }), 25);
+  assert.equal(M.energyCount({ energy_events: 500 }), M.MAX_EVENTS);
+  assert.equal(M.energyCount({ energy_events: "x" }), M.DEFAULT_ENERGY_EVENTS);
+
+  assert.equal(M.energyHeading(["refuelling"], en), "Refuellings");
+  assert.equal(M.energyHeading(["charging"], M.STRINGS.de), "Ladevorgänge");
+  assert.equal(M.energyHeading(both, M.STRINGS.de), "Tank- und Ladevorgänge");
+});
+
+test("both kinds' answers become one list, newest first, the newest n, each with its kind", () => {
+  const fuel = [{ start: "2026-10-09T10:00:00Z" }, { start: "2026-10-01T10:00:00Z" }];
+  const charge = [{ start: "2026-10-12T18:00:00Z" }, { start: "2026-10-05T18:00:00Z" }];
+  const list = M.energyEvents({ refuelling: fuel, charging: charge }, 3);
+  assert.deepEqual(list.map((e) => [e.kind, e.line.start]), [
+    ["charging", "2026-10-12T18:00:00Z"],
+    ["refuelling", "2026-10-09T10:00:00Z"],
+    ["charging", "2026-10-05T18:00:00Z"],
+  ]);
+  assert.deepEqual(M.energyEvents({ refuelling: [], charging: null }, 10), []);
+  assert.equal(M.energyEvents({ refuelling: fuel }, 10).length, 2);
+});
+
+test("a refuelling with a receipt: its litres and price, flagged receipt, the unit price as a title", () => {
+  const line = {
+    start: "2026-10-09T10:00:00Z", zone: "not_home", confirmation: "receipt",
+    sensor_delta_l: 40.2, sensor_delta_quality: "estimated",
+    quantity_l: 41.37, quantity_quality: "receipt",
+    price: 72.36, unit_price: 1.749, price_quality: "receipt", place: " Aral A9 ",
+    implausible: false, deviation_pct: 2.8,
+  };
+  assert.deepEqual(M.energyRow("refuelling", line, ctx), {
+    kind: "refuelling", start: line.start, when: "2026-10-09 12:00", status: null, place: "Aral A9",
+    quantity: "41.4 L", quantityFlag: "receipt", quantityTitle: "",
+    price: "€72.36", priceFlag: "receipt", priceTitle: "€1.749/L",
+  });
+  // A zone is the ledger's name for the place, and comes before the typed one (FAH-07).
+  assert.equal(M.energyRow("refuelling", { ...line, zone: "Station" }, ctx).place, "Station");
+  // In US customary units: gallons, and the price per gallon.
+  const us_ = M.energyRow("refuelling", { ...line, quantity_l: 37.85411784, unit_price: 1 }, { ...ctx, unitSystem: us });
+  assert.equal(us_.quantity, "10.0 gal");
+  assert.equal(us_.priceTitle, "€3.785/gal");
+  // German.
+  const de = M.energyRow("refuelling", line, { ...ctx, language: "de", strings: M.STRINGS.de });
+  assert.deepEqual([de.quantity, de.quantityFlag, de.price, de.priceTitle],
+    ["41,4 L", "Beleg", "72,36\u00a0€", "1,749\u00a0€/L"]);
+});
+
+test("a refuelling waiting for its receipt: the sensor's litres, estimated, no price, its confirmation", () => {
+  const line = {
+    start: "2026-10-09T10:00:00Z", zone: "not_home", confirmation: "unconfirmed",
+    sensor_delta_l: 40.2, sensor_delta_quality: "estimated", receipt: null,
+  };
+  const row = M.energyRow("refuelling", line, ctx);
+  assert.deepEqual([row.status, row.place, row.quantity, row.quantityFlag, row.price, row.priceFlag, row.priceTitle],
+    ["unconfirmed", "no zone", "40.2 L", "estimated", "—", null, ""]);
+  assert.equal(M.energyRow("refuelling", { ...line, zone: null }, ctx).place, "—");
+  const ambiguous = M.energyRow("refuelling", { ...line, confirmation: "ambiguous" }, { ...ctx, strings: M.STRINGS.de });
+  assert.equal(ambiguous.status, "mehrdeutig");
+  assert.equal(M.confirmationFlag("something new", en), "something new");
+  assert.equal(M.confirmationFlag(undefined, en), null);
+});
+
+test("an implausible receipt says so beside the quantity, the deviation in its title", () => {
+  const line = {
+    start: "2026-10-09T10:00:00Z", confirmation: "receipt", sensor_delta_l: 30, sensor_delta_quality: "estimated",
+    quantity_l: 41.4, quantity_quality: "receipt", price: 72.36, price_quality: "receipt",
+    implausible: true, deviation_pct: 27.5,
+  };
+  const row = M.energyRow("refuelling", line, ctx);
+  assert.equal(row.quantityFlag, "receipt · implausible");
+  assert.equal(row.quantityTitle, "Deviation from the sensor: 27.5 %");
+  const de = M.energyRow("refuelling", line, { ...ctx, language: "de", strings: M.STRINGS.de });
+  assert.equal(de.quantityTitle, "Abweichung vom Sensor: 27,5 %");
+});
+
+test("a charging session: the charge point's name, its energy and cost with their quality", () => {
+  const home = {
+    start: "2026-10-12T18:00:00Z", chargepoint: "c9e3", chargepoint_name: "Wallbox", confirmation: "chargepoint",
+    grid_kwh: 11.04, grid_kwh_quality: "measured", cost_eur: 3.31, cost_quality: "estimated",
+    tariff_eur_per_kwh: 0.3,
+  };
+  assert.deepEqual(M.energyRow("charging", home, ctx), {
+    kind: "charging", start: home.start, when: "2026-10-12 20:00", status: "charge point", place: "Wallbox",
+    quantity: "11.0 kWh", quantityFlag: null, quantityTitle: "",
+    price: "€3.31", priceFlag: "estimated", priceTitle: "",
+  });
+  // kWh stay kWh in US customary units.
+  assert.equal(M.energyRow("charging", home, { ...ctx, unitSystem: us }).quantity, "11.0 kWh");
+  // A foreign session: the receipt's place, or a dash.
+  const foreign = {
+    start: "2026-10-12T18:00:00Z", chargepoint: "foreign", chargepoint_name: null, confirmation: "receipt",
+    grid_kwh: 30.5, grid_kwh_quality: "receipt", cost_eur: 18.3, cost_quality: "receipt", place: "Ionity A8",
+  };
+  const row = M.energyRow("charging", foreign, ctx);
+  assert.deepEqual([row.status, row.place, row.quantityFlag, row.priceFlag], [null, "Ionity A8", "receipt", "receipt"]);
+  const waiting = M.energyRow("charging", { ...foreign, confirmation: "unconfirmed", place: undefined,
+    grid_kwh: 29.1, grid_kwh_quality: "estimated", cost_eur: null, cost_quality: null }, ctx);
+  assert.deepEqual([waiting.status, waiting.place, waiting.quantityFlag, waiting.price, waiting.priceFlag],
+    ["unconfirmed", "—", "estimated", "—", null]);
 });
 
 test("the vehicle's entities, its entry, and when to read again", () => {

@@ -172,14 +172,20 @@ Assistant and the newest:
 3. The trip list shows the last trips, with the distance in the
    instance's unit system and a flag on one not measured; switching the
    unit system to US customary shows miles.
-4. Enter a receipt with the litres missing — the card names what is
+4. With *Show the refuellings and charging sessions* on, the list shows
+   both energies of a hybrid newest first, the place, the quantity in the
+   unit system and the price, each figure's flag below it, and
+   *unconfirmed* below the time of an event that waits for its receipt;
+   turned off, the section is gone.
+5. Enter a receipt with the litres missing — the card names what is
    missing; with no price — the action's refusal appears in the card and
    the form keeps what was typed; then a valid one from a candidate — the
    form clears, and after the writer's run the candidate is gone from the
-   list.
-5. `vledger.recompute`: while it runs the card says the derivation is
+   form's list and the refuellings and charging sessions show the
+   receipt's figures.
+6. `vledger.recompute`: while it runs the card says the derivation is
    being rebuilt, and comes back with it.
-6. The same in German.
+7. The same in German.
 
 ## The brand assets
 

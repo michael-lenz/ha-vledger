@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: BSD-3-Clause
-// The Vehicle Ledger card (ADR-0039): one vehicle's last trips, and receipt
-// entry for the energy kinds it has. A hand-written ES module on plain
-// HTMLElement, without a build step (point 3). It reads through
+// The Vehicle Ledger card (ADR-0039): one vehicle's last trips, its last
+// refuellings and charging sessions (ADR-0058), and receipt entry for the
+// energy kinds it has. A hand-written ES module on plain HTMLElement,
+// without a build step (point 3). It reads through
 // vledger.read_events and writes through the receipt actions, and decides
 // nothing about L1 itself (ARC-02); what can be decided without a DOM is
 // in model.js, which is tested on its own.
@@ -27,6 +28,7 @@ const STYLE = `
   }
   th.number, td.number { text-align: right; white-space: nowrap; }
   .flag { color: var(--secondary-text-color); font-size: 0.85em; margin-left: 4px; }
+  table.energy .flag { display: block; margin-left: 0; white-space: normal; }
   form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
   label { display: grid; gap: 2px; color: var(--secondary-text-color); font-size: 0.9em; }
   label.check { display: flex; align-items: center; gap: 8px; color: var(--primary-text-color); }
@@ -73,6 +75,7 @@ class VledgerCard extends HTMLElement {
     this._forms = {};      // per kind: what is typed, kept across redraws
     this._candidates = {}; // per kind: the waiting events, newest first
     this._trips = null;
+    this._energy = null;   // the refuellings and charging sessions, newest first
     this._key = null;      // the event entities' last update, read for
     this._reads = 0;       // the latest read; an older one never lands after it
     this._layout = null;
@@ -97,7 +100,8 @@ class VledgerCard extends HTMLElement {
 
   getCardSize() {
     const shown = M.sections(this._config, this._kinds ?? M.RECEIPT_KINDS);
-    return 1 + (shown.trips ? 2 + Math.min(M.tripCount(this._config), 10) : 0) + 6 * shown.kinds.length;
+    return 1 + (shown.trips ? 2 + Math.min(M.tripCount(this._config), 10) : 0)
+      + (shown.energy.length ? 2 + Math.min(M.energyCount(this._config), 10) : 0) + 6 * shown.kinds.length;
   }
 
   static getConfigElement() {
@@ -107,7 +111,10 @@ class VledgerCard extends HTMLElement {
   static getStubConfig(hass) {
     const trip = Object.values(hass.entities || {}).find(
       (e) => e.platform === M.DOMAIN && e.translation_key === M.ENTITY_KEYS.trip);
-    return { device: trip?.device_id ?? "", trips: M.DEFAULT_TRIPS };
+    // A card from the picker shows every section, the refuellings and
+    // charging sessions among them (ADR-0058, point 4).
+    return { device: trip?.device_id ?? "", trips: M.DEFAULT_TRIPS,
+      show_energy: true, energy_events: M.DEFAULT_ENERGY_EVENTS };
   }
 
   get _strings() {
@@ -145,7 +152,8 @@ class VledgerCard extends HTMLElement {
     this._entry = M.entryOf(this._hass.devices?.[device]);
     this._kinds = M.RECEIPT_KINDS.filter((kind) => entities[kind]);
     this._shown = M.sections(this._config, this._kinds);
-    const layout = [device, this._ctx.language, this._shown.trips, ...this._shown.kinds].join("|");
+    const layout = [device, this._ctx.language, this._shown.trips, this._shown.energy.join("+"),
+      ...this._shown.kinds].join("|");
     if (layout !== this._layout) {
       this._layout = layout;
       this._build();
@@ -168,19 +176,24 @@ class VledgerCard extends HTMLElement {
     const read = ++this._reads;
     const call = (kind, last, waiting) =>
       this._hass.callWS(M.readEvents(this._entry, kind, last, waiting)).then((r) => r.response.events);
-    const { trips: showTrips, kinds } = this._shown;
+    const { trips: showTrips, energy, kinds } = this._shown;
+    const n = M.energyCount(this._config);
     try {
-      const [trips, ...waiting] = await Promise.all([
+      const [trips, energyLines, waiting] = await Promise.all([
         showTrips ? call("trip", M.tripCount(this._config), false) : null,
-        ...kinds.map((kind) => call(kind, CANDIDATES, true)),
+        Promise.all(energy.map((kind) => call(kind, n, false))),
+        Promise.all(kinds.map((kind) => call(kind, CANDIDATES, true))),
       ]);
       if (read !== this._reads) {
         return;
       }
       this._trips = trips;
+      this._energy = energy.length
+        ? M.energyEvents(Object.fromEntries(energy.map((kind, i) => [kind, energyLines[i]])), n) : null;
       kinds.forEach((kind, i) => { this._candidates[kind] = waiting[i]; });
       this._status("");
       this._drawTrips();
+      this._drawEnergy();
       kinds.forEach((kind) => this._drawCandidates(kind));
     } catch (err) {
       if (read === this._reads) {
@@ -208,6 +221,7 @@ class VledgerCard extends HTMLElement {
     const s = this._strings;
     this._statusNode = h("p", { class: "message" });
     this._tripsNode = this._shown.trips ? h("div") : null;
+    this._energyNode = this._shown.energy.length ? h("div") : null;
     this._formNodes = {};
     this._eventNodes = {};
     const title = h("h2", {}, this._hass.devices?.[this._config.device]?.name_by_user
@@ -227,8 +241,10 @@ class VledgerCard extends HTMLElement {
       title,
       this._statusNode,
       this._tripsNode ? [h("h3", {}, s.trips), this._tripsNode] : null,
+      this._energyNode ? [h("h3", {}, M.energyHeading(this._shown.energy, s)), this._energyNode] : null,
       forms);
     this._drawTrips();
+    this._drawEnergy();
   }
 
   _status(text, error = false) {
@@ -262,6 +278,37 @@ class VledgerCard extends HTMLElement {
       h("th", { class: "number" }, s.column_distance),
       h("th", { class: "number" }, s.column_cost));
     this._tripsNode.replaceChildren(h("table", {}, h("thead", {}, head), h("tbody", {}, rows)));
+  }
+
+  // The refuellings and charging sessions (ADR-0058, points 2 and 3): the
+  // confirmation with the time, each figure's flag with it, the unit price
+  // and the deviation as titles.
+  _drawEnergy() {
+    if (!this._energyNode || this._energy === null) {
+      return;
+    }
+    const s = this._strings;
+    if (!this._energy.length) {
+      this._energyNode.replaceChildren(h("p", { class: "message" }, s.no_energy));
+      return;
+    }
+    const flag = (text) => (text ? h("span", { class: "flag" }, text) : null);
+    const rows = this._energy.map(({ kind, line }) => {
+      const r = M.energyRow(kind, line, this._ctx);
+      return h("tr", {},
+        h("td", {}, r.when, flag(r.status)),
+        h("td", {}, r.place),
+        h("td", { class: "number", title: r.quantityTitle }, r.quantity, flag(r.quantityFlag)),
+        h("td", { class: "number", title: r.priceTitle }, r.price, flag(r.priceFlag)));
+    });
+    const head = h("tr", {},
+      h("th", {}, s.column_when),
+      h("th", {}, s.column_place),
+      h("th", { class: "number" }, s.column_quantity),
+      h("th", { class: "number" }, s.column_price));
+    // Four columns and a flag beside each would outgrow a narrow card: here
+    // a flag takes the line below its value.
+    this._energyNode.replaceChildren(h("table", { class: "energy" }, h("thead", {}, head), h("tbody", {}, rows)));
   }
 
   _fresh(kind) {
@@ -367,9 +414,9 @@ class VledgerCard extends HTMLElement {
   }
 }
 
-// The card's editor (ADR-0039, point 7; ADR-0041, point 5): the vehicle,
-// the sections, and the number of trips while the list is shown, through
-// Home Assistant's own selectors, so no YAML is needed.
+// The card's editor (ADR-0039, point 7; ADR-0041, point 5; ADR-0058,
+// point 4): the vehicle, the sections, and each list's length while it is
+// shown, through Home Assistant's own selectors, so no YAML is needed.
 class VledgerCardEditor extends HTMLElement {
   setConfig(config) {
     this._config = { ...config };
@@ -390,26 +437,37 @@ class VledgerCardEditor extends HTMLElement {
       this._device = document.createElement("ha-selector");
       this._device.selector = { device: { filter: { integration: M.DOMAIN, model: "vehicle" } } };
       this._device.addEventListener("value-changed", (e) => this._changed("device", e.detail.value));
-      this._trips = document.createElement("ha-selector");
-      this._trips.selector = { number: { min: 1, max: M.MAX_EVENTS, mode: "box" } };
-      this._trips.addEventListener("value-changed", (e) => this._changed("trips", e.detail.value));
-      this._switches = Object.fromEntries(["trips", ...M.RECEIPT_KINDS].map((name) => {
+      this._counts = Object.fromEntries(["trips", "energy_events"].map((key) => {
+        const node = document.createElement("ha-selector");
+        node.selector = { number: { min: 1, max: M.MAX_EVENTS, mode: "box" } };
+        node.addEventListener("value-changed", (e) => this._changed(key, e.detail.value));
+        return [key, node];
+      }));
+      this._switches = Object.fromEntries(["trips", "energy", ...M.RECEIPT_KINDS].map((name) => {
         const node = document.createElement("ha-selector");
         node.selector = { boolean: {} };
         node.addEventListener("value-changed", (e) => this._changed(`show_${name}`, e.detail.value));
         return [name, node];
       }));
       const style = h("style", { textContent: "div { display: grid; gap: 16px; } [hidden] { display: none !important; }" });
-      this.replaceChildren(style, h("div", {}, this._device, this._switches.trips, this._trips,
+      this.replaceChildren(style, h("div", {}, this._device,
+        this._switches.trips, this._counts.trips,
+        this._switches.energy, this._counts.energy_events,
         M.RECEIPT_KINDS.map((kind) => this._switches[kind])));
     }
     const shown = M.sections(this._config, M.RECEIPT_KINDS);
-    this._trips.hidden = !shown.trips;
+    const on = { trips: shown.trips, energy: shown.energy.length > 0 };
+    for (const kind of M.RECEIPT_KINDS) {
+      on[kind] = shown.kinds.includes(kind);
+    }
+    this._counts.trips.hidden = !on.trips;
+    this._counts.energy_events.hidden = !on.energy;
     for (const [node, key, label, value] of [
       [this._device, "device", s.editor_device, this._config.device ?? ""],
-      [this._trips, "trips", s.editor_trips, M.tripCount(this._config)],
-      ...["trips", ...M.RECEIPT_KINDS].map((name) => [this._switches[name], `show_${name}`,
-        s[`editor_show_${name}`], name === "trips" ? shown.trips : shown.kinds.includes(name)]),
+      [this._counts.trips, "trips", s.editor_trips, M.tripCount(this._config)],
+      [this._counts.energy_events, "energy_events", s.editor_energy_events, M.energyCount(this._config)],
+      ...Object.keys(this._switches).map((name) => [this._switches[name], `show_${name}`,
+        s[`editor_show_${name}`], on[name]]),
     ]) {
       node.hass = this._hass;
       node.label = label;

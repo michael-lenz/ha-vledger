@@ -40,9 +40,9 @@ behaviour is the design, held as requirements in the project's register
   `incomplete`.
 - **Takes receipts.** Price and exact quantity come from you: a refuelling
   or charging receipt, entered from a dashboard, the Vehicle Ledger card
-  beside its trip list, or an action — a
-  notification of the new candidate opens the form — matched to the
-  detected event by time. Receipt values beat sensor
+  beside its lists of trips, refuellings and charging sessions, or an
+  action — a notification of the new candidate opens the form — matched
+  to the detected event by time. Receipt values beat sensor
   values; a detected event without a receipt stays visible as unconfirmed.
 - **Knows your charge points.** Home, work, anywhere fixed: position,
   radius, tariff, optionally a meter. A charge point with a tariff but no

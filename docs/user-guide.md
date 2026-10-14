@@ -326,17 +326,22 @@ as at startup.
 
 ### The Vehicle Ledger card
 
-A dashboard card for one vehicle: its last trips, and below them a
-receipt form for each energy it uses. It comes with the integration —
-there is no resource to add and nothing else to install. *Edit dashboard →
-Add card → Vehicle Ledger*, then pick the vehicle, which sections to show,
-and how many trips the list shows (10 unless you choose, at least 1, at
-most 50).
+A dashboard card for one vehicle: its last trips, its last refuellings
+and charging sessions, and a receipt form for each energy it uses. It
+comes with the integration — there is no resource to add and nothing else
+to install. *Edit dashboard → Add card → Vehicle Ledger*, then pick the
+vehicle, which sections to show, and how many lines each list shows (10
+unless you choose, at least 1, at most 50; in YAML `trips` and
+`energy_events`).
 
-Each section has a switch, on unless you turn it off — in YAML
-`show_trips`, `show_refuelling` and `show_charging`. A switch only hides:
-a form for an energy the vehicle does not use never appears. A card for
-a pop-up that only takes refuelling receipts:
+Each section has a switch — in YAML `show_trips`, `show_energy`,
+`show_refuelling` and `show_charging`. All are on unless you turn them
+off, except `show_energy`, the list of refuellings and charging sessions:
+it is off unless you turn it on, so a card set up before the list existed
+looks as it did. A card added from the picker starts with it on. No
+switch brings in an energy the vehicle does not use: its form never
+appears, and the list leaves it out. A card for a pop-up that only takes
+refuelling receipts:
 
 ```yaml
 type: custom:vledger-card
@@ -355,6 +360,22 @@ show_charging: false
   session — so a receipt entered later prices the trips after it the next
   time the card reads. It is `—` while the trip's consumption is not shown
   or no price is known yet ([derivations.md](derivations.md#a-trips-cost)).
+- **The refuellings and charging sessions** — one table for the energies
+  the vehicle uses, newest first: the start time, the place, the quantity
+  and the price. The place is a refuelling's zone or the name of the
+  charge point a session was at; where there is none, the place typed on
+  the receipt, else *no zone* or `—`. The quantity is a refuelling's
+  litres from its receipt once one is entered and the sensor's until then,
+  in your unit system, or a session's kWh. The price is the receipt's, or
+  a session's cost from its charge point's tariff, in your instance's
+  currency, `—` while there is none; hovering over a refuelling's price
+  shows the price per litre, or per gallon. Below each figure its quality when it is not
+  measured — *estimated*, *receipt*, *incomplete* — and *implausible*
+  where a receipt and the sensor disagree by more than the plausibility
+  threshold, hovering showing by how much. Below the time, an event
+  without a receipt says how it stands: *unconfirmed* or *ambiguous* while
+  it waits for one, *charge point* when it was at a configured charge
+  point and needs none.
 - **The receipt forms** — the same fields as the form above, and the same
   rules: pick a waiting event or type the time, at least the litres or the
   energy, and a price; the button writes the receipt. The event list

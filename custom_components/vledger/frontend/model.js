@@ -22,21 +22,40 @@ export const ENTITY_KEYS = {
 export const RECEIPT_KINDS = ["refuelling", "charging"];
 
 export const DEFAULT_TRIPS = 10;
+export const DEFAULT_ENERGY_EVENTS = 10;
 export const MAX_EVENTS = 50; // what vledger.read_events answers at most
+
+// A list's length from the card's configuration: at least one line, at
+// most what the action answers, the default where it is not a number.
+function listLength(value, fallback) {
+  const n = Number.parseInt(value ?? fallback, 10);
+  return Number.isFinite(n) ? Math.min(Math.max(n, 1), MAX_EVENTS) : fallback;
+}
 
 // The trips in the list, from the card's configuration.
 export function tripCount(config) {
-  const n = Number.parseInt(config?.trips ?? DEFAULT_TRIPS, 10);
-  return Number.isFinite(n) ? Math.min(Math.max(n, 1), MAX_EVENTS) : DEFAULT_TRIPS;
+  return listLength(config?.trips, DEFAULT_TRIPS);
+}
+
+// The refuellings and charging sessions in their list (ADR-0058, point 4).
+export function energyCount(config) {
+  return listLength(config?.energy_events, DEFAULT_ENERGY_EVENTS);
 }
 
 // The sections the card draws (ADR-0041): each `show_*` option is true
 // unless set to false, and can only take a section away — a receipt form
-// stays limited to the kinds the vehicle has. What is not drawn is not read.
+// stays limited to the kinds the vehicle has. The list of refuellings and
+// charging sessions is off unless `show_energy` is true, so an existing
+// configuration renders as before, and lists the kinds the vehicle has
+// (ADR-0058, points 1 and 4). What is not drawn is not read.
 export function sections(config, kinds) {
   const on = (name) => config?.[`show_${name}`] !== false;
-  const shown = { trips: on("trips"), kinds: kinds.filter((kind) => on(kind)) };
-  shown.none = !shown.trips && !shown.kinds.length;
+  const shown = {
+    trips: on("trips"),
+    energy: config?.show_energy === true ? [...kinds] : [],
+    kinds: kinds.filter((kind) => on(kind)),
+  };
+  shown.none = !shown.trips && !shown.energy.length && !shown.kinds.length;
   return shown;
 }
 
@@ -45,10 +64,12 @@ export function sections(config, kinds) {
 export const STRINGS = {
   en: {
     card_name: "Vehicle Ledger",
-    card_description: "A vehicle's last trips, and receipt entry for its refuellings and charging sessions.",
+    card_description: "A vehicle's last trips, refuellings and charging sessions, and receipt entry for them.",
     editor_device: "Vehicle",
     editor_trips: "Trips in the list",
+    editor_energy_events: "Refuellings and charging sessions in the list",
     editor_show_trips: "Show the trip list",
+    editor_show_energy: "Show the refuellings and charging sessions",
     editor_show_refuelling: "Show the refuelling receipt",
     editor_show_charging: "Show the charging receipt",
     nothing_shown: "The card's settings show no section for this vehicle.",
@@ -63,6 +84,18 @@ export const STRINGS = {
     column_cost: "Cost",
     cost_fuel: "Fuel",
     cost_electricity: "Electricity",
+    energy_refuelling: "Refuellings",
+    energy_charging: "Charging sessions",
+    energy_both: "Refuellings and charging sessions",
+    no_energy: "None yet.",
+    column_place: "Place",
+    column_quantity: "Quantity",
+    column_price: "Price",
+    confirmation_unconfirmed: "unconfirmed",
+    confirmation_ambiguous: "ambiguous",
+    confirmation_chargepoint: "charge point",
+    implausible: "implausible",
+    deviation: "Deviation from the sensor: {pct} %",
     receipt_refuelling: "Refuelling receipt",
     receipt_charging: "Charging receipt",
     event: "Event",
@@ -87,10 +120,12 @@ export const STRINGS = {
   },
   de: {
     card_name: "Vehicle Ledger",
-    card_description: "Die letzten Fahrten eines Fahrzeugs und die Belegerfassung für seine Tank- und Ladevorgänge.",
+    card_description: "Die letzten Fahrten, Tank- und Ladevorgänge eines Fahrzeugs und die Belegerfassung dafür.",
     editor_device: "Fahrzeug",
     editor_trips: "Fahrten in der Liste",
+    editor_energy_events: "Tank- und Ladevorgänge in der Liste",
     editor_show_trips: "Fahrtenliste anzeigen",
+    editor_show_energy: "Tank- und Ladevorgänge anzeigen",
     editor_show_refuelling: "Tankbeleg anzeigen",
     editor_show_charging: "Ladebeleg anzeigen",
     nothing_shown: "Die Einstellungen der Karte zeigen für dieses Fahrzeug keinen Abschnitt.",
@@ -105,6 +140,18 @@ export const STRINGS = {
     column_cost: "Kosten",
     cost_fuel: "Kraftstoff",
     cost_electricity: "Strom",
+    energy_refuelling: "Tankvorgänge",
+    energy_charging: "Ladevorgänge",
+    energy_both: "Tank- und Ladevorgänge",
+    no_energy: "Noch keine.",
+    column_place: "Ort",
+    column_quantity: "Menge",
+    column_price: "Preis",
+    confirmation_unconfirmed: "unbestätigt",
+    confirmation_ambiguous: "mehrdeutig",
+    confirmation_chargepoint: "Ladepunkt",
+    implausible: "unplausibel",
+    deviation: "Abweichung vom Sensor: {pct} %",
     receipt_refuelling: "Tankbeleg",
     receipt_charging: "Ladebeleg",
     event: "Ereignis",
@@ -171,19 +218,21 @@ export function formatNumber(value, language, digits = 1) {
 
 // An amount in the instance's currency: a key spelled eur holds one, not
 // the euro (ADR-0029). Without a currency, or with one Intl does not know,
-// the number alone.
-export function formatMoney(value, language, currency) {
+// the number alone. `digits` fixes the decimals, for a unit price; without
+// it the currency's own.
+export function formatMoney(value, language, currency, digits) {
   if (typeof value !== "number") {
     return "—";
   }
   try {
     if (currency) {
-      return new Intl.NumberFormat(language || "en", { style: "currency", currency }).format(value);
+      const fixed = digits === undefined ? {} : { minimumFractionDigits: digits, maximumFractionDigits: digits };
+      return new Intl.NumberFormat(language || "en", { style: "currency", currency, ...fixed }).format(value);
     }
   } catch {
     // An unknown code: the number alone, below.
   }
-  return formatNumber(value, language, 2);
+  return formatNumber(value, language, digits ?? 2);
 }
 
 // --- time -------------------------------------------------------------------
@@ -271,6 +320,94 @@ function tripCost(line, ctx) {
     cost: formatMoney(line.cost_eur, language, currency),
     costFlag: known ? qualityFlag(line.cost_eur_quality, strings) : null,
     costTitle: parts.join(" · "),
+  };
+}
+
+// --- the refuellings and charging sessions (ADR-0058) ----------------------
+
+// The list's heading: the kinds the vehicle has.
+export function energyHeading(kinds, strings) {
+  return kinds.length === 1 ? strings[`energy_${kinds[0]}`] : strings.energy_both;
+}
+
+// The answers of vledger.read_events per kind, as one list: newest first,
+// the newest `n` of them, each line with the kind it was read as — the
+// action's lines do not carry it (ADR-0058, point 1).
+export function energyEvents(answers, n) {
+  return Object.entries(answers)
+    .flatMap(([kind, lines]) => (lines || []).map((line) => ({ kind, line })))
+    .sort((a, b) => Date.parse(b.line.start) - Date.parse(a.line.start))
+    .slice(0, n);
+}
+
+// An event's confirmation beside its time, translated as L1 holds it; a
+// receipt is left to the numbers' flags. Whether an event waits is the
+// library's (l1.is_waiting), and nothing here decides it (ADR-0058, point 3).
+export function confirmationFlag(confirmation, strings) {
+  if (!confirmation || confirmation === "receipt") {
+    return null;
+  }
+  return strings[`confirmation_${confirmation}`] ?? confirmation;
+}
+
+// Where an event was: the name the ledger gives the place — a refuelling's
+// zone, a session's charge point (FAH-07) — and where it gives none, the
+// receipt's place as typed (ADR-0058, point 2).
+function energyPlace(kind, line, strings) {
+  const named = kind === "refuelling"
+    ? (line.zone && line.zone !== "not_home" ? line.zone : null)
+    : line.chargepoint_name;
+  const typed = typeof line.place === "string" ? line.place.trim() : "";
+  if (named) {
+    return named;
+  }
+  if (typed) {
+    return typed;
+  }
+  return kind === "refuelling" ? zoneLabel(line.zone, strings) : "—";
+}
+
+// A refuelling's price per litre, or per gallon where the list shows gallons.
+function unitPrice(value, ctx) {
+  const { language, unitSystem, currency } = ctx;
+  if (typeof value !== "number") {
+    return "";
+  }
+  const gal = unitSystem?.volume === "gal";
+  return `${formatMoney(gal ? value * L_PER_GAL : value, language, currency, 3)}/${gal ? "gal" : "L"}`;
+}
+
+// One refuelling or charging session of vledger.read_events, as the list
+// shows it (ADR-0058, points 2 and 3): every figure an L1 key with L1's
+// quality beside it. A refuelling's litres are its receipt's where one
+// carries them, else the sensor's (BEL-07); a session's energy and cost
+// already are the receipt's where it has one.
+export function energyRow(kind, line, ctx) {
+  const { language, timeZone, unitSystem, currency, strings } = ctx;
+  const fuel = kind === "refuelling";
+  const [amount, amountQuality] = !fuel ? [line.grid_kwh, line.grid_kwh_quality]
+    : typeof line.quantity_l === "number" ? [line.quantity_l, line.quantity_quality]
+      : [line.sensor_delta_l, line.sensor_delta_quality];
+  const [price, priceQuality] = fuel ? [line.price, line.price_quality] : [line.cost_eur, line.cost_quality];
+  const q = toDisplay(amount, fuel ? "L" : "kWh", unitSystem);
+  const implausible = line.implausible === true;
+  const quantityFlags = [
+    q.value === null ? null : qualityFlag(amountQuality, strings),
+    implausible ? strings.implausible : null,
+  ].filter(Boolean);
+  return {
+    kind,
+    start: line.start,
+    when: formatTime(line.start, timeZone),
+    status: confirmationFlag(line.confirmation, strings),
+    place: energyPlace(kind, line, strings),
+    quantity: q.value === null ? "—" : `${formatNumber(q.value, language)} ${q.unit}`,
+    quantityFlag: quantityFlags.length ? quantityFlags.join(" · ") : null,
+    quantityTitle: implausible && typeof line.deviation_pct === "number"
+      ? format(strings.deviation, { pct: formatNumber(line.deviation_pct, language) }) : "",
+    price: formatMoney(price, language, currency),
+    priceFlag: typeof price === "number" ? qualityFlag(priceQuality, strings) : null,
+    priceTitle: fuel ? unitPrice(line.unit_price, ctx) : "",
   };
 }
 
