@@ -285,9 +285,14 @@ from the receipts and sessions L1 holds:
   trip spends it.
 - `cost_eur` — their sum, as good as the weaker.
 
-A part is `null` and `incomplete` when its consumption is not shown (its
-rate per 100 km is `null`, step 6) or, for anything but zero, when no
-price is known before the trip; the sum is then `null` too. An energy the
+A quantity within its error of zero — |`fuel_consumed_l`| ≤
+`fuel_consumed_error_l`, |`battery_consumed_kwh`| ≤
+`battery_consumed_error_kwh` — costs 0, `estimated`, at any price, though
+its rate stays withheld (ADR-0059): the sensors bound the cost to the
+error's price, and at the cent that is zero. A part is `null` and
+`incomplete` when its quantity is not read, when a quantity beyond its
+error has no shown rate (step 6: no distance) or, for anything but zero,
+when no price is known before the trip; the sum is then `null` too. An energy the
 vehicle does not use — no `fuel`, or no `battery_net_kwh` — is `null`
 without a quality and stays out of the sum. Amounts are in the instance's
 currency ([l1-format.md](l1-format.md#files)).

@@ -1031,11 +1031,17 @@ def _last_at(events: list[dict], t: str, priced) -> dict | None:
     return max(before, key=lambda e: clock.parse(e["start"]), default=None)
 
 
-def _part(used: float | None, shown: bool, quality: str | None, price: float | None,
-          price_quality: str | None) -> tuple[float | None, str]:
-    """One energy's cost and its quality: unknown without a shown
-    consumption (ADR-0026) or, for anything but zero, without a price."""
-    if used is None or not shown:
+def _part(used: float | None, error: float | None, shown: bool, quality: str | None,
+          price: float | None, price_quality: str | None) -> tuple[float | None, str]:
+    """One energy's cost and its quality: a quantity within its error of
+    zero costs 0, estimated, at any price (ADR-0059); otherwise unknown
+    without a shown consumption (ADR-0026) or, for anything but zero,
+    without a price."""
+    if used is None:
+        return None, INCOMPLETE
+    if error is not None and abs(used) <= error:
+        return 0.0, periods.weakest(quality, ESTIMATED if used else None)
+    if not shown:
         return None, INCOMPLETE
     if used == 0:
         return 0.0, periods.weakest(quality)
@@ -1050,8 +1056,9 @@ def cost(trip: dict, refuellings: list[dict], sessions: list[dict], parameters: 
     battery energy it consumed — grid-side, × the charging loss factor — at
     the price per grid-side kWh of the last priced charging session before
     it, and their sum. An energy the vehicle does not use is ``None`` with
-    no quality and stays out of the sum; one that is unknown makes the sum
-    unknown. A battery that gained gives a negative electricity cost."""
+    no quality and stays out of the sum; one within its error of zero costs
+    0 (ADR-0059); one that is unknown makes the sum unknown. A battery that
+    gained gives a negative electricity cost."""
     start = trip["start"]
     out: dict = {}
     parts = []
@@ -1059,8 +1066,8 @@ def cost(trip: dict, refuellings: list[dict], sessions: list[dict], parameters: 
         bought = _last_at(refuellings, start, lambda e: e.get("confirmation") == periods.RECEIPT
                           and e.get("unit_price") is not None)
         out["fuel_cost_eur"], out["fuel_cost_eur_quality"] = _part(
-            trip.get("fuel_consumed_l"), trip.get("fuel_l_per_100km") is not None,
-            trip.get("fuel_consumed_quality"),
+            trip.get("fuel_consumed_l"), trip.get("fuel_consumed_error_l"),
+            trip.get("fuel_l_per_100km") is not None, trip.get("fuel_consumed_quality"),
             bought["unit_price"] if bought else None, periods.RECEIPT)
         parts.append("fuel_cost_eur")
     else:
@@ -1068,11 +1075,14 @@ def cost(trip: dict, refuellings: list[dict], sessions: list[dict], parameters: 
     if parameters.get("battery_net_kwh") is not None:
         session = _last_at(sessions, start, lambda e: e.get("cost_eur") is not None
                            and e.get("grid_kwh"))
-        used = trip.get("battery_consumed_kwh")
+        used, error = trip.get("battery_consumed_kwh"), trip.get("battery_consumed_error_kwh")
+        loss = float(parameters.get("charging_loss_factor") or 1.0)
         if used is not None:
-            used *= float(parameters.get("charging_loss_factor") or 1.0)
+            used *= loss
+        if error is not None:
+            error *= loss
         out["electricity_cost_eur"], out["electricity_cost_eur_quality"] = _part(
-            used, trip.get("battery_kwh_per_100km") is not None,
+            used, error, trip.get("battery_kwh_per_100km") is not None,
             periods.weakest(trip.get("battery_consumed_quality"), ESTIMATED),
             session["cost_eur"] / session["grid_kwh"] if session else None,
             session.get("cost_quality") if session else None)

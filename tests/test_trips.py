@@ -1310,6 +1310,27 @@ def test_an_unshown_consumption_or_a_missing_price_leaves_the_cost_unknown():
     assert c["electricity_cost_eur"] is None and c["cost_eur"] is None
 
 
+def test_a_quantity_within_its_error_of_zero_costs_zero_at_any_price():
+    """ADR-0059, the owner's 4.3 km trip: -2 % SoC is exactly the battery's
+    error and the trip computer's 0.000 L has an error of 0.019 L over too
+    short a distance for a rate; each costs 0.00, estimated, and so does
+    the sum, with no price known at all. A fuel figure beyond its error
+    with no rate — no distance — stays unknown."""
+    line = _trip_line(fuel_consumed_l=0.0, fuel_consumed_error_l=0.019, fuel_l_per_100km=None,
+                      battery_consumed_kwh=0.376, battery_consumed_error_kwh=0.376,
+                      battery_kwh_per_100km=None)
+    c = trips.cost(line, [], [], PHEV)
+    assert (c["fuel_cost_eur"], c["fuel_cost_eur_quality"]) == (0.0, "measured")
+    assert (c["electricity_cost_eur"], c["electricity_cost_eur_quality"]) == (0.0, "estimated")
+    assert (c["cost_eur"], c["cost_eur_quality"]) == (0.0, "estimated")
+    c = trips.cost(_trip_line(fuel_consumed_l=-0.01, fuel_consumed_error_l=0.019, fuel_l_per_100km=None),
+                   [], [_session("2026-10-05T20:00:00.000Z", 3.0, 10.0)], PHEV)
+    assert (c["fuel_cost_eur"], c["fuel_cost_eur_quality"]) == (0.0, "estimated")
+    assert c["cost_eur"] == 1.32
+    c = trips.cost(_trip_line(fuel_consumed_error_l=0.019, fuel_l_per_100km=None), [], [], PHEV)
+    assert c["fuel_cost_eur"] is None and c["cost_eur"] is None
+
+
 def test_an_energy_the_vehicle_does_not_use_stays_out_of_the_sum():
     line = _trip_line(battery_consumed_kwh=None, battery_kwh_per_100km=None)
     c = trips.cost(line, [_receipted("2026-10-08T08:00:00.000Z", 1.90)], [], {"fuel": "diesel"})

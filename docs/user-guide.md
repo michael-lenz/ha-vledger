@@ -358,8 +358,10 @@ show_charging: false
   electricity. The cost is what the trip consumed at the last prices known
   when it started — the last refuelling receipt, the last priced charging
   session — so a receipt entered later prices the trips after it the next
-  time the card reads. It is `—` while the trip's consumption is not shown
-  or no price is known yet ([derivations.md](derivations.md#a-trips-cost)).
+  time the card reads. A short trip whose fuel or battery figure is within
+  its error of zero costs `0.00` *estimated* for that energy. It is `—`
+  while a quantity was not read or no price is known yet
+  ([derivations.md](derivations.md#a-trips-cost)).
 - **The refuellings and charging sessions** — one table for the energies
   the vehicle uses, newest first: the start time, the place, the quantity
   and the price. The place is a refuelling's zone or the name of the
