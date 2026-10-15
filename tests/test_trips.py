@@ -915,6 +915,31 @@ def test_legs_with_a_short_stop_are_one_trip_and_a_long_stop_splits(tmp_path, ca
     assert (second.start, second.end) == (at(160), at(180)) and second.distance_km == 10
 
 
+def test_an_unlock_a_minute_before_an_arrival_no_fast_sample_opened_is_still_an_exit(tmp_path, capsys):
+    """ISSUE-0077, the owner's morning of 2026-10-15: the previous stop's
+    odometer came as a late report 46 s after its own poll, so the
+    odometer ranks fastest at the next arrival's trip counter sample, and
+    the counter's sample at the arrival is of the slower role. The exit
+    window is still measured from that arrival: the unlock 60 s before it
+    is the driver getting out, and the trip departs at the morning's
+    unlock, not there."""
+    b = cycle_builder(tmp_path, capsys)
+    b.heartbeat(0)
+    b.state(5, "lock", "unlocked", before=4).state(6, "engine", "on", before=4).state(7, "lock", "locked", before=5)
+    b.state(30, "engine", "off", before=28).state(30, "trip_distance", 16.5, "km", before=28)
+    b.state(30, "odometer", 1015, "km", before=20)
+    b.state(32, "odometer", 1016, "km", before=31.2)          # a late report, 48 s after its poll
+    b.heartbeat(60).heartbeat(120).heartbeat(180)
+    b.state(200, "engine", "on", before=198).state(200, "trip_distance", 0.0, "km", before=198)
+    b.state(200.5, "lock", "unlocked", before=199).state(201.5, "lock", "locked", before=200.5)
+    b.state(219, "lock", "unlocked", before=218)              # the arrival's unlock, a minute early
+    b.state(220, "engine", "off", before=218).state(220, "trip_distance", 15.5, "km", before=218)
+    b.state(229, "odometer", 1031, "km", before=220)
+    b.heartbeat(280)
+    _first, t = trips.derive_from(tmp_path, V, completed_only=True)
+    assert (t.start, t.refined_by["start"], t.end, t.distance_km) == (at(200.5), "lock", at(220), 15.5)
+
+
 def test_the_latest_unlock_departs_not_one_to_fetch_something(tmp_path, capsys):
     b = cycle_builder(tmp_path, capsys)
     b.heartbeat(0)

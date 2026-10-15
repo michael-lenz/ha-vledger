@@ -855,42 +855,60 @@ def _legs(s: Stream, anchor: str | None, exit_window_s: float, still: timedelta
                 return True
         return False
 
-    departures = [k for k in marks if not door(k) and not (k.role == "lock" and exit_(k))]
+    def departing() -> list[Marker]:
+        return [k for k in marks if not door(k) and not (k.role == "lock" and exit_(k))]
 
-    def departs_between(a: str | None, b: str) -> bool:
-        return any(_after_before(k.t, a, b) or k.t == b for k in departures)
+    def arrival_of(a: list[Movement]) -> str:
+        return next((m.t for m in a if fast[m]), a[0].t)
 
-    # Arrivals opened and joined by the fastest role.
-    arrivals: list[list[Movement]] = []
-    for m in (m for m in moves if fast[m]):
-        if not arrivals:
-            if anchor is not None and not departs_between(anchor, m.t):
-                continue                     # the anchor's own, already read
+    def grouped(departures: list[Marker]) -> list[list[Movement]]:
+        def departs_between(a: str | None, b: str) -> bool:
+            return any(_after_before(k.t, a, b) or k.t == b for k in departures)
+
+        # Arrivals opened and joined by the fastest role.
+        arrivals: list[list[Movement]] = []
+        for m in (m for m in moves if fast[m]):
+            if not arrivals:
+                if anchor is not None and not departs_between(anchor, m.t):
+                    continue                 # the anchor's own, already read
+                arrivals.append([m])
+            elif departs_between(arrivals[-1][-1].t, m.t):
+                arrivals.append([m])
+            else:
+                arrivals[-1].append(m)
+        # Each slower sample by the departures around it.
+        for m in (m for m in moves if not fast[m]):
+            before = [a for a in arrivals if clock.parse(a[0].t) <= clock.parse(m.t)]
+            prev_t = before[-1][0].t if before else anchor
+            if prev_t is not None and not departs_between(prev_t, m.t):
+                if before:
+                    before[-1].append(m)
+                continue                     # the anchor's: already read
+            later = [a for a in arrivals if clock.parse(a[0].t) > clock.parse(m.t)]
+            if later and not departs_between(m.t, later[0][0].t):
+                later[0].append(m)
+                continue
             arrivals.append([m])
-        elif departs_between(arrivals[-1][-1].t, m.t):
-            arrivals.append([m])
-        else:
-            arrivals[-1].append(m)
-    # Each slower sample by the departures around it.
-    for m in (m for m in moves if not fast[m]):
-        before = [a for a in arrivals if clock.parse(a[0].t) <= clock.parse(m.t)]
-        prev_t = before[-1][0].t if before else anchor
-        if prev_t is not None and not departs_between(prev_t, m.t):
-            if before:
-                before[-1].append(m)
-            continue                         # the anchor's: already read
-        later = [a for a in arrivals if clock.parse(a[0].t) > clock.parse(m.t)]
-        if later and not departs_between(m.t, later[0][0].t):
-            later[0].append(m)
-            continue
-        arrivals.append([m])
-        arrivals.sort(key=lambda a: clock.parse(a[0].t))
-    for a in arrivals:
-        a.sort(key=lambda m: clock.parse(m.t))
+            arrivals.sort(key=lambda a: clock.parse(a[0].t))
+        for a in arrivals:
+            a.sort(key=lambda m: clock.parse(m.t))
+        return arrivals
+
+    departures = departing()
+    arrivals = grouped(departures)
+    # An arrival no sample of the fastest role opened — the ranking moved
+    # between the previous stop and this one — is an arrival still, and
+    # the exit window is measured from it (ISSUE-0077). Fewer departures
+    # only merge groups, whose arrivals are anchors already: one pass more.
+    opened = [arrival_of(a) for a in arrivals if arrival_of(a) not in anchors]
+    if opened:
+        anchors += opened
+        departures = departing()
+        arrivals = grouped(departures)
     legs: list[Leg] = []
     previous = anchor
     for a in arrivals:
-        arrival = next((m.t for m in a if fast[m]), a[0].t)
+        arrival = arrival_of(a)
         unlocks = [k for k in departures if k.role == "lock" and _after_before(k.t, previous, arrival)]
         if unlocks:
             dep, by = unlocks[-1].t, "lock"
