@@ -194,7 +194,7 @@ recomputation.
 
 **Battery-side energy.** A charging session's ΔSoC × net battery
 capacity: what went into the battery, estimated. A period's battery
-energy is the other direction, what came out (**Period**).
+energy consumed is the other direction, what came out (**Period**).
 
 **Grid-side energy.** What was drawn from the grid: from a receipt, else the
 charge point's meter difference, else battery-side energy × the **charging
@@ -233,7 +233,7 @@ use what was consumed: electricity corrected for the change in SoC stock
 between the period's start and end, fuel as the sum of the trips'
 trip-computer figures where every trip has one, else corrected for the
 change in fuel level stock likewise (ADR-0049). So a period's **battery
-energy** is what the battery delivered — its sessions' battery-side
+energy consumed** is what the battery delivered — its sessions' battery-side
 energy plus the fall in SoC × net battery capacity — and exceeds its
 grid energy whenever the battery holds less than at the period's start
 by more than the charging losses: after a drive from a fuller battery,

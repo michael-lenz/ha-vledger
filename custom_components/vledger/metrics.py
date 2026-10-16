@@ -60,7 +60,7 @@ METRICS: tuple[Metric, ...] = (
     Metric("fuel_cost_eur", "Fuel cost", FUEL, SUM, SensorDeviceClass.MONETARY, CURRENCY, 2),
     Metric("tank_fills", "Tank fills", FUEL, SUM, None, None, 2),
     Metric("grid_kwh", "Grid energy", ELECTRICITY, SUM, SensorDeviceClass.ENERGY, UnitOfEnergy.KILO_WATT_HOUR, 2),
-    Metric("battery_kwh", "Battery energy", ELECTRICITY, SUM, SensorDeviceClass.ENERGY, UnitOfEnergy.KILO_WATT_HOUR, 2,
+    Metric("battery_kwh", "Battery energy consumed", ELECTRICITY, SUM, SensorDeviceClass.ENERGY, UnitOfEnergy.KILO_WATT_HOUR, 2,
            rests_on=(SOC_STOCK,)),
     Metric("electricity_cost_eur", "Electricity cost", ELECTRICITY, SUM, SensorDeviceClass.MONETARY, CURRENCY, 2),
     Metric("grid_kwh_per_100km", "Grid energy per 100 km", ELECTRICITY, RATE,

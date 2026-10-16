@@ -1137,7 +1137,7 @@
         }
       },
       "battery_kwh_month": {
-        "name": "Batterieenergie im laufenden Monat",
+        "name": "Verbrauchte Batterieenergie im laufenden Monat",
         "state_attributes": {
           "state_held": { "name": "Zustand gehalten" },
           "start": { "name": "Beginn" },
@@ -1149,7 +1149,7 @@
         }
       },
       "battery_kwh_year": {
-        "name": "Batterieenergie im laufenden Jahr",
+        "name": "Verbrauchte Batterieenergie im laufenden Jahr",
         "state_attributes": {
           "state_held": { "name": "Zustand gehalten" },
           "start": { "name": "Beginn" },
@@ -1161,7 +1161,7 @@
         }
       },
       "battery_kwh_rolling": {
-        "name": "Batterieenergie im gleitenden Zeitraum",
+        "name": "Verbrauchte Batterieenergie im gleitenden Zeitraum",
         "state_attributes": {
           "state_held": { "name": "Zustand gehalten" },
           "start": { "name": "Beginn" },
@@ -1625,7 +1625,7 @@
         }
       },
       "battery_kwh_total": {
-        "name": "Batterieenergie insgesamt",
+        "name": "Verbrauchte Batterieenergie insgesamt",
         "state_attributes": {
           "state_held": {
             "name": "Zustand gehalten"

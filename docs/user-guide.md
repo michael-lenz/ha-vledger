@@ -200,19 +200,19 @@ energies, as the receipt forms do:
 |---|---|---|
 | **Distance**, **Cost per 100 km** | every vehicle | sum, rate |
 | **Fuel purchased**, **Fuel consumed**, **Fuel cost**, **Tank fills** | a vehicle with a fuel | sums |
-| **Grid energy**, **Battery energy**, **Electricity cost**, **Charge cycles** | a vehicle with a net battery capacity | sums |
+| **Grid energy**, **Battery energy consumed**, **Electricity cost**, **Charge cycles** | a vehicle with a net battery capacity | sums |
 | **Grid energy per 100 km**, **Battery energy per 100 km** | a vehicle with a net battery capacity | rates |
 | **Fuel cost per 100 km**, **Electricity cost per 100 km**, **Electric energy share**, **Electric distance share** | a vehicle with both | rates, shares |
 
-**Grid energy** is what was charged from the grid, **Battery energy** what
-the battery delivered: what was charged into it, plus how much lower it
-stands than when the period began ([glossary](glossary.md), *Period*). So
-Battery energy can stand above Grid energy: in a month that began with a
-full battery, after a drive and while the charge that refills it runs,
-the battery has delivered energy that no completed charge has bought yet.
-When the charge completes, Grid energy steps up by it and Battery energy
-stays where it was — the refill now counts as charged instead of as
-missing stock.
+**Grid energy** is what was charged from the grid, **Battery energy
+consumed** what the battery delivered: what was charged into it, plus how
+much lower it stands than when the period began ([glossary](glossary.md),
+*Period*). So Battery energy consumed can stand above Grid energy: in a
+month that began with a full battery, after a drive and while the charge
+that refills it runs, the battery has delivered energy that no completed
+charge has bought yet. When the charge completes, Grid energy steps up by
+it and Battery energy consumed stays where it was — the refill now counts
+as charged instead of as missing stock.
 
 Each is named after its period — *Distance this month*, *Distance this
 year*, *Distance in the rolling period*. The month's entities are
@@ -225,7 +225,7 @@ it spans and its relative error as attributes; **Grid energy per 100 km in
 total** and **Battery energy per 100 km in total**, the electricity
 consumption on the whole distance since capture began; and the totals
 **Distance in total**, **Fuel consumed in total**, **Grid energy in
-total** and **Battery energy in total**. The fuel consumption on the
+total** and **Battery energy consumed in total**. The fuel consumption on the
 whole distance is the tank-to-tank figure, never a sum of the trips'.
 
 Every metric entity's attributes are its line's **Start**, **End**,
@@ -233,10 +233,11 @@ Every metric entity's attributes are its line's **Start**, **End**,
 fuel metrics add whether the fuel level corrected them, electricity
 metrics whether the state of charge did.
 
-A metric that rests on such a correction — fuel consumed, battery energy,
-the costs per 100 km and the electric shares, in the periods and in total
-— keeps the value it last showed with the correction while the current
-line lacks it, and its attribute **State held** says so. That is the
+A metric that rests on such a correction — fuel consumed, battery
+energy consumed, the costs per 100 km and the electric shares, in the
+periods and in total — keeps the value it last showed with the
+correction while the current line lacks it, and its attribute **State
+held** says so. That is the
 minute after a Home Assistant restart, until the vehicle reports again:
 the figures stay where they were instead of jumping by the whole stock
 change and back. A new month shows its own line from the start, and a

@@ -181,8 +181,26 @@ async def test_the_overall_consumption_and_totals_are_the_lifetime_lines(hass, p
     assert s.attributes["fuel_level_corrected"] is True
     s = _state(hass, "sensor.golf_grid_energy_in_total")
     assert float(s.state) == 1210.5 and s.attributes["device_class"] == "energy"
-    assert float(_state(hass, "sensor.golf_battery_energy_in_total").state) == 1080.8
+    assert float(_state(hass, "sensor.golf_battery_energy_consumed_in_total").state) == 1080.8
     assert {"start", "end", "gaps", "state_quality"} <= set(s.attributes)
+
+
+async def test_a_renamed_metric_keeps_the_entity_id_it_was_registered_under(hass, phev_entry, period_lines):
+    """ADR-0060: battery energy is named as consumed, and an installation
+    from before keeps its entity ids and their history — the unique id and
+    the translation key stay, only the name shown follows."""
+    period_lines.append(line("lifetime", "2026-07-01T08:00:00.000Z", "2026-10-09T10:00:00.000Z",
+                             battery_kwh=1080.8))
+    phev_entry.add_to_hass(hass)
+    er.async_get(hass).async_get_or_create(
+        "sensor", "vledger", "b8d2_battery_kwh_total", config_entry=phev_entry,
+        suggested_object_id="golf_battery_energy_in_total")
+    assert await hass.config_entries.async_setup(phev_entry.entry_id)
+    await _settle(hass, phev_entry)
+    s = _state(hass, "sensor.golf_battery_energy_in_total")
+    assert float(s.state) == 1080.8
+    assert s.attributes["friendly_name"] == "Golf Battery energy consumed in total"
+    assert hass.states.get("sensor.golf_battery_energy_consumed_in_total") is None
 
 
 async def _rewrite(hass, entry, subject_id):
@@ -222,7 +240,7 @@ async def test_a_metric_resting_on_a_missing_correction_holds_its_last_corrected
     assert float(s.state) == 18.815 and s.attributes["state_held"] is True
     s = _state(hass, "sensor.golf_electric_energy_share_this_month")
     assert float(s.state) == 3.61 and s.attributes["state_held"] is True
-    s = _state(hass, "sensor.golf_battery_energy_this_month")
+    s = _state(hass, "sensor.golf_battery_energy_consumed_this_month")
     assert float(s.state) == 2.1 and s.attributes["state_held"] is False    # the SoC still corrects it
     assert float(_state(hass, "sensor.golf_distance_this_month").state) == 61.0
     s = _state(hass, "sensor.golf_fuel_consumed_in_total")

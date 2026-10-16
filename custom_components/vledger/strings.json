@@ -1137,7 +1137,7 @@
         }
       },
       "battery_kwh_month": {
-        "name": "Battery energy this month",
+        "name": "Battery energy consumed this month",
         "state_attributes": {
           "state_held": { "name": "State held" },
           "start": { "name": "Start" },
@@ -1149,7 +1149,7 @@
         }
       },
       "battery_kwh_year": {
-        "name": "Battery energy this year",
+        "name": "Battery energy consumed this year",
         "state_attributes": {
           "state_held": { "name": "State held" },
           "start": { "name": "Start" },
@@ -1161,7 +1161,7 @@
         }
       },
       "battery_kwh_rolling": {
-        "name": "Battery energy in the rolling period",
+        "name": "Battery energy consumed in the rolling period",
         "state_attributes": {
           "state_held": { "name": "State held" },
           "start": { "name": "Start" },
@@ -1625,7 +1625,7 @@
         }
       },
       "battery_kwh_total": {
-        "name": "Battery energy in total",
+        "name": "Battery energy consumed in total",
         "state_attributes": {
           "state_held": {
             "name": "State held"
