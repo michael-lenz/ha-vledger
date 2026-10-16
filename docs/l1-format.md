@@ -156,7 +156,7 @@ the weakest of the line's.
 | `fuel_purchased_l`, `fuel_cost_eur` | what was bought: receipt quantities and prices; an unreceipted candidate by its `sensor_delta_l` at its `price_suggestion`, `estimated`, its cost `incomplete` without a price |
 | `fuel_consumed_l` | Σ the trips' `fuel_consumed_l` where every trip of the period has one from the trip computer, `measured`; else `fuel_purchased_l` + (level at start − level at end), `estimated` (ADR-0049) |
 | `grid_kwh`, `electricity_cost_eur` | Σ the sessions' `grid_kwh` and `cost_eur` as they carry them — priced at the tariff of their start, never re-priced here |
-| `battery_kwh` | Σ the sessions' `battery_kwh` + (SoC at start − SoC at end) × the net battery capacity; `null` without a capacity |
+| `battery_kwh` | Σ the sessions' `battery_kwh` + (SoC at start − SoC at end) × the net battery capacity — what the battery delivered, not what was charged into it, so it can exceed `grid_kwh`; `null` without a capacity |
 | `grid_kwh_per_100km`, `battery_kwh_per_100km` | on the whole distance, also with two energy carriers |
 | `fuel_eur_per_100km` | `fuel_consumed_l` at the period's mean receipt price (Σ price / Σ litres; with no receipt in the period, the last receipt's unit price before its end), per 100 km |
 | `electricity_eur_per_100km` | the electricity cost plus the SoC stock change, as grid-side kWh (× the charging loss factor) at the period's mean price per grid-side kWh, per 100 km |

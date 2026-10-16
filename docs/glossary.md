@@ -178,8 +178,9 @@ session whose position lies within no charge point's radius is at a
 valid price. Cost always uses the tariff valid at the event's time, also on
 recomputation.
 
-**Battery-side energy.** ΔSoC × net battery capacity: what went into the
-battery, estimated.
+**Battery-side energy.** A charging session's ΔSoC × net battery
+capacity: what went into the battery, estimated. A period's battery
+energy is the other direction, what came out (**Period**).
 
 **Grid-side energy.** What was drawn from the grid: from a receipt, else the
 charge point's meter difference, else battery-side energy × the **charging
@@ -212,11 +213,18 @@ extended over consecutive receipts until one qualifies.
 time zone — or the **rolling period** (default 30 days, ending at the
 stream's last line) the metrics are reported for; the **lifetime** is the
 whole of capture. Purchase figures (litres
-refuelled, fuel cost) count what was bought in the period; rates (cost per
-100 km, kWh/100 km) use what was consumed: electricity corrected for the
-change in SoC stock between the period's start and end, fuel as the sum
-of the trips' trip-computer figures where every trip has one, else
-corrected for the change in fuel level stock likewise (ADR-0049). A cost is an
+refuelled, fuel cost, grid energy, electricity cost) count what was bought
+in the period; consumption figures and rates (cost per 100 km, kWh/100 km)
+use what was consumed: electricity corrected for the change in SoC stock
+between the period's start and end, fuel as the sum of the trips'
+trip-computer figures where every trip has one, else corrected for the
+change in fuel level stock likewise (ADR-0049). So a period's **battery
+energy** is what the battery delivered — its sessions' battery-side
+energy plus the fall in SoC × net battery capacity — and exceeds its
+grid energy whenever the battery holds less than at the period's start
+by more than the charging losses: after a drive from a fuller battery,
+and while the charge that refills it runs, which counts only once it is
+complete (ADR-0033). A cost is an
 amount in the instance's currency, whatever its key says ([l1-format.md](l1-format.md#files)).
 
 **Electric energy share.** Electricity's share of the energy put in, by the

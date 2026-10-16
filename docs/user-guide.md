@@ -204,6 +204,16 @@ energies, as the receipt forms do:
 | **Grid energy per 100 km**, **Battery energy per 100 km** | a vehicle with a net battery capacity | rates |
 | **Fuel cost per 100 km**, **Electricity cost per 100 km**, **Electric share of energy**, **Electric share of distance** | a vehicle with both | rates, shares |
 
+**Grid energy** is what was charged from the grid, **Battery energy** what
+the battery delivered: what was charged into it, plus how much lower it
+stands than when the period began ([glossary](glossary.md), *Period*). So
+Battery energy can stand above Grid energy: in a month that began with a
+full battery, after a drive and while the charge that refills it runs,
+the battery has delivered energy that no completed charge has bought yet.
+When the charge completes, Grid energy steps up by it and Battery energy
+stays where it was — the refill now counts as charged instead of as
+missing stock.
+
 Each is named after its period — *Distance this month*, *Distance this
 year*, *Distance in the rolling period*. The month's entities are
 enabled; the year's and the rolling period's exist but are disabled, and
