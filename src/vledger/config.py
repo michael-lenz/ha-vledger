@@ -15,7 +15,7 @@ from datetime import date
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from vledger import clock
-from vledger.l0 import CHARGEPOINT_ROLES, VEHICLE_ROLES
+from vledger.l0 import CHARGEPOINT_ROLES, DROPOUT_STATES, VEHICLE_ROLES
 
 #: A role whose change means the vehicle moved; one is mandatory (FZG-02).
 MOVEMENT_ROLES = ("odometer", "position", "position_latitude",
@@ -224,7 +224,7 @@ def domain_state(role: str, value: str, mapping: dict) -> str | None:
     the negative one. What was met and not mapped is reported alongside, so
     the map can be completed.
     """
-    if value in ("unavailable", "unknown"):
+    if value in DROPOUT_STATES:
         return None
     if value in (mapping.get(DOMAIN_STATES[role]) or []):
         return DOMAIN_STATES[role]

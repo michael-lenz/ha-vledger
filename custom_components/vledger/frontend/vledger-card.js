@@ -435,7 +435,7 @@ class VledgerCardEditor extends HTMLElement {
     const s = M.stringsFor(this._hass.locale?.language ?? this._hass.language);
     if (!this._device) {
       this._device = document.createElement("ha-selector");
-      this._device.selector = { device: { filter: { integration: M.DOMAIN, model: "vehicle" } } };
+      this._device.selector = { device: { filter: { integration: M.DOMAIN, model_id: "vehicle" } } };
       this._device.addEventListener("value-changed", (e) => this._changed("device", e.detail.value));
       this._counts = Object.fromEntries(["trips", "energy_events"].map((key) => {
         const node = document.createElement("ha-selector");

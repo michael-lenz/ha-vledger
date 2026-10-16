@@ -28,6 +28,10 @@ VERSION = 5
 KINDS = ("state", "start", "stop", "heartbeat", "config")
 STOP_REASONS = ("shutdown", "unload", "reload")
 
+#: The states that are a dropout, not a value — a sensor with nothing to
+#: say (glossary, *Dropout*). The one spelling every reader uses.
+DROPOUT_STATES = ("unavailable", "unknown")
+
 #: The roles a vehicle's entities may be assigned to, and a charge point's.
 #: The sensor-pair variant of position logs under two roles of its own.
 VEHICLE_ROLES = (

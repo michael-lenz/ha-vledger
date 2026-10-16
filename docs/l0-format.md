@@ -1,7 +1,7 @@
 # The L0 record format
 
-*Design document — the layout of the raw log, version 4, as decided in
-ADR-0004, ADR-0011, ADR-0021, ADR-0022 and ADR-0025 of the project's register. This page is the
+*Design document — the layout of the raw log, version 5, as decided in
+ADR-0004, ADR-0011, ADR-0021, ADR-0022, ADR-0025 and ADR-0036 of the project's register. This page is the
 specification a reader of their own files needs; the reasoning is in the
 decisions.*
 
@@ -20,7 +20,7 @@ fixed keys, then the keys of its kind:
 
 | key | meaning |
 |---|---|
-| `v` | schema version, integer; this page defines 4, and what earlier ones lack ([Versioning](#versioning)) |
+| `v` | schema version, integer; this page defines 5, and what earlier ones lack ([Versioning](#versioning)) |
 | `t` | the Home Assistant time of the event: UTC, ISO 8601, milliseconds, `Z` |
 | `kind` | `state`, `start`, `stop`, `heartbeat` or `config` |
 | `subject` | the vehicle or charge point this line belongs to |

@@ -25,9 +25,6 @@ from vledger import clock, l0, layout
 from vledger import config as vconfig
 from vledger.layout import Subject
 
-#: States that mean the source was not heard, not that it reported.
-OUTAGE_STATES = ("unavailable", "unknown")
-
 
 @dataclass(frozen=True)
 class Intervals:
@@ -142,7 +139,7 @@ def scan(base: Path, subject: Subject, *, since: str | None = None,
                 if before >= run_began:
                     sampling.setdefault(role, []).append(
                         (clock.parse(t) - before).total_seconds())
-            if line["state"] in OUTAGE_STATES:
+            if line["state"] in l0.DROPOUT_STATES:
                 outage.add(role)
             else:
                 outage.discard(role)

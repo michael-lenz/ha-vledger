@@ -34,6 +34,7 @@ from .const import (
     OPT_BASE_PATH,
     OPT_NOTIFY_TARGET,
 )
+from .metrics import L_PER_100KM
 
 # Which Home Assistant domains fit each role's entity selector.
 _ROLE_DOMAINS: dict[str, list[str]] = {
@@ -48,14 +49,15 @@ _ROLE_DOMAINS: dict[str, list[str]] = {
 }
 
 #: Every threshold of ``vconfig.DEFAULT_THRESHOLDS`` with the unit its form
-#: field shows; a test holds this list to the library's (ISSUE-0041).
+#: field shows, a rate spelled as the entities spell it (ISSUE-0038); a test
+#: holds this list to the library's (ISSUE-0041).
 _THRESHOLD_UNITS = {
     "t_still_s": "s", "min_move_m": "m", "refuel_threshold_l": "L", "t_settle_s": "s",
     "charging_threshold_pct": "%", "matching_tolerance_s": "s", "plausibility_pct": "%",
     "heartbeat_s": "s", "outage_s": "s", "rolling_period_d": "d",
     "consumption_error_pct": "%", "heating_value_kwh_per_l": "kWh/L",
     "beta_per_k": "1/K", "temperature_tau_s": "s", "exit_window_s": "s",
-    "trip_consumption_step_l_per_100km": "L/100 km",
+    "trip_consumption_step_l_per_100km": L_PER_100KM,
 }
 
 
@@ -202,8 +204,7 @@ class VledgerConfigFlow(ConfigFlow, domain=DOMAIN):
                 if any(r in vconfig.DOMAIN_STATES for r in roles):
                     return await self.async_step_mapping()
                 return await self.async_step_parameters()
-        return self.async_show_form(step_id="roles", data_schema=_roles_schema(), errors=errors,
-                                    description_placeholders={"movement": ", ".join(vconfig.MOVEMENT_ROLES)})
+        return self.async_show_form(step_id="roles", data_schema=_roles_schema(), errors=errors)
 
     async def async_step_mapping(self, user_input=None) -> ConfigFlowResult:
         if user_input is not None:
@@ -287,8 +288,7 @@ class VledgerOptionsFlow(OptionsFlow):
                 return self._finish(opts)
         schema = self.add_suggested_values_to_schema(
             _roles_schema(), {r: s["entity"] for r, s in opts["roles"].items()})
-        return self.async_show_form(step_id="roles", data_schema=schema, errors=errors,
-                                    description_placeholders={"movement": ", ".join(vconfig.MOVEMENT_ROLES)})
+        return self.async_show_form(step_id="roles", data_schema=schema, errors=errors)
 
     async def async_step_mapping(self, user_input=None) -> ConfigFlowResult:
         opts = self._opts

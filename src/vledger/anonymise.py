@@ -33,7 +33,6 @@ from vledger.layout import Subject
 
 KEPT_ZONES = ("home", "not_home")
 FREE_TEXT = ("place", "provider", "note")
-UNREPORTED = ("unavailable", "unknown")
 
 
 class Anonymiser:
@@ -67,7 +66,7 @@ class Anonymiser:
         return self.entities[entity]
 
     def zone(self, state: str) -> str:
-        if state in KEPT_ZONES or state in UNREPORTED:
+        if state in KEPT_ZONES or state in l0.DROPOUT_STATES:
             return state
         return self.zones.setdefault(state, f"zone_{len(self.zones) + 1}")
 
@@ -89,7 +88,7 @@ class Anonymiser:
                 attrs["longitude"] = self.longitude(attrs["longitude"])
             if attrs:
                 e["attrs"] = attrs
-        elif role in ("position_latitude", "position_longitude") and state not in UNREPORTED:
+        elif role in ("position_latitude", "position_longitude") and state not in l0.DROPOUT_STATES:
             shift = self.latitude if role == "position_latitude" else self.longitude
             try:
                 e["state"] = repr(shift(float(state)))

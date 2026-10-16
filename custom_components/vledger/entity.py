@@ -10,8 +10,12 @@ from homeassistant.helpers.entity import Entity
 
 from vledger.layout import Subject
 
-from .const import DOMAIN
+from .const import DOMAIN, KIND_CHARGEPOINT, KIND_VEHICLE
 from .receipt_desk import ReceiptDesk
+
+#: What the device page shows as the model, per kind; the kind itself is
+#: the model id, which the card's device filter reads.
+MODELS = {KIND_VEHICLE: "Vehicle", KIND_CHARGEPOINT: "Charge point"}
 
 
 def device_info(subject: Subject, config: dict) -> DeviceInfo:
@@ -19,7 +23,8 @@ def device_info(subject: Subject, config: dict) -> DeviceInfo:
         identifiers={(DOMAIN, subject.id)},
         name=config.get("name", subject.id),
         manufacturer="vledger",
-        model=subject.kind,
+        model=MODELS[subject.kind],
+        model_id=subject.kind,
     )
 
 

@@ -52,7 +52,7 @@ behaviour is the design, held as requirements in the project's register
 - **Reports.** Per month, year and rolling period: distance, litres and kWh,
   fuel and electricity cost, the cost per 100 km per energy carrier, the electric
   share two ways (energy by heating value, and an estimated distance
-  share), charge cycles and tank-fill equivalents. Fuel consumption is
+  share), charge cycles and tank fills. Fuel consumption is
   tank-to-tank between any two receipts, corrected by the fuel level sensor,
   so a tank that is never filled up still gets a figure. A single trip's
   fuel and battery energy are its own figures beside that, in litres and
@@ -90,7 +90,7 @@ configured in the UI; no YAML.
 | Document | What it is |
 |---|---|
 | [docs/user-guide.md](docs/user-guide.md) | What a participant types: the `vledger` command, verb by verb |
-| [docs/l0-format.md](docs/l0-format.md) | The raw log's layout, version 4 — the specification a reader of their own files needs |
+| [docs/l0-format.md](docs/l0-format.md) | The raw log's layout, version 5 — the specification a reader of their own files needs |
 | [docs/l1-format.md](docs/l1-format.md) | The derivation on disk: files, manifest, cursor, rebuilds, and the exports rendered from it |
 | [docs/derivations.md](docs/derivations.md) | How each detection works as built: algorithm, roles and parameters, quality flags, limitations |
 | [docs/receipts-format.md](docs/receipts-format.md) | Receipts on disk, corrections and cancellations, and how they meet events |

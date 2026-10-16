@@ -17,8 +17,8 @@ from vledger import clock, geo, l0, layout, units
 from vledger import config as vconfig
 from vledger.layout import Subject
 
-#: The states that are a dropout, not a value: a sensor with nothing to say.
-DROPOUT_STATES = ("unavailable", "unknown")
+#: The states that are a dropout, not a value: L0's one spelling of them.
+DROPOUT_STATES = l0.DROPOUT_STATES
 #: How far apart the lines of one upload can lie: a per-cycle vehicle's
 #: stop reaches the stream as a burst of lines milliseconds apart (ADR-0048,
 #: point 2), and what reads "the line in the same upload" reads this far.
@@ -105,7 +105,7 @@ def _position_from(line: dict) -> Fix | None:
     except (TypeError, ValueError):
         return None
     state = line.get("state")
-    zone = state if state not in (None, "unavailable", "unknown") else None
+    zone = state if state is not None and state not in DROPOUT_STATES else None
     return Fix(line["t"], lat, lon, geo.accuracy_m(attrs.get("gps_accuracy")), zone,
                line.get("reported_before"))
 

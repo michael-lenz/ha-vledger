@@ -18,13 +18,13 @@ choose what to add.
    on. Every role is optional; at least one movement role (odometer,
    position or trip counter) is required. What the ledger can do for the
    vehicle follows from the roles it has. An engine status (a plug-in
-   hybrid's *running* or *not running*) is assigned as **engine**, not as
+   hybrid's *running* or *not running*) is assigned as **Engine running**, not as
    the ignition: it can start a trip, never end one, since the engine stops
-   while the car drives on electrically. A **lock** likewise only starts
+   while the car drives on electrically. A **Lock** likewise only starts
    one — the car locks itself on driving off. A plug state and a charging
    state refine trips too — a vehicle that is plugged in or charging is not
    driving — so assign them even if the ledger is not to account for
-   charging. **In use** is for an entity that reports the vehicle being
+   charging. **Vehicle in use** is for an entity that reports the vehicle being
    used (a car connection saying *car in use*): it keeps a trip whole while
    the odometer and position only arrive at the stop; set T_still to twice
    its update interval (60 minutes for one updated every 30) — unless the
@@ -202,7 +202,7 @@ energies, as the receipt forms do:
 | **Fuel purchased**, **Fuel consumed**, **Fuel cost**, **Tank fills** | a vehicle with a fuel | sums |
 | **Grid energy**, **Battery energy**, **Electricity cost**, **Charge cycles** | a vehicle with a net battery capacity | sums |
 | **Grid energy per 100 km**, **Battery energy per 100 km** | a vehicle with a net battery capacity | rates |
-| **Fuel cost per 100 km**, **Electricity cost per 100 km**, **Electric share of energy**, **Electric share of distance** | a vehicle with both | rates, shares |
+| **Fuel cost per 100 km**, **Electricity cost per 100 km**, **Electric energy share**, **Electric distance share** | a vehicle with both | rates, shares |
 
 **Grid energy** is what was charged from the grid, **Battery energy** what
 the battery delivered: what was charged into it, plus how much lower it
@@ -415,7 +415,7 @@ as `vledger l1 read --last` reads them — a trip with its cost added,
 action: vledger.read_events
 data:
   config_entry_id: 01J…            # the vehicle
-  kind: refuelling                 # trip, refuelling or charging
+  kind: refuelling                 # trip, charging or refuelling
   last: 5                          # 10 unless given, at most 50
   waiting: true                    # only those waiting for a receipt
 response_variable: answer          # answer.events: the lines

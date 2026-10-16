@@ -28,20 +28,28 @@ the configuration that was in force at any moment.
 **Schema version.** The version of the L0 record layout, carried by every
 record; every earlier version stays readable.
 
+**Subject.** What a stream belongs to: a vehicle or a charge point, named
+by the UUID the integration mints when it is created — the subject id,
+which names its directory on disk and is what `--vehicle ID` and
+`--chargepoint ID` take ([l0-format.md](l0-format.md#subjects)).
+
 ## Sources
 
 **Source entity.** An entity of any other integration that reports vehicle
 or charge point data. The system reads it and never asks it to refresh.
 
-**Role.** The domain meaning of a source entity: `odometer`, `position`,
-`trip_distance`, `trip_consumption`, `fuel_level`, `soc`, `charging_state`,
+**Role.** The domain meaning of a source entity: `odometer`, `position` —
+a device tracker, or the sensor pair `position_latitude` and
+`position_longitude` — `trip_distance`, `trip_consumption`, `fuel_level`,
+`soc`, `charging_state`,
 `plug_state`, `ignition`, `engine`, `lock`, `in_use`, `fuel_flap`,
 `outside_temperature`, `fuel_price` for a vehicle;
 `energy_meter` for a charge point — and `power`, which nothing assigns
 yet (ISSUE-0023). Every role is optional; what a vehicle can do follows
 from the roles it has.
 
-**Movement role.** `odometer`, `position` or `trip_distance` — a role whose
+**Movement role.** `odometer`, `position` (in either form) or
+`trip_distance` — a role whose
 change means the vehicle moved. At least one is mandatory.
 
 **Trip computer.** The car's own trip meter: its distance since its reset
@@ -71,6 +79,12 @@ states (`charging`, not charging).
 
 **Event.** A trip, a charging session or a refuelling — the things the
 derivation finds in L0.
+
+**Energy.** What a vehicle runs on: fuel, electricity or both, which
+follows from its parameters — a fuel, a net battery capacity. Each energy
+has its event kind (refuelling, charging session), its receipt and its
+metrics; a vehicle gets the forms, entities and card sections of the
+energies it uses.
 
 **Trip.** The span between two standstills, with start and destination,
 zones, distance, waypoints and mean outside temperature.
@@ -239,7 +253,7 @@ electrically, from the same energies weighted by assumed efficiencies
 100 %. SoC gained outside sessions (regeneration, the engine charging) does
 not count.
 
-**Tank-fill equivalents.** Σ litres refuelled / tank capacity.
+**Tank fills.** Full-tank equivalents: Σ litres refuelled / tank capacity.
 
 Both counters run cumulatively from the start of capture plus a configured
 starting value, and per period; across capture gaps they are lower bounds,

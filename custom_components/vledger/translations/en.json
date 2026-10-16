@@ -14,7 +14,7 @@
       },
       "roles": {
         "title": "Roles",
-        "description": "Assign the entities that report this vehicle. Every role is optional; at least one movement role is needed ({movement}).",
+        "description": "Assign the entities that report this vehicle. Every role is optional; at least one movement role is needed: the odometer, the position (a device tracker, or a latitude and a longitude sensor) or the trip counter.",
         "data": {
           "odometer": "Odometer",
           "position": "Position (device tracker)",
@@ -99,7 +99,7 @@
       },
       "roles": {
         "title": "Roles",
-        "description": "Every role is optional; at least one movement role is needed ({movement}).",
+        "description": "Every role is optional; at least one movement role is needed: the odometer, the position (a device tracker, or a latitude and a longitude sensor) or the trip counter.",
         "data": {
           "odometer": "Odometer",
           "position": "Position (device tracker)",
@@ -224,7 +224,7 @@
       "options": { "trip": "Trips", "charging": "Charging sessions", "refuelling": "Refuellings", "period": "Periods" }
     },
     "event_kind": {
-      "options": { "trip": "Trips", "refuelling": "Refuellings", "charging": "Charging sessions" }
+      "options": { "trip": "Trips", "charging": "Charging sessions", "refuelling": "Refuellings" }
     }
   },
   "entity": {
@@ -235,6 +235,13 @@
           "running": "Running",
           "stopped": "Stopped",
           "recomputing": "Recomputing"
+        },
+        "state_attributes": {
+          "lines_since_start": { "name": "State lines since start" },
+          "last_line_at": { "name": "Last line written" },
+          "last_heartbeat_at": { "name": "Last heartbeat" },
+          "base_path": { "name": "Data directory" },
+          "subject": { "name": "Subject" }
         }
       },
       "month_file_size": { "name": "Current month file size" },
@@ -242,11 +249,24 @@
       "month_files": { "name": "Month files" },
       "last_line": { "name": "Last line written" },
       "last_heartbeat": { "name": "Last heartbeat" },
-      "last_state_line": { "name": "Last state line" },
+      "last_state_line": {
+        "name": "Last state line",
+        "state_attributes": { "role": { "name": "Role" } }
+      },
       "lines_since_start": { "name": "State lines since start" },
       "lines_today": { "name": "State lines today" },
       "capture_gaps": { "name": "Capture gaps" },
-      "latest_capture_gap": { "name": "Latest capture gap" },
+      "latest_capture_gap": {
+        "name": "Latest capture gap",
+        "state_attributes": {
+          "reason": {
+            "name": "Reason",
+            "state": { "crash": "Crash", "stopped": "Stopped", "silence": "Silence", "open": "Open" }
+          },
+          "start": { "name": "Start" },
+          "end": { "name": "End" }
+        }
+      },
       "last_trip": {
         "name": "Last trip",
         "state_attributes": {
@@ -440,7 +460,7 @@
             "name": "Sensor quantity quality"
           },
           "price_suggestion": {
-            "name": "Suggested unit price"
+            "name": "Suggested price per litre"
           },
           "flap_opened_at": {
             "name": "Fuel flap opened"
@@ -455,7 +475,7 @@
             "name": "Price"
           },
           "unit_price": {
-            "name": "Unit price"
+            "name": "Price per litre"
           },
           "price_quality": {
             "name": "Price quality"
@@ -1366,7 +1386,7 @@
         }
       },
       "electric_energy_share_month": {
-        "name": "Electric share of energy this month",
+        "name": "Electric energy share this month",
         "state_attributes": {
           "state_held": { "name": "State held" },
           "start": { "name": "Start" },
@@ -1379,7 +1399,7 @@
         }
       },
       "electric_energy_share_year": {
-        "name": "Electric share of energy this year",
+        "name": "Electric energy share this year",
         "state_attributes": {
           "state_held": { "name": "State held" },
           "start": { "name": "Start" },
@@ -1392,7 +1412,7 @@
         }
       },
       "electric_energy_share_rolling": {
-        "name": "Electric share of energy in the rolling period",
+        "name": "Electric energy share in the rolling period",
         "state_attributes": {
           "state_held": { "name": "State held" },
           "start": { "name": "Start" },
@@ -1405,7 +1425,7 @@
         }
       },
       "electric_distance_share_month": {
-        "name": "Electric share of distance this month",
+        "name": "Electric distance share this month",
         "state_attributes": {
           "state_held": { "name": "State held" },
           "start": { "name": "Start" },
@@ -1418,7 +1438,7 @@
         }
       },
       "electric_distance_share_year": {
-        "name": "Electric share of distance this year",
+        "name": "Electric distance share this year",
         "state_attributes": {
           "state_held": { "name": "State held" },
           "start": { "name": "Start" },
@@ -1431,7 +1451,7 @@
         }
       },
       "electric_distance_share_rolling": {
-        "name": "Electric share of distance in the rolling period",
+        "name": "Electric distance share in the rolling period",
         "state_attributes": {
           "state_held": { "name": "State held" },
           "start": { "name": "Start" },
@@ -1685,7 +1705,7 @@
   },
   "services": {
     "add_refuelling_receipt": {
-      "name": "Add refuelling receipt",
+      "name": "Enter refuelling receipt",
       "description": "Enters a refuelling receipt for a vehicle, as `vledger receipt add refuelling` does, and answers with the line written, its UUID included.",
       "fields": {
         "config_entry_id": {
@@ -1735,7 +1755,7 @@
       }
     },
     "add_charging_receipt": {
-      "name": "Add charging receipt",
+      "name": "Enter charging receipt",
       "description": "Enters a charging receipt for a vehicle, as `vledger receipt add charging` does, and answers with the line written, its UUID included.",
       "fields": {
         "config_entry_id": {
@@ -1834,7 +1854,7 @@
         },
         "kind": {
           "name": "Kind",
-          "description": "Which events: trips, refuellings or charging sessions."
+          "description": "Which events: trips, charging sessions or refuellings."
         },
         "last": {
           "name": "How many",

@@ -14,7 +14,7 @@
       },
       "roles": {
         "title": "Rollen",
-        "description": "Ordne die Entitäten zu, die dieses Fahrzeug melden. Jede Rolle ist optional; mindestens eine Bewegungsrolle wird gebraucht ({movement}).",
+        "description": "Ordne die Entitäten zu, die dieses Fahrzeug melden. Jede Rolle ist optional; mindestens eine Bewegungsrolle wird gebraucht: der Kilometerstand, die Position (ein Device-Tracker oder je ein Sensor für Breiten- und Längengrad) oder der Trip-Zähler.",
         "data": {
           "odometer": "Kilometerstand",
           "position": "Position (Device-Tracker)",
@@ -99,7 +99,7 @@
       },
       "roles": {
         "title": "Rollen",
-        "description": "Jede Rolle ist optional; mindestens eine Bewegungsrolle wird gebraucht ({movement}).",
+        "description": "Jede Rolle ist optional; mindestens eine Bewegungsrolle wird gebraucht: der Kilometerstand, die Position (ein Device-Tracker oder je ein Sensor für Breiten- und Längengrad) oder der Trip-Zähler.",
         "data": {
           "odometer": "Kilometerstand",
           "position": "Position (Device-Tracker)",
@@ -175,7 +175,7 @@
         },
         "data_description": {
           "min_move_m": "Ein Fix, der näher als das am vorigen liegt, ist GPS-Zittern im Stand, keine Bewegung.",
-          "refuel_threshold_l": "Der kleinste Anstieg des Füllstands, der als Betankung zählt. Über den größten Anstieg setzen, den der Sensor ohne Betankung zeigt — ein Stand, der um 3 L danebenliegt, braucht 5 L — sonst wird jedes Schwappen ein Kandidat."
+          "refuel_threshold_l": "Der kleinste Anstieg des Füllstands, der als Tankvorgang zählt. Über den größten Anstieg setzen, den der Sensor ohne Tankvorgang zeigt — ein Stand, der um 3 L danebenliegt, braucht 5 L — sonst wird jedes Schwappen ein Kandidat."
         }
       },
       "meter": {
@@ -224,7 +224,7 @@
       "options": { "trip": "Fahrten", "charging": "Ladevorgänge", "refuelling": "Tankvorgänge", "period": "Perioden" }
     },
     "event_kind": {
-      "options": { "trip": "Fahrten", "refuelling": "Tankvorgänge", "charging": "Ladevorgänge" }
+      "options": { "trip": "Fahrten", "charging": "Ladevorgänge", "refuelling": "Tankvorgänge" }
     }
   },
   "entity": {
@@ -235,6 +235,13 @@
           "running": "Läuft",
           "stopped": "Gestoppt",
           "recomputing": "Neuberechnung"
+        },
+        "state_attributes": {
+          "lines_since_start": { "name": "Zustandszeilen seit Start" },
+          "last_line_at": { "name": "Letzte geschriebene Zeile" },
+          "last_heartbeat_at": { "name": "Letzter Heartbeat" },
+          "base_path": { "name": "Datenverzeichnis" },
+          "subject": { "name": "Subjekt" }
         }
       },
       "month_file_size": { "name": "Größe der aktuellen Monatsdatei" },
@@ -242,16 +249,29 @@
       "month_files": { "name": "Monatsdateien" },
       "last_line": { "name": "Letzte geschriebene Zeile" },
       "last_heartbeat": { "name": "Letzter Heartbeat" },
-      "last_state_line": { "name": "Letzte Zustandszeile" },
+      "last_state_line": {
+        "name": "Letzte Zustandszeile",
+        "state_attributes": { "role": { "name": "Rolle" } }
+      },
       "lines_since_start": { "name": "Zustandszeilen seit Start" },
       "lines_today": { "name": "Zustandszeilen heute" },
       "capture_gaps": { "name": "Erfassungslücken" },
-      "latest_capture_gap": { "name": "Letzte Erfassungslücke" },
+      "latest_capture_gap": {
+        "name": "Letzte Erfassungslücke",
+        "state_attributes": {
+          "reason": {
+            "name": "Grund",
+            "state": { "crash": "Absturz", "stopped": "Gestoppt", "silence": "Stille", "open": "Offen" }
+          },
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" }
+        }
+      },
       "last_trip": {
         "name": "Letzte Fahrt",
         "state_attributes": {
           "gaps": {
-            "name": "Aufzeichnungslücken"
+            "name": "Erfassungslücken"
           },
           "fuel_refuelled_l": {
             "name": "Während der Fahrt getankt"
@@ -461,7 +481,7 @@
             "name": "Qualität des Preises"
           },
           "full": {
-            "name": "Vollgetankt"
+            "name": "Volltankung"
           },
           "fuel": {
             "name": "Kraftstoff"
@@ -499,7 +519,7 @@
         "name": "Letzter Ladevorgang",
         "state_attributes": {
           "gaps": {
-            "name": "Aufzeichnungslücken"
+            "name": "Erfassungslücken"
           },
           "start": {
             "name": "Beginn"
@@ -891,7 +911,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
       },
@@ -901,7 +921,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
       },
@@ -911,7 +931,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
       },
@@ -922,7 +942,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
       },
@@ -933,7 +953,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
       },
@@ -944,7 +964,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
       },
@@ -954,7 +974,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
@@ -965,7 +985,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
@@ -976,7 +996,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
@@ -988,7 +1008,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
@@ -1000,7 +1020,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
@@ -1012,7 +1032,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
@@ -1023,7 +1043,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
@@ -1034,7 +1054,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
@@ -1045,7 +1065,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
@@ -1056,7 +1076,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
@@ -1067,7 +1087,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
@@ -1078,7 +1098,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
@@ -1089,7 +1109,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "soc_corrected": { "name": "Um den Ladestand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
@@ -1100,7 +1120,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "soc_corrected": { "name": "Um den Ladestand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
@@ -1111,7 +1131,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "soc_corrected": { "name": "Um den Ladestand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
@@ -1123,7 +1143,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "soc_corrected": { "name": "Um den Ladestand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
@@ -1135,7 +1155,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "soc_corrected": { "name": "Um den Ladestand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
@@ -1147,7 +1167,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "soc_corrected": { "name": "Um den Ladestand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
@@ -1158,7 +1178,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "soc_corrected": { "name": "Um den Ladestand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
@@ -1169,7 +1189,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "soc_corrected": { "name": "Um den Ladestand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
@@ -1180,7 +1200,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "soc_corrected": { "name": "Um den Ladestand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
@@ -1191,7 +1211,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "soc_corrected": { "name": "Um den Ladestand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
@@ -1202,7 +1222,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "soc_corrected": { "name": "Um den Ladestand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
@@ -1213,7 +1233,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "soc_corrected": { "name": "Um den Ladestand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
@@ -1225,7 +1245,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "soc_corrected": { "name": "Um den Ladestand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
@@ -1237,7 +1257,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "soc_corrected": { "name": "Um den Ladestand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
@@ -1249,7 +1269,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "soc_corrected": { "name": "Um den Ladestand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
@@ -1260,7 +1280,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "soc_corrected": { "name": "Um den Ladestand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
@@ -1271,7 +1291,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "soc_corrected": { "name": "Um den Ladestand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
@@ -1282,7 +1302,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "soc_corrected": { "name": "Um den Ladestand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
@@ -1294,7 +1314,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
           "soc_corrected": { "name": "Um den Ladestand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
@@ -1307,7 +1327,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
           "soc_corrected": { "name": "Um den Ladestand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
@@ -1320,7 +1340,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
           "soc_corrected": { "name": "Um den Ladestand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
@@ -1333,7 +1353,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
           "soc_corrected": { "name": "Um den Ladestand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
@@ -1346,7 +1366,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
           "soc_corrected": { "name": "Um den Ladestand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
@@ -1359,7 +1379,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
           "soc_corrected": { "name": "Um den Ladestand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
@@ -1372,7 +1392,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
           "soc_corrected": { "name": "Um den Ladestand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
@@ -1385,7 +1405,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
           "soc_corrected": { "name": "Um den Ladestand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
@@ -1398,7 +1418,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
           "soc_corrected": { "name": "Um den Ladestand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
@@ -1411,7 +1431,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
           "soc_corrected": { "name": "Um den Ladestand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
@@ -1424,7 +1444,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
           "soc_corrected": { "name": "Um den Ladestand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
@@ -1437,7 +1457,7 @@
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
           "open": { "name": "Läuft noch" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
           "soc_corrected": { "name": "Um den Ladestand korrigiert" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
@@ -1448,7 +1468,7 @@
         "state_attributes": {
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
       },
@@ -1457,7 +1477,7 @@
         "state_attributes": {
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
       },
@@ -1466,7 +1486,7 @@
         "state_attributes": {
           "start": { "name": "Beginn" },
           "end": { "name": "Ende" },
-          "gaps": { "name": "Aufzeichnungslücken" },
+          "gaps": { "name": "Erfassungslücken" },
           "consumption_from": { "name": "Ab dem Beleg vom" },
           "consumption_to": { "name": "Bis zum Beleg vom" },
           "consumption_receipts": { "name": "Umfasste Belege" },
@@ -1484,7 +1504,7 @@
             "name": "Ende"
           },
           "gaps": {
-            "name": "Aufzeichnungslücken"
+            "name": "Erfassungslücken"
           },
           "soc_corrected": {
             "name": "Um den Ladestand korrigiert"
@@ -1513,7 +1533,7 @@
             "name": "Ende"
           },
           "gaps": {
-            "name": "Aufzeichnungslücken"
+            "name": "Erfassungslücken"
           },
           "soc_corrected": {
             "name": "Um den Ladestand korrigiert"
@@ -1539,7 +1559,7 @@
             "name": "Ende"
           },
           "gaps": {
-            "name": "Aufzeichnungslücken"
+            "name": "Erfassungslücken"
           },
           "state_quality": {
             "name": "Qualität des Zustands",
@@ -1565,7 +1585,7 @@
             "name": "Ende"
           },
           "gaps": {
-            "name": "Aufzeichnungslücken"
+            "name": "Erfassungslücken"
           },
           "fuel_level_corrected": {
             "name": "Um den Tankfüllstand korrigiert"
@@ -1591,7 +1611,7 @@
             "name": "Ende"
           },
           "gaps": {
-            "name": "Aufzeichnungslücken"
+            "name": "Erfassungslücken"
           },
           "state_quality": {
             "name": "Qualität des Zustands",
@@ -1617,7 +1637,7 @@
             "name": "Ende"
           },
           "gaps": {
-            "name": "Aufzeichnungslücken"
+            "name": "Erfassungslücken"
           },
           "soc_corrected": {
             "name": "Um den Ladestand korrigiert"
@@ -1834,7 +1854,7 @@
         },
         "kind": {
           "name": "Art",
-          "description": "Welche Ereignisse: Fahrten, Tankvorgänge oder Ladevorgänge."
+          "description": "Welche Ereignisse: Fahrten, Ladevorgänge oder Tankvorgänge."
         },
         "last": {
           "name": "Wie viele",

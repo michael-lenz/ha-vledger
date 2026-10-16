@@ -122,7 +122,7 @@ async def test_sums_restart_with_their_period(hass, phev_entry, period_lines):
     s = _state(hass, "sensor.golf_cost_per_100_km_this_month")
     assert s.state == "unknown" and s.attributes["unit_of_measurement"] == "CHF/100km"
     assert s.attributes["state_quality"] is None
-    s = _state(hass, "sensor.golf_electric_share_of_energy_this_month")
+    s = _state(hass, "sensor.golf_electric_energy_share_this_month")
     assert float(s.state) == 43.21 and s.attributes["unit_of_measurement"] == "%"
 
     # total, never total_increasing: a rebuild may lower a counter.
@@ -220,7 +220,7 @@ async def test_a_metric_resting_on_a_missing_correction_holds_its_last_corrected
     assert s.attributes["fuel_level_corrected"] is False
     s = _state(hass, "sensor.golf_cost_per_100_km_this_month")
     assert float(s.state) == 18.815 and s.attributes["state_held"] is True
-    s = _state(hass, "sensor.golf_electric_share_of_energy_this_month")
+    s = _state(hass, "sensor.golf_electric_energy_share_this_month")
     assert float(s.state) == 3.61 and s.attributes["state_held"] is True
     s = _state(hass, "sensor.golf_battery_energy_this_month")
     assert float(s.state) == 2.1 and s.attributes["state_held"] is False    # the SoC still corrects it

@@ -322,7 +322,7 @@ class Capture:
             role = self.entities[entity_id]
             line = last_states.get(role)
             if (not line or line.get("entity") != entity_id
-                    or line["state"] not in stats.OUTAGE_STATES
+                    or line["state"] not in l0.DROPOUT_STATES
                     or clock.parse(line["t"]) >= clock.parse(since)):
                 continue
             self._cancel_outage(entity_id)

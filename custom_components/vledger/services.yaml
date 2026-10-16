@@ -173,8 +173,8 @@ read_events:
         select:
           options:
             - trip
-            - refuelling
             - charging
+            - refuelling
           translation_key: event_kind
     last:
       default: 10
