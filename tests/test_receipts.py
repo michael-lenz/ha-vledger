@@ -39,10 +39,12 @@ def charging(minutes, length=60, chargepoint="foreign", energy=10.0):
 
 
 class Detected:
-    """A stand-in derivation: the events it is given, from a cursor on."""
+    """A stand-in derivation: the events it is given, from a cursor on,
+    and the candidates it has begun but not completed (ADR-0061)."""
 
     def __init__(self):
         self.events = {"refuelling": [], "charging": []}
+        self.pending = {"refuelling": [], "charging": []}
 
     def __call__(self, kind):
         def derive(base, subject, since):
@@ -50,12 +52,16 @@ class Detected:
                     if since is None or clock.parse(e["end"]) >= clock.parse(since)]
         return derive
 
+    def begun(self, kind):
+        return lambda base, subject, since: list(self.pending[kind])
+
 
 @pytest.fixture
 def detected(monkeypatch):
     d = Detected()
     for kind in d.events:
         monkeypatch.setitem(l1.DERIVATIONS, kind, d(kind))
+        monkeypatch.setitem(l1.PENDING, kind, d.begun(kind))
     return d
 
 
@@ -203,6 +209,55 @@ def test_ambiguity_is_flagged_never_guessed(entry, detected):
     assert {x["match"] for x in rows} == {"ambiguous"} and "2 ambiguous" in out.err
 
 
+def test_a_receipt_near_a_candidate_not_yet_complete_waits_for_it(entry, detected):
+    """ADR-0061: the receipt is no event of its own while the candidate
+    settles, and meets it once it is complete."""
+    detected.events["refuelling"] = [refuelling(0)]
+    detected.pending["refuelling"] = [{"start": at(300), "end": at(302)}]
+    r = entry.refuel(at(301))
+    [cand] = events(entry.base, "refuelling")          # no event of its own
+    assert cand["confirmation"] == "unconfirmed"
+    out = entry.run("derive", "match", *entry.b)
+    [row] = [json.loads(x) for x in out.out.splitlines()]
+    assert row["match"] == "pending" and row["event_start"] == at(300)
+    assert "0 stand alone, 0 ambiguous, 1 pending" in out.err
+    # The candidate completes: the receipt meets it as any receipt does.
+    detected.pending["refuelling"] = []
+    detected.events["refuelling"].append(refuelling(300))
+    first, second = events(entry.base, "refuelling")
+    assert first["receipt"] is None
+    assert second["receipt"] == r["id"] and second["confirmation"] == "receipt"
+    assert second["quality"] == "measured" and second["quantity_l"] == 41.0
+
+
+def test_a_tie_between_an_event_and_a_candidate_waits(entry, detected):
+    detected.events["refuelling"] = [refuelling(0)]                       # ends at +2
+    detected.pending["refuelling"] = [{"start": at(120), "end": at(122)}]
+    entry.refuel(at(61))                                                   # 59 min from either
+    [cand] = events(entry.base, "refuelling")
+    assert cand["confirmation"] == "unconfirmed"
+    # A candidate beyond the tolerance holds nothing back.
+    detected.pending["refuelling"] = [{"start": at(600), "end": at(602)}]
+    entry.refuel(at(60 * 24))
+    assert [e["quality"] for e in events(entry.base, "refuelling")] == ["measured", "receipt"]
+
+
+def test_incremental_holds_a_receipt_back_until_its_candidate_completes(entry, detected):
+    detected.events["refuelling"] = [refuelling(0)]
+    l1.rebuild(entry.base, V)
+    detected.pending["refuelling"] = [{"start": at(60 * 24), "end": at(60 * 24 + 2)}]
+    r = entry.refuel(at(60 * 24 + 10))
+    l1.incremental(entry.base, V)               # receipts changed: rebuilt, the receipt pending
+    assert [e["receipt"] for e in l1.read(entry.base, V, "refuelling")] == [None]
+    detected.pending["refuelling"] = []
+    detected.events["refuelling"].append(refuelling(60 * 24))
+    l1.incremental(entry.base, V)               # a new event near a receipt: rebuilt, met
+    on_disk = list(l1.read(entry.base, V, "refuelling"))
+    assert [e["receipt"] for e in on_disk] == [None, r["id"]] and on_disk[1]["quality"] == "measured"
+    l1.rebuild(entry.base, V)
+    assert list(l1.read(entry.base, V, "refuelling")) == on_disk
+
+
 def test_a_correction_moves_the_match(entry, detected):
     detected.events["refuelling"] = [refuelling(0), refuelling(60 * 24)]
     r = entry.refuel(at(30))
@@ -323,6 +378,8 @@ def test_match_is_a_function_of_its_arguments():
     m = receipts.match([r], [refuelling(0)], tolerance_s=0)
     assert m.assigned == {0: "r"}                      # inside the interval: distance 0
     assert receipts.match([r], [refuelling(10)], tolerance_s=0).own == ["r"]
+    held = receipts.match([r], [refuelling(10)], tolerance_s=0, pending=[{"start": at(1), "end": at(2)}])
+    assert held.pending == {"r": at(1)} and held.own == []
     e = receipts.own_event(r, 15)
     assert e["price"] == 10.0 and e["unit_price"] == 2.0 and e["full"] is False
 

@@ -250,7 +250,8 @@ entirely — its distance, its energy, its litres and the fuel level and
 state of charge it changed — until it is complete. So while you charge,
 for the standstill time after a trip (half an hour unless configured
 otherwise) and for the settling time after a fill (six minutes), the
-month's figures hold still, and then step once. A vehicle that reports
+month's figures hold still, and then step once; a receipt entered
+meanwhile waits with its candidate and enters with it. A vehicle that reports
 its movement once per driving cycle holds still from the moment it
 departs with the engine running or reported in use, not only from the
 upload at the stop.
@@ -300,7 +301,10 @@ form is a handful of entities on the vehicle's device; put them on a card:
   ledger detected, newest first, by start time and the quantity the sensor
   saw. Picking a candidate gives the receipt that event's time exactly.
 - **Time** — when it happened, used only with *Enter time below*. A few
-  hours off is fine: the receipt meets the nearest event.
+  hours off is fine: the receipt meets the nearest event. A receipt for a
+  refuelling the ledger is still settling, or a charge still running,
+  waits for it and shows nowhere until then — entered at the pump, that is
+  the drive home on a vehicle that reports its level at each stop.
 - **Litres** or **Energy**, **Total price**, for a refuelling **Price per
   litre** (one of the two prices is enough) and **Full tank** (on unless
   you switch it off), **Place** and **Note**.
@@ -756,7 +760,9 @@ vledger receipt list --vehicle a7c1 --all       # every line, corrected and canc
 `add` prints the line it wrote, with the receipt's id. `--anchor` is when
 it happened, and may be a few hours off: the receipt meets the nearest
 refuelling or charging session within the matching tolerance (6 h by
-default), however long after the fact you enter it. To enter a receipt
+default), however long after the fact you enter it — or before the event
+is complete: a receipt for a fill still settling or a charge still running
+waits for it, and `derive match` lists it as pending. To enter a receipt
 for an event the ledger detected, give its start as `--from-candidate`
 instead; it then meets exactly that event. `--partial` instead of
 `--full` says the tank was not filled; `--unit-price` may stand beside or

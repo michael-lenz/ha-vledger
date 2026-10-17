@@ -263,6 +263,8 @@ class Match:
     contenders: dict[int, list[str]] = field(default_factory=dict)
     own: list[str] = field(default_factory=list)        # met nothing: an event of their own
     ambiguous: list[str] = field(default_factory=list)
+    #: Receipt -> the start of the candidate not yet complete it waits for (ADR-0061).
+    pending: dict[str, str] = field(default_factory=dict)
 
 
 def _claim(receipts: list[dict], nearest: dict[str, list[int]], m: Match) -> None:
@@ -283,11 +285,16 @@ def _claim(receipts: list[dict], nearest: dict[str, list[int]], m: Match) -> Non
             m.contenders[i] = sorted(ids)
 
 
-def match(receipts: list[dict], events: list[dict], tolerance_s: float) -> Match:
+def match(receipts: list[dict], events: list[dict], tolerance_s: float,
+          pending: list[dict] = ()) -> Match:
     """Pair one kind's current receipts with its events.
 
     Exact receipts first, without tolerance; then the nearest remaining
-    event within the tolerance. Depends on nothing but its arguments.
+    event within the tolerance. ``pending`` are the kind's candidates that
+    have begun but are not yet complete, as ``start`` and ``end``: a
+    receipt whose nearest within the tolerance is one of them — a tie
+    with an event included — waits for it, assigned to nothing and an
+    event of nothing (ADR-0061). Depends on nothing but its arguments.
     """
     m = Match()
     by_start: dict = {}
@@ -302,9 +309,15 @@ def match(receipts: list[dict], events: list[dict], tolerance_s: float) -> Match
         dist = [(distance_s(r["anchor"], e), i) for i, e in enumerate(events) if i not in taken]
         dist = [(d, i) for d, i in dist if d <= tolerance_s]
         best = min((d for d, _ in dist), default=None)
-        nearest[r["id"]] = [i for d, i in dist if d == best]
+        waits = sorted((distance_s(r["anchor"], c), c["start"]) for c in pending)
+        waits = [(d, t) for d, t in waits if d <= tolerance_s and (best is None or d <= best)]
+        if waits:
+            m.pending[r["id"]] = waits[0][1]
+            nearest[r["id"]] = []
+        else:
+            nearest[r["id"]] = [i for d, i in dist if d == best]
     _claim([r for r in rest if nearest[r["id"]]], nearest, m)
-    m.own = [r["id"] for r in rest if not nearest[r["id"]]]
+    m.own = [r["id"] for r in rest if not nearest[r["id"]] and r["id"] not in m.pending]
     m.ambiguous.sort()
     return m
 
@@ -383,11 +396,13 @@ def own_event(r: dict, threshold_pct: float) -> dict:
 
 
 def apply(kind: str, events: list[dict], receipts: list[dict], *,
-          tolerance_s: float, plausibility_pct: float) -> list[dict]:
+          tolerance_s: float, plausibility_pct: float, pending: list[dict] = ()) -> list[dict]:
     """One kind's events as L1 holds them: matched, waiting or ambiguous,
-    plus the receipts that met nothing, in order of start."""
+    plus the receipts that met nothing, in order of start — a receipt
+    waiting for one of the ``pending`` candidates is held back, nowhere in
+    L1 until the candidate completes (ADR-0061)."""
     mine = [r for r in receipts if r["kind"] == kind]
-    m = match(mine, events, tolerance_s)
+    m = match(mine, events, tolerance_s, pending)
     by_id = {r["id"]: r for r in mine}
     out = [_carry(e, by_id[m.assigned[i]], plausibility_pct) if i in m.assigned
            else _waiting(e, m.contenders.get(i)) for i, e in enumerate(events)]
@@ -401,13 +416,13 @@ def is_own(event: dict) -> bool:
 
 
 def pairing(receipts: list[dict], events_by_kind: dict[str, list[dict]],
-            tolerance_s: float) -> list[dict]:
+            tolerance_s: float, pending_by_kind: dict[str, list[dict]] | None = None) -> list[dict]:
     """The matching, receipt by receipt — what ``vledger derive match`` prints."""
     out = []
     for kind in EVENT_KINDS:
         mine = [r for r in receipts if r["kind"] == kind]
         events = events_by_kind.get(kind, [])
-        m = match(mine, events, tolerance_s)
+        m = match(mine, events, tolerance_s, (pending_by_kind or {}).get(kind, []))
         event_of = {rid: i for i, rid in m.assigned.items()}
         for r in mine:
             row = {"receipt": r["id"], "kind": kind, "anchor": r["anchor"], "exact": r.get("exact", False)}
@@ -415,6 +430,8 @@ def pairing(receipts: list[dict], events_by_kind: dict[str, list[dict]],
                 e = events[event_of[r["id"]]]
                 row.update(match="event", event_start=e["start"],
                            distance_s=distance_s(r["anchor"], e))
+            elif r["id"] in m.pending:
+                row.update(match="pending", event_start=m.pending[r["id"]])
             elif r["id"] in m.own:
                 row["match"] = "own"
             else:

@@ -174,8 +174,10 @@ configured charge point too, which waits for no receipt but accepts one.
 The tolerance covers the imprecision of a freely typed anchor time, not
 lateness of entry; a receipt entered from a candidate carries the
 candidate's time and matches without tolerance. An ambiguous match is
-flagged, never guessed; a receipt that meets nothing is an event of its
-own. The rules in full: [receipts-format.md](receipts-format.md#matching).
+flagged, never guessed; a receipt whose nearest is a candidate not yet
+complete is **pending**, nowhere in L1 until that candidate completes;
+a receipt that meets nothing is an event of its own. The rules in full:
+[receipts-format.md](receipts-format.md#matching).
 
 **Full tank.** A refuelling receipt that says the tank was filled. Not a
 precondition for consumption — only the case in which the sensor term of

@@ -118,9 +118,15 @@ the detected events:
 5. A receipt with two nearest events, and receipts sharing their nearest
    event, are **ambiguous**: nothing is assigned, and the events name the
    receipts that compete for them.
-6. A receipt that meets nothing is an event of its own.
+6. A receipt whose nearest within the tolerance is a candidate that has
+   begun but is not yet complete — a refuelling still settling, a session
+   still charging or waiting for another stream — is **pending**: assigned
+   to nothing, an event of nothing, nowhere in L1 until the candidate
+   completes and it meets it (ADR-0061). A tie with an event waits too.
+7. A receipt that meets nothing is an event of its own.
 
-`vledger derive match` prints this pairing, one line per receipt.
+`vledger derive match` prints this pairing, one line per receipt; a
+pending receipt names the start of the candidate it waits for.
 
 ## What it does to L1
 

@@ -440,4 +440,31 @@ def _completed_dicts(base: Path, subject: Subject, since: str | None) -> list[di
     return [to_dict(x) for x in derive_from(base, subject, since=since)]
 
 
+def pending(s: Stream, done: set[str]) -> list[dict]:
+    """The sessions begun by the stream's last line whose start is not
+    among ``done`` — a completed span still waiting for another stream
+    (ADR-0027), one still charging, a run of SoC rises not yet over — as
+    ``start`` and ``end``, the end the stream's last line while the
+    session has none: what a receipt entered meanwhile waits for
+    (ADR-0061)."""
+    out = [{"start": sp.start, "end": sp.end} for sp in spans(s) if sp.start not in done]
+    if has_charging_state(s):
+        open_start = _by_charging_state(s)[1]
+        if open_start is not None:
+            out.append({"start": open_start, "end": s.last_t})
+    else:
+        out += [{"start": r[0].t, "end": s.last_t} for b, r, over in _soc_runs(s) if not over]
+    return out
+
+
+def _pending_dicts(base: Path, subject: Subject, since: str | None) -> list[dict]:
+    if subject.kind != "vehicle":
+        return []
+    s = series.load(base, subject, since=since)
+    done = {x.start for x in derive(s, chargepoints(base, now=s.last_t),
+                                    other_vehicles(base, subject, now=s.last_t))}
+    return pending(s, done)
+
+
 l1.DERIVATIONS["charging"] = _completed_dicts
+l1.PENDING["charging"] = _pending_dicts

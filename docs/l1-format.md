@@ -90,11 +90,15 @@ value they displaced stays beside them:
 is `true` above `plausibility_pct` (default 15); without a sensor value
 the deviation is `null` and nothing is flagged. A receipt that met no
 event is an event of its own, `start` = `end` = its anchor, quality
-`receipt`.
+`receipt` — unless a candidate not yet complete lies within the tolerance
+of its anchor: then it is pending, and nowhere in L1 until the candidate
+completes (ADR-0061).
 
-The incremental derivation appends a new refuelling or session only when
-no current receipt is anchored later than the tolerance before it; when
-one is, the new event could change a match on disk, and it rebuilds.
+The incremental derivation appends new refuellings and sessions only
+while the current receipts stand as the files hold them — each met by the
+same event, ambiguous, an event of its own, or pending, as the matching
+says now; a new event near a receipt, a candidate begun near a receipt
+that stood alone, or one completed or gone changes that, and it rebuilds.
 
 ## What waits for a receipt
 

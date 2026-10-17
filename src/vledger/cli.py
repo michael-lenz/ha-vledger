@@ -390,12 +390,14 @@ def cmd_derive_match(args) -> int:
     rows = receipts.pairing(
         receipts.ledger(base, subject).current(),
         {k: l1.detected(base, subject, k) for k in receipts.EVENT_KINDS},
-        l1.thresholds(base, subject)["matching_tolerance_s"])
+        l1.thresholds(base, subject)["matching_tolerance_s"],
+        {k: l1.pending(base, subject, k) for k in receipts.EVENT_KINDS})
     for row in rows:
         print(json.dumps(row, ensure_ascii=False))
-    counts = {m: sum(r["match"] == m for r in rows) for m in ("event", "own", "ambiguous")}
+    counts = {m: sum(r["match"] == m for r in rows) for m in ("event", "own", "ambiguous", "pending")}
     print(f"{len(rows)} receipt(s): {counts['event']} met an event, {counts['own']} "
-          f"stand alone, {counts['ambiguous']} ambiguous", file=sys.stderr)
+          f"stand alone, {counts['ambiguous']} ambiguous, {counts['pending']} pending",
+          file=sys.stderr)
     return 0
 
 

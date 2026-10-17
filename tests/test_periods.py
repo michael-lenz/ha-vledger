@@ -356,11 +356,15 @@ def test_a_soc_run_not_yet_over_is_not_read_into_the_stock(tmp_path, capsys):
     assert month(tmp_path)["battery_kwh"] == 1
 
 
-def replayed_line_by_line(live, replay):
+def replayed_line_by_line(live, replay, receipts=False):
     """The vehicle's stream of ``live`` written again line by line, the live
     writer run after each, its periods equal to a fresh derivation of the
-    same lines every time."""
+    same lines every time; with ``receipts``, its receipts in place from
+    the first line."""
     shutil.copytree(live / "chargepoint-home", replay / "chargepoint-home")
+    if receipts:
+        (replay / "vehicle-a7c1").mkdir(parents=True)
+        shutil.copy(live / "vehicle-a7c1" / "receipts.jsonl", replay / "vehicle-a7c1" / "receipts.jsonl")
     src = live / "vehicle-a7c1" / "l0" / "2026-10.jsonl"
     dst = replay / "vehicle-a7c1" / "l0" / "2026-10.jsonl"
     dst.parent.mkdir(parents=True)
@@ -432,6 +436,72 @@ def test_line_by_line_a_refuelling_settles_into_the_periods_as_derived_afresh(tm
     m = month(replay)
     # 18 L bought, 1 L used: 20 at capture's start, 37 at the last line.
     assert m["fuel_purchased_l"] == 18 and m["fuel_consumed_l"] == 1
+
+
+def anchored_receipt(base, capsys, anchor, litres, price, entered_at):
+    """A refuelling receipt entered freely, by time (ADR-0013, 3)."""
+    argv = ["receipt", "add", "refuelling", "--base", str(base), "--vehicle", "a7c1",
+            "--anchor", at(anchor), "--quantity-l", str(litres), "--total-price", str(price),
+            "--full", "--t", at(entered_at)]
+    assert main(argv) == 0
+    capsys.readouterr()
+
+
+def test_a_receipt_entered_while_the_fill_settles_waits_for_it(tmp_path, capsys):
+    """ISSUE-0103: entered at the pump, the receipt counted its litres while
+    the level was still read before the rise. Under ADR-0061 it waits with
+    the candidate, and both enter whole once settled."""
+    v = vehicle(tmp_path, capsys)
+    trip(v, 0, 1000, 30, fuel=17)
+    v.state(100, "fuel_level", 37, "L")
+    v.heartbeat(103)
+    anchored_receipt(tmp_path, capsys, 100, 20, 35.00, entered_at=101)
+    m = month(tmp_path)
+    assert (m["fuel_purchased_l"], m["fuel_cost_eur"], m["fuel_consumed_l"]) == (0, 0, 3)     # not 23
+    assert m["fuel_eur_per_100km"] is None
+    v.heartbeat(110)
+    m = month(tmp_path)
+    assert (m["fuel_purchased_l"], m["fuel_cost_eur"], m["fuel_consumed_l"]) == (20, 35, 3)
+    assert m["fuel_eur_per_100km"] == 17.5
+
+
+def test_line_by_line_a_receipt_waits_for_its_fill_as_derived_afresh(tmp_path, capsys):
+    """The receipt in place before the rise is seen: an event of its own
+    until the candidate begins, pending while it settles, met once it is
+    complete — and every state equals the fresh derivation."""
+    live = tmp_path / "live"
+    v, home = charged_then_driven(live, capsys)
+    v.state(150, "fuel_level", 19, "L")
+    v.state(200, "fuel_level", 37, "L")
+    v.heartbeat(240)
+    home.heartbeat(240)
+    anchored_receipt(live, capsys, 200, 18, 31.50, entered_at=201)
+    replay = replayed_line_by_line(live, tmp_path / "replay", receipts=True)
+    [e] = l1.read(replay, V, "refuelling")
+    assert e["quality"] == "measured" and e["confirmation"] == "receipt" and e["quantity_l"] == 18
+    m = month(replay)
+    assert m["fuel_purchased_l"] == 18 and m["fuel_consumed_l"] == 1
+
+
+def test_a_charging_receipt_entered_during_the_session_waits_for_it(tmp_path, capsys):
+    v, home = charged_then_driven(tmp_path, capsys)
+    v.state(200, "charging_state", "Charging")
+    v.state(210, "soc", 60, "%")
+    v.heartbeat(215)
+    home.heartbeat(215)
+    assert [x["start"] for x in l1.pending(tmp_path, V, "charging")] == [at(200)]
+    argv = ["receipt", "add", "charging", "--base", str(tmp_path), "--vehicle", "a7c1",
+            "--anchor", at(205), "--energy-kwh", "3", "--total-price", "1.50", "--t", at(206)]
+    assert main(argv) == 0
+    capsys.readouterr()
+    m = month(tmp_path)
+    assert (m["grid_kwh"], m["electricity_cost_eur"]) == (1.25, 0.38)      # the first charge only
+    v.state(231, "charging_state", "Done")
+    v.heartbeat(240)
+    home.heartbeat(240)
+    assert l1.pending(tmp_path, V, "charging") == []
+    m = month(tmp_path)
+    assert (m["grid_kwh"], m["electricity_cost_eur"]) == (4.25, 1.88)
 
 
 def reloaded(v, stop_at, start_at, soc_since, fuel_since, reason="reload"):

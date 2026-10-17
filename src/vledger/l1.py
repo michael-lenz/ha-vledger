@@ -34,6 +34,13 @@ MANIFEST = "manifest.json"
 #: in by the modules that derive, so this one knows no derivation itself.
 DERIVATIONS: dict[str, Callable[[Path, Subject, str | None], list[dict]]] = {}
 
+#: Per kind, the candidates begun by the stream's last line but not yet
+#: complete — what a receipt may wait for (ADR-0061): a function of
+#: (base, subject, since) returning them as ``start`` and ``end``, from
+#: the cursor on like a derivation. Filled by the same modules that fill
+#: DERIVATIONS.
+PENDING: dict[str, Callable[[Path, Subject, str | None], list[dict]]] = {}
+
 #: The periods (ADR-0014, point 6): a function of (base, subject, events by
 #: kind) returning every line of periods.jsonl. Not an event kind — no
 #: cursor, no append — so it is called last, by both writers, rather than
@@ -322,28 +329,51 @@ def detected(base: Path, subject: Subject, kind: str, since: str | None = None) 
     return d(base, subject, since) if d else []
 
 
+def pending(base: Path, subject: Subject, kind: str, since: str | None = None) -> list[dict]:
+    """One kind's candidates begun but not yet complete, as ``start`` and
+    ``end``: what a receipt waits for rather than standing in for (ADR-0061)."""
+    p = PENDING.get(kind)
+    return p(base, subject, since) if p else []
+
+
 def derive(base: Path, subject: Subject, kind: str) -> list[dict]:
     """One kind's events as L1 holds them: for refuellings and charging
-    sessions, matched against the current receipts (ADR-0013, 4)."""
+    sessions, matched against the current receipts (ADR-0013, 4), a
+    receipt waiting for a candidate not yet complete held back (ADR-0061)."""
     events = detected(base, subject, kind)
     if kind not in receipts.EVENT_KINDS:
         return events
     thr = thresholds(base, subject)
     return receipts.apply(kind, events, receipts.ledger(base, subject).current(kind),
                           tolerance_s=thr["matching_tolerance_s"],
-                          plausibility_pct=thr["plausibility_pct"])
+                          plausibility_pct=thr["plausibility_pct"],
+                          pending=pending(base, subject, kind))
 
 
-def _disturbs(base: Path, subject: Subject, kind: str, new: list[dict]) -> bool:
-    """Whether a new event could change a match already on disk: a current
-    receipt anchored no earlier than the tolerance before it. Matching it
-    alone would then differ from a batch run, so the caller rebuilds."""
-    if kind not in receipts.EVENT_KINDS or not new:
+def _receipts_stale(base: Path, subject: Subject, kind: str, new: list[dict],
+                    cursor: str | None) -> bool:
+    """Whether the kind's file, with ``new`` appended, would no longer say
+    of every current receipt what the matching says now: met by which
+    event, ambiguous, an event of its own, or pending (ADR-0061). A new
+    event near a receipt, a candidate begun near a receipt that stood
+    alone, one completed or gone — appending alone would then differ from
+    a batch run, so the caller rebuilds."""
+    if kind not in receipts.EVENT_KINDS:
         return False
-    tol = thresholds(base, subject)["matching_tolerance_s"]
-    first = min(clock.parse(e["start"]) for e in new)
-    return any((first - clock.parse(r["anchor"])).total_seconds() <= tol
-               for r in receipts.ledger(base, subject).current(kind))
+    current = receipts.ledger(base, subject).current(kind)
+    if not current:
+        return False
+    on_disk = list(read(base, subject, kind))
+    detected_ = [e for e in on_disk if not receipts.is_own(e)] + new
+    m = receipts.match(current, detected_, thresholds(base, subject)["matching_tolerance_s"],
+                       pending(base, subject, kind, cursor))
+    carried = {(e["start"], e["receipt"]) for e in on_disk
+               if e.get("receipt") and not receipts.is_own(e)}
+    contending = {(e["start"], rid) for e in on_disk for rid in e.get("contenders") or []}
+    own = {e["receipt"] for e in on_disk if receipts.is_own(e)}
+    return (carried != {(detected_[i]["start"], rid) for i, rid in m.assigned.items()}
+            or contending != {(detected_[i]["start"], rid) for i, ids in m.contenders.items() for rid in ids}
+            or own != set(m.own))
 
 
 # --- rebuild and incremental -------------------------------------------
@@ -399,13 +429,13 @@ def incremental(base: Path, subject: Subject) -> dict[str, list[dict]]:
         cursor = through.get(kind)
         found[kind] = [e for e in detected(base, subject, kind, cursor)
                        if cursor is None or clock.parse(e["start"]) > clock.parse(cursor)]
-        if _disturbs(base, subject, kind, found[kind]):
+        if _receipts_stale(base, subject, kind, found[kind], cursor):
             return _rebuild_and_diff(base, subject)
     added: dict[str, list[dict]] = {}
     for kind, new in found.items():
         cursor = through.get(kind)
         if kind in receipts.EVENT_KINDS:
-            # No receipt is near enough to meet these (_disturbs said so).
+            # No receipt meets these (_receipts_stale said so).
             new = [receipts.apply(kind, [e], [], tolerance_s=0, plausibility_pct=0)[0]
                    for e in new]
         for e in new:

@@ -460,8 +460,10 @@ and charging sessions, by anchor time to the nearest event within
 events, or two receipts with one, is `ambiguous` and assigned to nothing.
 A matched event carries the receipt's values first, flagged `receipt`,
 the sensor value beside them and a plausibility check against
-`plausibility_pct` (15 %); a receipt that meets nothing is an event of its
-own (ADR-0013). The rules are [receipts-format.md](receipts-format.md#matching),
+`plausibility_pct` (15 %); a receipt whose nearest is a candidate not yet
+complete waits for it, nowhere in L1 until then (ADR-0061); a receipt
+that meets nothing is an event of its own (ADR-0013). The rules are
+[receipts-format.md](receipts-format.md#matching),
 what the events carry [l1-format.md](l1-format.md#receipts-in-events).
 
 ## Metrics

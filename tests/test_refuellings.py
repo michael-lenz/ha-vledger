@@ -179,6 +179,16 @@ def test_the_verbs(tmp_path, capsys):
     shutil.rmtree(tmp_path / "vehicle-a7c1")
 
 
+def test_a_candidate_still_settling_is_what_a_receipt_waits_for(tmp_path, capsys):
+    b = builder(tmp_path, capsys)
+    to_the_station(b)
+    b.state(52, "fuel_level", 40.0, "L").state(54, "fuel_level", 60.0, "L")
+    b.heartbeat(59)
+    assert l1.pending(tmp_path, V, "refuelling") == [{"start": at(52), "end": at(54), "flap_opened_at": None}]
+    b.heartbeat(70)
+    assert l1.pending(tmp_path, V, "refuelling") == []
+
+
 def test_a_receipt_from_the_candidate_meets_it_in_l1(tmp_path, capsys):
     b = builder(tmp_path, capsys)
     to_the_station(b)

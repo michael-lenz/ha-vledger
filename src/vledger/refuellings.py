@@ -211,4 +211,19 @@ def _completed_dicts(base: Path, subject: Subject, since: str | None) -> list[di
     return [to_dict(r) for r in derive_from(base, subject, since=since, completed_only=True)]
 
 
+def pending(s: Stream) -> list[dict]:
+    """The candidates whose level after is not yet read — T_settle not
+    elapsed by the stream's last line — as ``start``, ``end`` and
+    ``flap_opened_at``: what a receipt entered meanwhile waits for
+    (ADR-0061)."""
+    done = {r.start for r in derive(s, completed_only=True)}
+    return [{"start": r.start, "end": r.end, "flap_opened_at": r.flap_opened_at}
+            for r in derive(s) if r.start not in done]
+
+
+def _pending_dicts(base: Path, subject: Subject, since: str | None) -> list[dict]:
+    return pending(series.load(base, subject, since=since))
+
+
 l1.DERIVATIONS["refuelling"] = _completed_dicts
+l1.PENDING["refuelling"] = _pending_dicts
