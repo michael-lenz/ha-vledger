@@ -409,10 +409,15 @@ def _distance(s: Stream, start: str, end: str, waypoints: list[Fix]) -> tuple[fl
     """FAH-04 as ADR-0055 reads it: the trip counter where it is monotone over
     the trip and within one odometer step of the odometer's difference, else
     the odometer's difference, else the monotone counter alone, else the
-    straight lines between waypoints."""
+    straight lines between waypoints. The odometer at the end is a sample at
+    or after the start: the one from before the trip is where it began, not
+    where it ended (ISSUE-0104), as :func:`_readings` and
+    :func:`_trip_computer` read their end values."""
     odo = s.series.get("odometer", [])
     before = _start_value(s, odo, start)
     at_end = series.last_at_or_before(odo, end)
+    if at_end is not None and clock.parse(at_end.t) < clock.parse(start):
+        at_end = None
     by_odometer = (round(at_end.value - before.value, 3)
                    if before and at_end and at_end.value >= before.value else None)
     counter = s.series.get("trip_distance", [])

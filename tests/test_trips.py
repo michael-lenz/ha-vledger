@@ -415,12 +415,10 @@ def test_distance_falls_back_to_the_trip_counter_then_to_straight_lines(tmp_path
     found = trips.derive_from(tmp_path, V)
     assert len(found) == 1
     t = found[0]
-    assert t.distance_source == "odometer"   # the snapshot's odometer never changed...
-    # ...so the odometer difference is 0 and honest; drop the odometer to see the fallbacks.
-    s = series.load(tmp_path, V)
-    s.series.pop("odometer")
-    t = trips.derive(s)[0]
+    # The snapshot's odometer never changed: its one sample is from before the
+    # trip, no reading at its end (ISSUE-0104). The counter reset, so the fixes.
     assert t.distance_source == "waypoints" and t.distance_quality == "estimated"
+    s = series.load(tmp_path, V)
     straight = sum(geo.distance_km(*a, *b_) for a, b_ in pairwise([HOME, *ROAD]))
     assert abs(t.distance_km - straight) < 0.01
     s.series["trip_distance"] = [x for x in s.series["trip_distance"] if x.value != 0.4]
@@ -599,6 +597,32 @@ def upload(b, minute, km, odo):
     """The stop's upload: trip counter and odometer, polled together."""
     b.state(minute, "trip_distance", km, "km", before=minute - 2)
     b.state(minute, "odometer", odo, "km", before=minute - 2)
+
+
+def test_a_per_cycle_trip_whose_upload_never_came_has_no_measured_distance(tmp_path, capsys):
+    """ISSUE-0104: the car's cloud held back the evening stop's odometer. The
+    odometer sample from before the trip is where it began, not a reading at
+    its end: the distance is the fixes' chord, estimated — never a measured
+    zero."""
+    b = cycle_builder(tmp_path, capsys)
+    b.heartbeat(0)
+    b.state(5, "lock", "unlocked", before=4).state(6, "engine", "on", before=4)
+    b.state(40, "engine", "off", before=38)
+    upload(b, 40, 20.0, 1020)
+    b.fix(40, *STOP)
+    b.heartbeat(100)
+    # Three and a half hours on: a departure, in use, the fix at home — and no upload.
+    b.state(250, "lock", "unlocked", before=249).state(251, "engine", "on", before=249)
+    b.state(252, "in_use", "car_in_use", before=200)
+    b.fix(290, *HOME, zone="home")
+    b.state(291, "engine", "off", before=289)
+    b.state(292, "in_use", "available", before=260)
+    b.heartbeat(360)
+    first, second = trips.derive_from(tmp_path, V, completed_only=True)
+    assert (first.distance_km, first.distance_source) == (20, "odometer")
+    assert (second.start_zone, second.end_zone) == ("not_home", "home")
+    assert second.distance_source == "waypoints" and second.distance_quality == "estimated"
+    assert abs(second.distance_km - geo.distance_km(*STOP, *HOME)) < 0.01
 
 
 def test_a_drive_under_way_has_begun_at_its_departure_once_the_vehicle_runs(tmp_path, capsys):

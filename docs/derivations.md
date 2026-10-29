@@ -147,7 +147,10 @@ sensor pair), and `in_use`; markers `ignition`, `plug_state`,
    `measured`, `odometer`; else the monotone counter alone; else the
    straight lines between the waypoints — `estimated`, `waypoints`. The
    value before the trip is the last sample before its first movement,
-   unless a gap lies between them.
+   unless a gap lies between them; the value at the end is a sample at or
+   after the trip's start, so a trip the odometer reported nothing for — a
+   per-cycle upload that never came — takes the next source, never a
+   measured zero (ISSUE-0104).
 5. **The rest.** Waypoints are the fix before it moved, then every fix
    inside the trip; start and end position and zone are the first and
    last of them. `outside_temperature_c` is the mean of the samples
