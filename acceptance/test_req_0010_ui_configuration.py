@@ -46,6 +46,12 @@ async def ui(hass: HomeAssistant, tmp_path, enable_custom_integrations, hass_cli
     hass.config.components.add("frontend")
     await hass.async_block_till_done()
     assert DOMAIN not in hass.config.as_dict().get("components", [])
+    # Home Assistant's own server keeps its router open after it starts, since
+    # an integration set up later in the UI adds paths to it (the http
+    # component's start). The test client starts the server here, before any
+    # entry exists, and which test client a test stack provides is not fixed:
+    # the router is kept open as Home Assistant keeps it.
+    hass.http.app.router.freeze = lambda: None
     return UI(hass, await hass_client())
 
 
