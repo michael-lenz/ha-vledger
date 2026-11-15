@@ -29,6 +29,10 @@ The rules the code keeps are requirements of four types:
 `process` and `documentation`. Read the relevant decisions and
 requirements before changing behaviour.
 
+A record of another register is always cited qualified, never by its bare
+id: `pmtk.<id>` for a record of pmtk's own register, as in `pmtk.ADR-0108`.
+A bare id is read as a record of this register.
+
 ## The checks
 
 [developing.md](developing.md) is the manual: a venv,
