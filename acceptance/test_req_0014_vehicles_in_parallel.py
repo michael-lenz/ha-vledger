@@ -55,6 +55,13 @@ async def ui(hass: HomeAssistant, tmp_path, enable_custom_integrations, hass_cli
     hass.data[frontend.DATA_EXTRA_MODULE_URL] = frontend.UrlManager(lambda *_: None, [])
     hass.config.components.add("frontend")
     await hass.async_block_till_done()
+    # Home Assistant keeps its router open after start, since an integration
+    # set up later in the UI adds paths to it; the test client starts the
+    # server before any entry exists, so the router is kept open likewise.
+    # Which test client starts it depends on the order pytest loads its
+    # plugins in: pytest-aiohttp's freezes the router, the Home Assistant
+    # plugin's does not (ISSUE-0122).
+    hass.http.app.router.freeze = lambda: None
     return UI(hass, await hass_client())
 
 
