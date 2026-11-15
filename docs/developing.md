@@ -30,11 +30,18 @@ two different loops:
 | | the library and CLI | the integration |
 |---|---|---|
 | needs | Python, `.[dev]` | plus Home Assistant and its test plugin, `.[dev,ha]` |
-| tests | `tests/test_*.py` | `tests/ha/` |
+| tests | `tests/test_*.py`, `acceptance/` | `tests/ha/` |
 | runs in | any Python, the system one included | a venv |
 
 Without Home Assistant installed, `python -m pytest` leaves `tests/ha`
 out (`tests/conftest.py`) rather than failing on it.
+
+`acceptance/` holds acceptance tests: one module per requirement,
+`test_req_NNNN_<slug>.py`, that shows the requirement met as a user meets
+the product — through the `vledger` command and what is installed —
+rather than through the library's internals. `python -m pytest` runs them
+beside `tests/` (`testpaths` in `pyproject.toml`); `python -m pytest -q
+acceptance` runs them alone.
 
 ## Setting up
 
@@ -83,7 +90,7 @@ version difference, not a broken tree.
 ## Running the checks
 
 ```bash
-.venv/bin/python -m pytest -q                     # everything: library and integration
+.venv/bin/python -m pytest -q                     # everything: library, acceptance and integration
 .venv/bin/python -m pytest -q tests/ha            # the integration only
 python -m pytest -q                               # the library only, if the system Python has .[dev]
 .venv/bin/ruff check src tests custom_components  # the default rules, nothing more
