@@ -84,6 +84,9 @@ A vehicle is a config entry; its source entities are assigned to roles
 (`odometer`, `position`, `fuel_level`, `soc`, `charging_state`, …), and
 what the vehicle can do follows from the roles it has. Everything is
 configured in the UI; no YAML.
+The integration's interface — setup and options, entity names, repairs,
+action errors, notifications and the card — comes in English and German,
+following Home Assistant's language; any other language gets English.
 
 ## Documentation
 

@@ -10,6 +10,14 @@
 *Settings → Devices & services → Add integration → Vehicle Ledger*, then
 choose what to add.
 
+Everything the integration shows comes in English and German: the setup
+and options steps, the entity names and states, repairs, the errors an
+action answers with, and the card follow the language of your Home
+Assistant profile; a notification, which goes out to nobody in
+particular, is written in the instance's language (*Settings → System →
+General*). Any other language gets English. Numbers in the card follow
+the same language. The `vledger` command is English only.
+
 **A vehicle**, in four steps:
 
 1. **Name.**
