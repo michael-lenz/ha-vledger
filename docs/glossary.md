@@ -179,6 +179,17 @@ complete is **pending**, nowhere in L1 until that candidate completes;
 a receipt that meets nothing is an event of its own. The rules in full:
 [receipts-format.md](receipts-format.md#matching).
 
+**Confirmation.** How a refuelling or charging session stands towards a
+receipt after matching, the L1 key `confirmation`
+([l1-format.md](l1-format.md)): `receipt` when a receipt was assigned to
+it, `chargepoint` when it is a session at a configured charge point
+without one, `unconfirmed` while it waits for a receipt and none matched,
+and `ambiguous` when receipts compete for it and nothing was assigned —
+the event then names them as its `contenders`. `receipt` and `chargepoint`
+are confirmed; `unconfirmed` and `ambiguous` are what *waiting for a
+receipt* counts. The card shows the last three below an event's time, the
+charge point as *charge point*.
+
 **Full tank.** A refuelling receipt that says the tank was filled. Not a
 precondition for consumption — only the case in which the sensor term of
 the tank-to-tank formula vanishes.
