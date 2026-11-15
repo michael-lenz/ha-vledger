@@ -100,6 +100,7 @@ following Home Assistant's language; any other language gets English.
 | [docs/glossary.md](docs/glossary.md) | The one English spelling of every domain term, and what it means |
 | [docs/developing.md](docs/developing.md) | From a fresh clone to green tests, and the conditions behind each step |
 | [docs/releasing.md](docs/releasing.md) | What the person cutting a release does, in order |
+| [docs/onboarding.md](docs/onboarding.md) | What a person or an agent joining the project needs to know of it, and of its register |
 
 Decisions, requirements and the work queue are records in the project's
 register, `ha-vledger-pm`, not prose here.
@@ -130,8 +131,9 @@ node --test tests/frontend/model.test.mjs
 ```
 
 The library's tests run in any Python with `.[dev]`; the integration's
-need the `ha` extra and a venv; the card's need Node and nothing else. `CLAUDE.md` says how a Claude session
-works here and with the register.
+need the `ha` extra and a venv; the card's need Node and nothing else.
+[docs/onboarding.md](docs/onboarding.md) says what a person or an agent
+joining the project, and its register, needs to know.
 
 ## Privacy
 
