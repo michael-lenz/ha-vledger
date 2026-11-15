@@ -488,7 +488,10 @@ Every verb works on a data directory, given as `--base DIR` or by the
 environment variable `VLEDGER_BASE`, and defaults to the current directory.
 Under Home Assistant that directory is `<config>/vledger/`. A stream is
 named by what it belongs to: `--vehicle ID` or `--chargepoint ID`, the
-subject id the integration minted. Times are UTC ISO 8601; a verb that
+subject id the integration minted. That id is the name of the subject's
+directory under the data directory without its prefix — `vehicle-<id>`,
+`chargepoint-<id>` — and the entry's **Download diagnostics** shows it as
+`subject` under `entry` → `data`. Times are UTC ISO 8601; a verb that
 writes takes `--t` and defaults to now.
 
 ```bash
