@@ -261,6 +261,26 @@ Both counters run cumulatively from the start of capture plus a configured
 starting value, and per period; across capture gaps they are lower bounds,
 reported together with the number of gaps.
 
+**Fuel at 15 °C.** A fuel delta with the fuel's thermal expansion taken
+out: each of its two readings converted to the volume it would have at
+15 °C, V₁₅ = V / (1 + β·(T − 15)), β the fuel's thermal expansion
+coefficient and T the **filtered outside temperature** at that reading.
+A refuelling's `sensor_delta_15c_l` and a trip's `delta_fuel_15c_l`
+stand beside the raw `sensor_delta_l` and `delta_fuel_l` as a
+plausibility figure — how much of a delta the weather can explain — and
+never replace them: no consumption, metric, receipt match or
+receipt/sensor check reads them (VER-08, ADR-0040). Without an outside
+temperature role, or without a filtered temperature at either reading,
+the figure is `null` ([derivations.md](derivations.md#fuel-at-15-c)).
+
+**Filtered outside temperature.** The `outside_temperature` through a
+first-order low-pass filter with the temperature low-pass time constant
+(`temperature_tau_s`, default 3 h), run over the five time constants
+before the moment asked for and restarted after a dropout or capture
+gap. It stands in for the fuel's temperature in the 15 °C figures;
+`vledger calc filtered-temperature` shows it for a moment (ADR-0040,
+[derivations.md](derivations.md#fuel-at-15-c)).
+
 ## Parameters
 
 **Vehicle parameters.** Tank capacity, net battery capacity, fuel type, the
