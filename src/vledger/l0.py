@@ -439,9 +439,10 @@ class GapFinder:
             if self.last is not None:
                 gap = self._add(self.last, t, "crash" if self.running else "stopped")
             self.running = True
-        elif self.last is not None and self.running:
-            if (clock.parse(t) - clock.parse(self.last)).total_seconds() > self.interval + self.tolerance_s:
-                gap = self._add(self.last, t, "silence")
+        elif (self.last is not None and self.running
+              and (clock.parse(t) - clock.parse(self.last)).total_seconds()
+              > self.interval + self.tolerance_s):
+            gap = self._add(self.last, t, "silence")
         if kind == "config":
             self.interval = (line.get("config", {}).get("thresholds") or {}).get(
                 "heartbeat_s", self.interval)
