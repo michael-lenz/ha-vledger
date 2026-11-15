@@ -38,11 +38,15 @@ out (`tests/conftest.py`) rather than failing on it.
 
 Beside both, `acceptance/` holds acceptance tests: each shows one
 requirement met as a user meets the product, and is named after it
-(`test_req_0001_two_layers.py`). They drive the `vledger` CLI in
-processes of their own, the way the [user guide](user-guide.md) shows it,
-and import nothing of the library, so a test there stays true whatever
-moves inside it. They need only `.[dev]`, and `python -m pytest` runs them
-with the rest; `python -m pytest acceptance` runs them alone.
+(`test_req_0001_two_layers.py`). They use the product the way the
+[user guide](user-guide.md) shows it — the `vledger` CLI in processes of
+their own, or the integration in a Home Assistant that loads it from
+`custom_components/` (`test_req_0012_event_loop.py`) — and import nothing
+of the library or the integration, so a test there stays true whatever
+moves inside it. Those of the CLI need only `.[dev]`; those of Home
+Assistant need `.[dev,ha]` and skip themselves without it, as `tests/ha`
+is left out. `python -m pytest` runs them with the rest; `python -m pytest
+acceptance` runs them alone.
 
 ## Setting up
 
@@ -228,6 +232,7 @@ tests/                     the library's tests; tests/ha/ the integration's;
                            tests/frontend/ the card's model;
                            tests/fixtures/ real streams, anonymised
 acceptance/                one test file per requirement, shown met through the CLI
+                           or Home Assistant
 docs/                      design documents, operating manuals, the user guide
 .github/workflows/         tests.yml on every push, release.yml on a tag
 ```
