@@ -27,6 +27,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = [pytest.mark.req("REQ-0001")]
+
 SRC = Path(__file__).resolve().parent.parent / "src"
 VEHICLE = "a7c1"
 HOME = ("51.0000", "7.0000")
