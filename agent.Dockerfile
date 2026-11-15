@@ -28,12 +28,17 @@
 # agent.Dockerfile) and installs with apt what it lacks, so the base is
 # Debian. Python 3.13 is the project's floor (requires-python) and what CI
 # runs.
+#
+# build-essential stays in the image: Home Assistant pulls in lru-dict,
+# which has no wheel for Python 3.13 and is a C extension, and an agent
+# that makes a venv for a branch with changed dependencies needs the
+# compiler again.
 
 FROM python:3.13-slim
 
 RUN set -e; \
     apt-get update; \
-    apt-get install -y --no-install-recommends ca-certificates curl git; \
+    apt-get install -y --no-install-recommends build-essential ca-certificates curl git; \
     curl -fsSL https://deb.nodesource.com/setup_22.x | bash -; \
     apt-get install -y --no-install-recommends nodejs; \
     rm -rf /var/lib/apt/lists/*
