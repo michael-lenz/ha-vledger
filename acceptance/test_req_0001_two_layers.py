@@ -27,6 +27,7 @@ from pathlib import Path
 
 import pytest
 
+SRC = Path(__file__).resolve().parent.parent / "src"
 VEHICLE = "a7c1"
 HOME = ("51.0000", "7.0000")
 ROAD = [("51.0300", "7.0200"), ("51.0600", "7.0500"), ("51.0900", "7.0700")]
@@ -45,6 +46,11 @@ def vledger(base: Path, *argv: str, env: dict | None = None, cwd: Path | None = 
     """``vledger <argv>`` in its own process, on the data directory ``base``."""
     environ = {k: v for k, v in os.environ.items() if k != "VLEDGER_BASE"}
     environ.update(env or {})
+    # The process runs in another directory than the tests: a relative
+    # PYTHONPATH such as the checks' ``src`` would no longer find vledger,
+    # so the tree's own src goes first, as an absolute path.
+    environ["PYTHONPATH"] = os.pathsep.join(
+        [str(SRC), *(e for e in environ.get("PYTHONPATH", "").split(os.pathsep) if e)])
     p = subprocess.run([sys.executable, "-m", "vledger.cli", *argv, "--base", str(base)],
                        check=False, capture_output=True, text=True, env=environ, cwd=cwd or base)
     assert p.returncode == expect, (argv, p.returncode, p.stdout, p.stderr)
