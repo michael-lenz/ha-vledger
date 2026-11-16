@@ -10,6 +10,14 @@
 *Settings → Devices & services → Add integration → Vehicle Ledger*, then
 choose what to add.
 
+Everything the integration shows comes in English and German: the setup
+and options steps, the entity names and states, repairs, the errors an
+action answers with, and the card follow the language of your Home
+Assistant profile; a notification, which goes out to nobody in
+particular, is written in the instance's language (*Settings → System →
+General*). Any other language gets English. Numbers in the card follow
+the same language. The `vledger` command is English only.
+
 **A vehicle**, in four steps:
 
 1. **Name.**
@@ -480,7 +488,10 @@ Every verb works on a data directory, given as `--base DIR` or by the
 environment variable `VLEDGER_BASE`, and defaults to the current directory.
 Under Home Assistant that directory is `<config>/vledger/`. A stream is
 named by what it belongs to: `--vehicle ID` or `--chargepoint ID`, the
-subject id the integration minted. Times are UTC ISO 8601; a verb that
+subject id the integration minted. That id is the name of the subject's
+directory under the data directory without its prefix — `vehicle-<id>`,
+`chargepoint-<id>` — and the entry's **Download diagnostics** shows it as
+`subject` under `entry` → `data`. Times are UTC ISO 8601; a verb that
 writes takes `--t` and defaults to now.
 
 ```bash

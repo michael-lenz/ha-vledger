@@ -30,17 +30,22 @@ two different loops:
 | | the library and CLI | the integration |
 |---|---|---|
 | needs | Python, `.[dev]` | plus Home Assistant and its test plugin, `.[dev,ha]` |
-| tests | `tests/test_*.py`, `acceptance/` | `tests/ha/` |
+| tests | `tests/test_*.py` | `tests/ha/` |
 | runs in | any Python, the system one included | a venv |
 
 Without Home Assistant installed, `python -m pytest` leaves `tests/ha`
 out (`tests/conftest.py`) rather than failing on it.
 
-`acceptance/` holds acceptance tests: one module per requirement,
-`test_req_NNNN_<slug>.py`, that shows the requirement met as a user meets
-the product — through the `vledger` command and what is installed —
-rather than through the library's internals. `python -m pytest` runs them
-beside `tests/` (`testpaths` in `pyproject.toml`); `python -m pytest -q
+Beside both, `acceptance/` holds acceptance tests: each shows one
+requirement met as a user meets the product, and is named after it
+(`test_req_0001_two_layers.py`). They use the product the way the
+[user guide](user-guide.md) shows it — the `vledger` CLI in processes of
+their own, or the integration in a Home Assistant that loads it from
+`custom_components/` (`test_req_0012_event_loop.py`) — and import nothing
+of the library or the integration, so a test there stays true whatever
+moves inside it. Those of the CLI need only `.[dev]`; those of Home
+Assistant need `.[dev,ha]` and skip themselves without it, as `tests/ha`
+is left out. `python -m pytest` runs them with the rest; `python -m pytest
 acceptance` runs them alone.
 
 ## Setting up
@@ -76,7 +81,7 @@ back to, so a vehicle's months in `Europe/Berlin` are found:
 pkg install ruff
 python3 -m venv .venv
 .venv/bin/pip install -e ".[test]"
-.venv/bin/python -m pytest -q                     # the library only
+.venv/bin/python -m pytest -q                     # the library and the acceptance tests
 ruff check src tests custom_components            # Termux's binary
 ```
 
@@ -90,9 +95,10 @@ version difference, not a broken tree.
 ## Running the checks
 
 ```bash
-.venv/bin/python -m pytest -q                     # everything: library, acceptance and integration
+.venv/bin/python -m pytest -q                     # everything: library, integration, acceptance
 .venv/bin/python -m pytest -q tests/ha            # the integration only
-python -m pytest -q                               # the library only, if the system Python has .[dev]
+.venv/bin/python -m pytest -q acceptance          # the acceptance tests only
+python -m pytest -q                               # the library and the acceptance tests, if the system Python has .[dev]
 .venv/bin/ruff check src tests custom_components  # the default rules, nothing more
 node --test tests/frontend/model.test.mjs         # the card's model
 ```
@@ -225,6 +231,8 @@ custom_components/vledger/ the integration: flows, capture, entities, translatio
 tests/                     the library's tests; tests/ha/ the integration's;
                            tests/frontend/ the card's model;
                            tests/fixtures/ real streams, anonymised
+acceptance/                one test file per requirement, shown met through the CLI
+                           or Home Assistant
 docs/                      design documents, operating manuals, the user guide
 .github/workflows/         tests.yml on every push, release.yml on a tag
 ```

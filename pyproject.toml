@@ -44,6 +44,8 @@ ha = ["pytest-homeassistant-custom-component"]
 where = ["src"]
 
 [tool.pytest.ini_options]
+# acceptance/ holds the tests that show a requirement met as a user meets
+# the product, through the CLI; they run with the rest (docs/developing.md).
 testpaths = ["tests", "acceptance"]
 asyncio_mode = "auto"
 

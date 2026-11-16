@@ -179,6 +179,17 @@ complete is **pending**, nowhere in L1 until that candidate completes;
 a receipt that meets nothing is an event of its own. The rules in full:
 [receipts-format.md](receipts-format.md#matching).
 
+**Confirmation.** How a refuelling or charging session stands towards a
+receipt after matching, the L1 key `confirmation`
+([l1-format.md](l1-format.md)): `receipt` when a receipt was assigned to
+it, `chargepoint` when it is a session at a configured charge point
+without one, `unconfirmed` while it waits for a receipt and none matched,
+and `ambiguous` when receipts compete for it and nothing was assigned —
+the event then names them as its `contenders`. `receipt` and `chargepoint`
+are confirmed; `unconfirmed` and `ambiguous` are what *waiting for a
+receipt* counts. The card shows the last three below an event's time, the
+charge point as *charge point*.
+
 **Full tank.** A refuelling receipt that says the tank was filled. Not a
 precondition for consumption — only the case in which the sensor term of
 the tank-to-tank formula vanishes.
@@ -260,6 +271,26 @@ not count.
 Both counters run cumulatively from the start of capture plus a configured
 starting value, and per period; across capture gaps they are lower bounds,
 reported together with the number of gaps.
+
+**Fuel at 15 °C.** A fuel delta with the fuel's thermal expansion taken
+out: each of its two readings converted to the volume it would have at
+15 °C, V₁₅ = V / (1 + β·(T − 15)), β the fuel's thermal expansion
+coefficient and T the **filtered outside temperature** at that reading.
+A refuelling's `sensor_delta_15c_l` and a trip's `delta_fuel_15c_l`
+stand beside the raw `sensor_delta_l` and `delta_fuel_l` as a
+plausibility figure — how much of a delta the weather can explain — and
+never replace them: no consumption, metric, receipt match or
+receipt/sensor check reads them (VER-08, ADR-0040). Without an outside
+temperature role, or without a filtered temperature at either reading,
+the figure is `null` ([derivations.md](derivations.md#fuel-at-15-c)).
+
+**Filtered outside temperature.** The `outside_temperature` through a
+first-order low-pass filter with the temperature low-pass time constant
+(`temperature_tau_s`, default 3 h), run over the five time constants
+before the moment asked for and restarted after a dropout or capture
+gap. It stands in for the fuel's temperature in the 15 °C figures;
+`vledger calc filtered-temperature` shows it for a moment (ADR-0040,
+[derivations.md](derivations.md#fuel-at-15-c)).
 
 ## Parameters
 
