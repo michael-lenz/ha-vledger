@@ -279,7 +279,6 @@ async def test_reloading_the_entry_writes_a_stop_and_then_a_start_with_a_fresh_s
     assert_snapshot_of_every_role(start, now)
 
 
-@pytest.mark.xfail(strict=True, reason="ISSUE-0129")
 async def test_a_reload_s_stop_marker_says_reload(ui):
     """The stop marker a reload writes gives its reason as ``reload``, the
     one of the three ``vledger l0 stop --reason`` offers that says what

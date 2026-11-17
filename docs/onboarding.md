@@ -45,6 +45,37 @@ A bare id is read as a record of this register.
 
 Both have to be green. The package requires Python 3.13 or newer.
 
+## Acceptance tests
+
+A role text written for autofac itself, such as the examiner's or the
+reviewer's, names autofac's command as the product a test meets. Here the
+product is met in two ways, as [developing.md](developing.md) says under
+`acceptance/`:
+
+- **The CLI**: the `vledger` command run as a program,
+  `[sys.executable, "-m", "vledger.cli", …]` in a process of its own
+  (`acceptance/test_req_0001_two_layers.py`).
+- **The integration**: a Home Assistant that loads it from
+  `custom_components/`, driven as the browser drives it — the config and
+  options flows through `/api/config/config_entries/…`, the states it
+  shows (`acceptance/test_req_0010_ui_configuration.py`).
+
+Either way a test imports nothing of `vledger` or of the integration.
+
+The user documentation a test is derived from is
+[user-guide.md](user-guide.md). Where it hands a format over to a format
+document — [l0-format.md](l0-format.md), [l1-format.md](l1-format.md),
+[receipts-format.md](receipts-format.md) — that document is what a user
+reads for the format, and a test may take key names and values from it;
+its reasoning, and every other design document, stays out of what a test
+rests on.
+
+A requirement's own tests are run by their file, not by the directory:
+
+```bash
+.venv/bin/python -m pytest -q acceptance/test_req_0024_*.py
+```
+
 ## The documentation
 
 The documentation is `README.md` and every file under `docs/`. It comes

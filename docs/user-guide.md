@@ -72,6 +72,21 @@ From the moment an entry is set up its raw log is written under
 with the lines written since start, the last line's time and the last
 heartbeat. Stopping Home Assistant, unloading or reloading the entry ends
 the stream orderly; a crash does not, and the next start shows as a gap.
+The stop line says which: `shutdown` when Home Assistant stops, `reload`
+when the entry is reloaded, from its menu or by saving its options, and
+`unload` when it is deleted or disabled.
+
+Every state line carries the time Home Assistant reported the state. A
+source's own measurement time — when the car took the reading, which a
+cloud-polled entity may report long after — is kept beside it, as
+`measured_at` ([l0-format.md](l0-format.md)), only where the role's
+configuration names the attribute of the source entity that carries it:
+`measured_at` next to the role's `entity`. That attribute's value is read
+as a date and time with a zone, and a value that does not read as one is
+left out. The setup and options steps do not ask for such an attribute,
+so a vehicle set up here records no measurement time, whatever its
+entities' attributes hold; `vledger l0 state --measured-at`
+([below](#writing)) writes one by hand.
 
 Next to it, in the device's *Diagnostic* section, the raw log in numbers:
 the size of the current month file and of the whole log, the number of
@@ -95,11 +110,25 @@ that was wrong. Positions are redacted.
 **Options** (the entry's *Configure*): a menu over the same steps,
 pre-filled, plus the thresholds and time constants, the remaining
 parameters, where notifications go ([below](#events-and-notifications)),
-and the data directory. For a charge point: the meter, the charging power, and
+and **Storage**. For a charge point: the meter, the charging power,
 *add a tariff from a date* — tariffs are never edited; a new price is a new
-entry, and a correction is a new entry under the same date. Saving any of
-them reloads the entry, which the stream records as stop, start and the
-new configuration.
+entry, and a correction is a new entry under the same date — and
+**Storage**. Saving any of them reloads the entry, which the stream
+records as stop, start and the new configuration.
+
+**Storage** has one field, **Data directory**: the directory the entry's
+stream is kept under — for a vehicle its receipts and derivation too —
+`<config>/vledger/` unless changed ([below](#where-the-data-is)). Every
+entry, vehicle or charge point, has its own. The path is taken as written:
+give an absolute one, since a relative path is read from Home Assistant's
+working directory, not from its configuration directory. Home Assistant's
+`allowlist_external_dirs` does not apply; the directory needs only to be
+writable by Home Assistant, and is created when the first line is written.
+Changing it moves nothing: the stop line goes to the old directory, the
+start line to the new one, and from then on the integration writes and
+derives from the new directory alone. What was written under the old one
+stays there, and is no longer read — neither by the entity states nor by
+the derivation.
 
 Among the remaining parameters, **How movement is reported** says whether
 the vehicle reports its odometer and position while driving (*sampled*,
@@ -225,16 +254,29 @@ as charged instead of as missing stock.
 Each is named after its period — *Distance this month*, *Distance this
 year*, *Distance in the rolling period*. The month's entities are
 enabled; the year's and the rolling period's exist but are disabled, and
-*Settings → Entities* enables the ones you want. Nine more show the
+*Settings → Entities* enables the ones you want. Ten more show the
 lifetime line, the vehicle's overall figures: **Charge cycles in total**
 and **Tank fills in total**, both including the starting values
 configured; **Fuel per 100 km in total**, tank to tank, with the receipts
-it spans and its relative error as attributes; **Grid energy per 100 km in
+it spans and its relative error as attributes; **Fuel per 100 km over
+the whole distance**, the fuel consumed since capture began over the
+distance driven; **Grid energy per 100 km in
 total** and **Battery energy per 100 km in total**, the electricity
 consumption on the whole distance since capture began; and the totals
 **Distance in total**, **Fuel consumed in total**, **Grid energy in
-total** and **Battery energy consumed in total**. The fuel consumption on the
-whole distance is the tank-to-tank figure, never a sum of the trips'.
+total** and **Battery energy consumed in total**.
+
+The two fuel rates answer different questions. **Fuel per 100 km in
+total** is the consumption between two refuelling receipts — the latest
+interval precise enough, from the pump's litres — and stays *unknown*
+until two receipts span one. **Fuel per 100 km over the whole distance**
+is everything since capture began: the trip computer's litres where every
+trip has its figure, else the litres bought corrected by the fuel level
+at both ends. Its attributes say which (**Fuel consumed source**), its
+**Quality of the state** and its **Relative error (%)**; it needs the
+fuel level sensor's resolution among the parameters when it rests on the
+level, and it stays *unknown* while the litres are still within their
+error. Neither stands in for the other.
 
 Every metric entity's attributes are its line's **Start**, **End**,
 **Still running** and **Capture gaps**, and **Quality of the state**;
@@ -272,8 +314,9 @@ What they keep as statistics:
   no statistics: a sliding window is neither a level nor a running sum.
 - A **rate** or **share** is a level, kept as one.
 - **Charge cycles in total**, **Tank fills in total** and the four
-  totals are running totals; **Fuel per 100 km in total** and the two
-  overall rates are levels.
+  totals are running totals; **Fuel per 100 km in total**, **Fuel per
+  100 km over the whole distance** and the two overall electricity rates
+  are levels.
 
 Distances and litres follow the instance's units, as above. The
 electricity rates, `kWh/100km`, carry a device class, so an entity's
@@ -486,13 +529,16 @@ a notification, it is logged and nothing else changes.
 
 Every verb works on a data directory, given as `--base DIR` or by the
 environment variable `VLEDGER_BASE`, and defaults to the current directory.
-Under Home Assistant that directory is `<config>/vledger/`. A stream is
+Under Home Assistant that directory is `<config>/vledger/`, or the
+**Data directory** set under the entry's **Storage**. A stream is
 named by what it belongs to: `--vehicle ID` or `--chargepoint ID`, the
 subject id the integration minted. That id is the name of the subject's
 directory under the data directory without its prefix — `vehicle-<id>`,
 `chargepoint-<id>` — and the entry's **Download diagnostics** shows it as
-`subject` under `entry` → `data`. Times are UTC ISO 8601; a verb that
-writes takes `--t` and defaults to now.
+`subject` under `entry` → `data`. Times are UTC ISO 8601 to the
+millisecond; a verb that writes takes `--t`, an ISO 8601 time with a zone
+such as `2026-10-09T10:15:30+02:00`, writes that instant in UTC
+(`2026-10-09T08:15:30.000Z`), and defaults to now.
 
 ```bash
 export VLEDGER_BASE=~/vledger
@@ -543,9 +589,11 @@ vledger l0 validate --vehicle a7c1 --json
 
 Counts files and lines by kind, names the schema versions the stream holds,
 and lists every problem: an error is a line the writer could not have
-written, a warning is a line readers skip (a torn last line, an unknown
-kind) or something odd (time running backwards). The exit code is 1 when
-there is an error.
+written, a warning is a line readers skip (a torn line, an unknown kind)
+or something odd (time running backwards). A torn line is what a crash
+cut off part way; the next line written after it starts on a line of its
+own, so the stream reads on past it. The exit code is 1 when there is an
+error.
 
 ### Counting
 
@@ -731,7 +779,7 @@ capture:
 
 ```bash
 vledger derive periods --vehicle a7c1 | jq 'select(.period == "month") | {start, distance_km, fuel_eur_per_100km, grid_kwh_per_100km, eur_per_100km}'
-vledger derive periods --vehicle a7c1 | jq 'select(.period == "lifetime") | {consumption_l_per_100km, consumption_error_pct, charge_cycles, tank_fills}'
+vledger derive periods --vehicle a7c1 | jq 'select(.period == "lifetime") | {consumption_l_per_100km, consumption_error_pct, fuel_l_per_100km, fuel_l_per_100km_error_pct, charge_cycles, tank_fills}'
 ```
 
 Each line has the distance; the litres and the fuel cost bought, from the
@@ -746,12 +794,17 @@ period it starts in, so a trip across midnight on the last of the month
 counts in that month, whole. `gaps` says how many capture gaps lie in the
 period: what happened inside one is missing from the counts.
 
-The fuel consumption in litres per 100 km is on the lifetime line only,
-measured tank to tank between two receipts — the latest such interval
-whose possible error is under 5 %, which is always the case between two
-full tanks. Between partial fills it needs the fuel level sensor's
-resolution among the parameters; without it only full to full counts.
-Receipt the refuellings: one without a receipt breaks the interval.
+Litres per 100 km are on the lifetime line only, two ways. The fuel
+consumption, `consumption_l_per_100km`, is measured tank to tank between
+two receipts — the latest such interval whose possible error is under
+5 %, which is always the case between two full tanks. Between partial
+fills it needs the fuel level sensor's resolution among the parameters;
+without it only full to full counts. Receipt the refuellings: one without
+a receipt breaks the interval. Beside it, `fuel_l_per_100km` is the
+line's litres used over its distance, the whole of capture, with its
+quality and relative error; it is `null` while those litres are within
+their error, and from the fuel level it needs the sensor's resolution
+too.
 
 ## Receipts: `vledger receipt`
 

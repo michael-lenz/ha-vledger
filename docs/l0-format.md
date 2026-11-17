@@ -85,6 +85,22 @@ assigned role as it stands:
               "unit":"km","since":"2026-10-08T22:41:10.000Z"}]}
 ```
 
+`snapshot` holds one entry per assigned role, with these keys:
+
+| key | meaning |
+|---|---|
+| `role` | the configured role, as on a state line |
+| `entity` | the entity assigned to the role, as on a state line |
+| `state` | the state string exactly as Home Assistant holds it, as on a state line |
+| `since` | when the value last changed (below) |
+| `unit` | `unit_of_measurement`, when present, as on a state line |
+| `attrs` | the role-relevant attributes, by the same fixed list as a state line; absent when empty |
+
+`role`, `entity`, `state` and `since` are always present. An entry carries
+no `measured_at` and no `reported_before`. An assigned entity for which
+Home Assistant has no state at the start gives `state` `unavailable` and
+the start line's own `t` as its `since`, with no `unit` and no `attrs`.
+
 `since` is when the snapshotted value last changed — the entity's
 `last_changed`, or its `last_updated` for a role whose attributes are part
 of its value, those the whitelist above names: `position` (ADR-0036; before
@@ -160,8 +176,13 @@ one.
 to the file its own `t` names, so a stream rotates without a gap at the
 month boundary. Writes append, flushed and synced per line, off the event
 loop; a line is on disk whole or not at all, and a torn last line after a
-crash is skipped on reading. A torn line anywhere else is an error: the
-writer could not have produced it.
+crash is skipped on reading. The next write after the crash finds the file
+without its last line break and writes one before its own line, changing
+nothing already on disk: the torn line stays a line of its own, which
+readers skip wherever it stands, and every line after it reads. A line
+that is not JSON is such a torn line, a warning of `vledger l0 validate`;
+a line that is JSON but no object is an error, since neither the writer
+nor a crash leaves one.
 
 ## Subjects
 

@@ -33,6 +33,14 @@ by the UUID the integration mints when it is created — the subject id,
 which names its directory on disk and is what `--vehicle ID` and
 `--chargepoint ID` take ([l0-format.md](l0-format.md#subjects)).
 
+**Data directory.** The directory that holds one directory per subject,
+`vehicle-<id>` or `chargepoint-<id>`, each with its L0 stream and its L1,
+and a vehicle's receipts beside them. Every `vledger` verb works on one,
+given as `--base DIR` or by `VLEDGER_BASE`, the current directory
+otherwise; under Home Assistant it is `<config>/vledger/` unless the
+entry's **Storage** step sets another
+([user-guide.md](user-guide.md#where-the-data-is)).
+
 ## Sources
 
 **Source entity.** An entity of any other integration that reports vehicle

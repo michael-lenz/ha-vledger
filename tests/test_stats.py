@@ -43,9 +43,9 @@ def test_stats_counts_a_stream(tmp_path, capsys):
     assert d["state_lines_by_role"] == {"odometer": 5, "charging_state": 4}
     assert d["lines_since_start"] == 1           # after the second start
     assert d["lines_since"] == 6                 # 06:30 and later
-    assert d["last_line_at"] == "2026-10-09T10:05:00Z"
-    assert d["last_heartbeat_at"] == "2026-10-09T07:00:00Z"
-    assert d["last_state"] == {"role": "odometer", "t": "2026-10-09T10:05:00Z"}
+    assert d["last_line_at"] == "2026-10-09T10:05:00.000Z"
+    assert d["last_heartbeat_at"] == "2026-10-09T07:00:00.000Z"
+    assert d["last_state"] == {"role": "odometer", "t": "2026-10-09T10:05:00.000Z"}
     assert d["last_states"]["charging_state"]["state"] == "Idle"
     # 10, 25 and 10 minutes between changes — the 3 h 10 min across the
     # crash is not one. No line says when a value was last reported, so

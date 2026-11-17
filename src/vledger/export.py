@@ -74,7 +74,8 @@ COLUMNS: dict[str, tuple[str, ...]] = {
         "place", "provider", "note", *_PLAUSIBILITY),
     "period": ENVELOPE + ("period", "open") + tuple(
         k for m in periods.METRICS for k in (m, m + "_quality")) + (
-        "fuel_level_corrected", "fuel_consumed_source", "soc_corrected", "gaps", *periods.CONSUMPTION),
+        "fuel_level_corrected", "fuel_consumed_source", "soc_corrected", "gaps", *periods.CONSUMPTION,
+        *periods.LIFETIME_FUEL),
 }
 
 #: Keys whose value is a position (series.fix_dict), and the one dict that is not.
