@@ -200,6 +200,16 @@ Assistant and the newest:
    being rebuilt, and comes back with it.
 7. The same in German.
 
+## The interface's strings
+
+`custom_components/vledger/strings.json` and `translations/en.json` are the
+source of every string the integration shows; `translations/de.json` is
+their German translation and complete wherever they are (ADR-0069): a
+change that adds or changes an English string carries its German one in
+the same change. `tests/test_translations.py` fails when the three files'
+keys differ or a German string is empty; the card's own table in
+`frontend/model.js` is held to the same rule by its model's tests.
+
 ## The brand assets
 
 `custom_components/vledger/brand/` holds the icon and logo Home Assistant
