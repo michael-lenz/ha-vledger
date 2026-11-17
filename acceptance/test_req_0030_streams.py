@@ -29,6 +29,7 @@ import os
 import pathlib
 import subprocess
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -104,8 +105,18 @@ def chargepoint(base: Path, sid: str, tz: str = "UTC") -> Subject:
     return Subject(base, "chargepoint", sid, tz)
 
 
-def times(lines: list[dict]) -> list[str]:
-    return [x["t"] for x in lines]
+def instant(text: str) -> datetime:
+    """The instant a time names, so that a time the command wrote is compared
+    by when it is and not by how it is spelt (REQ-0024 has the spelling)."""
+    return datetime.fromisoformat(text).astimezone(UTC)
+
+
+def times(lines: list[dict]) -> list[datetime]:
+    return [instant(x["t"]) for x in lines]
+
+
+def instants(*texts: str) -> list[datetime]:
+    return [instant(t) for t in texts]
 
 
 # --- one stream per vehicle and per charge point ------------------------------
@@ -122,9 +133,9 @@ def test_each_vehicle_and_each_charge_point_has_a_stream_of_its_own(tmp_path):
 
     assert sorted(p.name for p in tmp_path.iterdir()) == \
         ["chargepoint-c9e0", "vehicle-a7c1", "vehicle-b2d4"]
-    assert times(golf.read()) == ["2026-10-10T08:00:00Z", "2026-10-10T09:00:00Z",
-                                  "2026-10-10T09:10:00Z"]
-    assert times(zoe.read()) == ["2026-10-10T08:01:00Z", "2026-10-10T09:05:00Z"]
+    assert times(golf.read()) == instants("2026-10-10T08:00:00Z", "2026-10-10T09:00:00Z",
+                                          "2026-10-10T09:10:00Z")
+    assert times(zoe.read()) == instants("2026-10-10T08:01:00Z", "2026-10-10T09:05:00Z")
     assert [x["kind"] for x in home.read()] == ["start", "heartbeat"]
     assert [x["state"] for x in golf.read() if x["kind"] == "state"] == ["1000", "1001"]
     assert [x["state"] for x in zoe.read() if x["kind"] == "state"] == ["5000"]
@@ -248,9 +259,9 @@ def test_a_stream_reads_back_whole_and_in_order_across_its_month_files(tmp_path,
     golf.stop("2026-11-01T00:20:00Z")
 
     assert golf.months() == ["2026-10", "2026-11"]
-    assert times(golf.read()) == ["2026-10-31T22:00:00Z", "2026-10-31T23:50:00Z",
-                                  "2026-10-31T23:59:00Z", "2026-11-01T00:10:00Z",
-                                  "2026-11-01T00:20:00Z"]
+    assert times(golf.read()) == instants("2026-10-31T22:00:00Z", "2026-10-31T23:50:00Z",
+                                          "2026-10-31T23:59:00Z", "2026-11-01T00:10:00Z",
+                                          "2026-11-01T00:20:00Z")
     assert [x["state"] for x in golf.read() if x["kind"] == "state"] == ["1000", "1001"]
 
 
