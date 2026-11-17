@@ -535,7 +535,7 @@ def _refuelled_inside(s: Stream, start: str, until: str) -> list[float]:
             and lo <= clock.parse(e.start) and clock.parse(e.settled_at) <= hi]
 
 
-def _rate(used: float | None, error: float | None, km: float | None
+def rate(used: float | None, error: float | None, km: float | None
           ) -> tuple[float | None, float | None]:
     """(the rate per 100 km, its error as a share of it): the rate over a
     distance where the quantity exceeds its own error, or where that error
@@ -571,14 +571,14 @@ def _consumption(s: Stream, start: str, end: str, values_until: str, settle_s: f
         refuelled = round(sum(fills), 3) if fills else None
         fuel, fuel_err = -delta_fuel + sum(fills), 2 * float(res) * (1 + len(fills))
         fuel_q, source = periods.weakest(ESTIMATED, gap), FUEL_LEVEL
-    fuel_rate, fuel_share = _rate(fuel, fuel_err, km)
+    fuel_rate, fuel_share = rate(fuel, fuel_err, km)
     battery = battery_q = battery_err = None
     capacity = p.get("battery_net_kwh")
     if delta_soc is not None and capacity:
         battery = -delta_soc / 100 * float(capacity)
         battery_err = 2 * float(p.get("soc_resolution_pct") or 0) / 100 * float(capacity)
         battery_q = periods.weakest(ESTIMATED, gap)
-    battery_rate, battery_share = _rate(battery, battery_err, km)
+    battery_rate, battery_share = rate(battery, battery_err, km)
 
     def r(x, digits=3):
         return None if x is None else round(x, digits) + 0.0   # no negative zero

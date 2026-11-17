@@ -17,9 +17,10 @@ V = Subject("vehicle", "a7c1")
 BERLIN = vconfig.zone_of({"time_zone": "Europe/Berlin"})
 
 
-def vehicle(base, capsys, parameters=None, time_zone=None, charging_state=True):
+def vehicle(base, capsys, parameters=None, time_zone=None, charging_state=True, fuel_known=True):
     """Odometer, position, SoC, fuel level and charging state: a plug-in
-    hybrid with a 10 kWh battery and a 40 L tank, standing at home."""
+    hybrid with a 10 kWh battery and a 40 L tank, standing at home — its
+    fuel level 20 L at capture's start, or not yet reported."""
     roles = {"odometer": {"entity": "sensor.o"}, "position": {"entity": "device_tracker.v"},
              "soc": {"entity": "sensor.s"}, "fuel_level": {"entity": "sensor.f"}}
     if charging_state:
@@ -36,6 +37,8 @@ def vehicle(base, capsys, parameters=None, time_zone=None, charging_state=True):
         {"role": "soc", "entity": "sensor.s", "state": "50", "unit": "%", "since": at(-120)},
         {"role": "fuel_level", "entity": "sensor.f", "state": "20", "unit": "L", "since": at(-120)},
     ]
+    if not fuel_known:
+        snapshot = [x for x in snapshot if x["role"] != "fuel_level"]
     if charging_state:
         snapshot.append({"role": "charging_state", "entity": "sensor.c", "state": "Idle", "since": at(-120)})
     return Stream(base, capsys, "vehicle", "a7c1", cfg, snapshot)
@@ -280,6 +283,91 @@ def test_the_fuel_a_period_consumed_is_its_trips_trip_computer_sum_where_complet
     assert m["distance_km"] == 55
     assert (m["fuel_consumed_l"], m["fuel_consumed_l_quality"]) == (6.5, "estimated")   # 20.5 − 14
     assert m["fuel_consumed_source"] == "fuel_level"
+
+
+LIFETIME_FUEL = ("fuel_l_per_100km", "fuel_l_per_100km_quality", "fuel_l_per_100km_error_pct")
+
+
+def lifetime_fuel(base):
+    life = by_period(periods.derive_from(base, V))["lifetime"]
+    return tuple(life[k] for k in LIFETIME_FUEL), life
+
+
+@pytest.mark.req("REQ-0073")
+def test_the_lifetime_line_has_fuel_per_100_km_on_the_whole_distance_from_the_level(tmp_path, capsys):
+    """ADR-0070, points 1 and 2: a day's 6 L consumed (23 bought, the level
+    20 → 37 L) over its 60 km, with the error 2 × 0.5 L of the level's stock
+    correction; the tank-to-tank figure beside it unchanged."""
+    a_day(tmp_path, capsys, parameters={"fuel_level_resolution_l": 0.5})
+    rate, life = lifetime_fuel(tmp_path)
+    assert life["fuel_consumed_l"] == 6 and life["fuel_consumed_source"] == "fuel_level"
+    assert rate == (10, "estimated", 16.7)      # 1 L of 6
+    assert life["consumption_l_per_100km"] == 10 and life["consumption_quality"] == "receipt"
+    assert life["consumption_error_pct"] == 0
+    # The periods carry no litres per 100 km (point 4).
+    assert all("fuel_l_per_100km" not in x for x in periods.derive_from(tmp_path, V)
+               if x["period"] != "lifetime")
+
+
+@pytest.mark.req("REQ-0073")
+def test_without_a_level_resolution_the_lifetime_line_has_no_fuel_per_100_km(tmp_path, capsys):
+    """ADR-0070, point 2: from the level, no error without the parameter,
+    and no figure without its error — the tank-to-tank figure stays."""
+    a_day(tmp_path, capsys)
+    rate, life = lifetime_fuel(tmp_path)
+    assert rate == (None, None, None)
+    assert life["consumption_l_per_100km"] == 10
+
+
+@pytest.mark.req("REQ-0073")
+def test_fuel_within_its_error_of_zero_gives_no_lifetime_rate(tmp_path, capsys):
+    """ADR-0070, point 2, by ADR-0026's rule: 6 L against an error of
+    2 × 5 L, which over 60 km is far more than one step of the rate."""
+    a_day(tmp_path, capsys, parameters={"fuel_level_resolution_l": 5})
+    rate, life = lifetime_fuel(tmp_path)
+    assert life["fuel_consumed_l"] == 6 and rate == (None, None, None)
+
+
+@pytest.mark.req("REQ-0073")
+def test_purchases_without_the_level_at_both_ends_give_no_lifetime_rate(tmp_path, capsys):
+    """Litres bought are no litres consumed: with the level unread at
+    capture's start, the stock is not corrected and there is no figure."""
+    v = vehicle(tmp_path, capsys, parameters={"fuel_level_resolution_l": 0.5}, fuel_known=False)
+    trip(v, 0, 1000, 30)
+    v.state(80, "fuel_level", 37, "L")
+    v.heartbeat(200)
+    anchored_receipt(tmp_path, capsys, 80, 20, 35.00, 81)
+    rate, life = lifetime_fuel(tmp_path)
+    assert life["fuel_level_corrected"] is False and life["fuel_consumed_l"] == 20
+    assert rate == (None, None, None)
+
+
+@pytest.mark.req("REQ-0073")
+def test_the_lifetime_fuel_per_100_km_comes_from_the_trip_computer_where_every_trip_has_it(tmp_path, capsys):
+    """ADR-0070, point 2: the two legs' 1.75 + 0.8 L over 35 km, measured,
+    with the sum of their errors — half the 0.1 L/100 km display step over
+    100 + 125 km, then over the 10 km since the counter's reset."""
+    from test_trips import CYCLE_ROLES, PER_CYCLE, Builder, upload
+    roles = dict(CYCLE_ROLES, trip_consumption={"entity": "sensor.avg"}, fuel_level={"entity": "sensor.f"})
+    b = Builder(tmp_path, capsys, roles=roles, parameters=dict(
+        PER_CYCLE, fuel="petrol", fuel_level_resolution_l=1.0, tank_capacity_l=40))
+    b.state(-30, "trip_distance", 100.0, "km").state(-30, "trip_consumption", 6.0, "L/100 km")
+    b.heartbeat(0)
+    b.state(10, "lock", "unlocked", before=9).state(12, "lock", "locked", before=11)
+    upload(b, 40, 125.0, 1025)
+    b.state(40, "trip_consumption", 6.2, "L/100 km", before=38)
+    b.state(43, "fuel_level", 17.0, "L", before=38)
+    b.heartbeat(100)
+    b.state(160, "lock", "unlocked", before=159)
+    upload(b, 180, 10.0, 1035)
+    b.state(180, "trip_consumption", 8.0, "L/100 km", before=178)
+    b.state(183, "fuel_level", 16.0, "L", before=43)
+    b.heartbeat(230)
+    rate, life = lifetime_fuel(tmp_path)
+    assert (life["fuel_consumed_l"], life["distance_km"]) == (2.55, 35)
+    assert life["fuel_consumed_source"] == "trip_computer"
+    # 0.05 × 225 / 100 + 0.05 × 10 / 100 = 0.1175 L of 2.55 L.
+    assert rate == (7.286, "measured", 4.6)
 
 
 def charged_then_driven(base, capsys, charging_state=True):

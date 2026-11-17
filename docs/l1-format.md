@@ -173,9 +173,10 @@ the weakest of the line's.
 | `fuel_consumed_source` | where `fuel_consumed_l` came from: `trip_computer` or `fuel_level` |
 | `gaps` | the capture gaps overlapping the period: counts across them are lower bounds |
 
-There are no litres per 100 km per period: fuel consumption is
-tank-to-tank only, and a period's consumed litres rest on the level
-sensor — they price the distance. A rate over no distance is `null`.
+There are no litres per 100 km per month, year or rolling period: over a
+short span the error of the consumed litres is the size of the figure, so
+they price the distance. Litres per 100 km are on the lifetime line
+alone, below. A rate over no distance is `null`.
 
 **The lifetime line** counts `charge_cycles` and `tank_fills` from the
 configured starting values (`charge_cycles_start`, `tank_fills_start`),
@@ -198,6 +199,23 @@ both; one with an unreceipted refuelling inside it is not formed, since
 no receipt states its litres. The list of every interval is not stored:
 `vledger report metrics` computes it for a span, with the mean outside
 temperature over each ([user guide](user-guide.md#reports-vledger-report)).
+
+Beside it, never in its place, the lifetime line carries the fuel
+consumed per 100 km on the whole distance (ADR-0070), named as a trip's
+rate is:
+
+| key | what |
+|---|---|
+| `fuel_l_per_100km` | `fuel_consumed_l` / `distance_km` × 100 |
+| `fuel_l_per_100km_quality` | `measured` where `fuel_consumed_source` is `trip_computer`, `estimated` where it is `fuel_level`; the weakest of the litres' and the distance's |
+| `fuel_l_per_100km_error_pct` | the litres' error as a share of them: the sum of the trips' `fuel_consumed_error_l` from the trip computer, 2 × `fuel_level_resolution_l` from the level |
+
+All three are `null` without a distance, without `fuel_level_resolution_l`
+where the litres come from the level, where the level could not be read
+at both ends (`fuel_level_corrected` `false`: the litres are then the
+purchases alone), or where the litres are within their error of zero and
+that error over the distance exceeds 0.1 L/100 km — the rule of a trip's
+rate.
 
 ## Reading
 
