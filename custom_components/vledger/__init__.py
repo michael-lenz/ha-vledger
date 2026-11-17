@@ -10,6 +10,7 @@ its L1 with the library's verbs (ADR-0009).
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -152,5 +153,26 @@ async def async_unload_entry(hass: HomeAssistant, entry: VledgerConfigEntry) -> 
         entry.runtime_data.statistics.async_stop()
     await entry.runtime_data.l1.async_stop()
     capture = entry.runtime_data.capture
-    await capture.async_stop(capture.stop_reason or "unload")
+    await capture.async_stop(capture.stop_reason or _unload_reason(hass, entry))
     return ok
+
+
+def _unload_reason(hass: HomeAssistant, entry: VledgerConfigEntry) -> str:
+    """``reload`` when Home Assistant unloads the entry to set it up again,
+    ``unload`` otherwise (ADR-0008, point 5).
+
+    Home Assistant calls ``async_unload_entry`` alike for a reload, a removal
+    and a disabling, and tells the integration nothing of which. A reload is
+    the one that runs inside ``ConfigEntries.async_reload``, which awaits the
+    unload, so its frame is on the stack; a disabled entry is reloaded too,
+    but is not set up again. Should Home Assistant rename the method, a
+    reload is written as ``unload``, as before ISSUE-0129.
+    """
+    if entry.disabled_by is not None:
+        return "unload"
+    frame = sys._getframe(1)
+    while frame is not None:
+        if frame.f_code.co_name == "async_reload" and frame.f_locals.get("self") is hass.config_entries:
+            return "reload"
+        frame = frame.f_back
+    return "unload"
