@@ -77,6 +77,8 @@ custom_components/vledger/ the Home Assistant integration, a shell over the
 tests/                     pytest: library tests on L0 fixtures, integration
                            tests with pytest-homeassistant-custom-component;
                            the card's model with Node's own test runner
+acceptance/                pytest: a module per requirement, showing it met
+                           through the vledger command as a user meets it
 docs/                      design documents, operating manuals, the user guide
 ```
 
