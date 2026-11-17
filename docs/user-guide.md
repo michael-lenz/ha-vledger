@@ -73,6 +73,18 @@ with the lines written since start, the last line's time and the last
 heartbeat. Stopping Home Assistant, unloading or reloading the entry ends
 the stream orderly; a crash does not, and the next start shows as a gap.
 
+Every state line carries the time Home Assistant reported the state. A
+source's own measurement time — when the car took the reading, which a
+cloud-polled entity may report long after — is kept beside it, as
+`measured_at` ([l0-format.md](l0-format.md)), only where the role's
+configuration names the attribute of the source entity that carries it:
+`measured_at` next to the role's `entity`. That attribute's value is read
+as a date and time with a zone, and a value that does not read as one is
+left out. The setup and options steps do not ask for such an attribute,
+so a vehicle set up here records no measurement time, whatever its
+entities' attributes hold; `vledger l0 state --measured-at`
+([below](#writing)) writes one by hand.
+
 Next to it, in the device's *Diagnostic* section, the raw log in numbers:
 the size of the current month file and of the whole log, the number of
 month files, when the last line, the last heartbeat and the last state
