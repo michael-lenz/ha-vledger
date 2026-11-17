@@ -110,11 +110,25 @@ that was wrong. Positions are redacted.
 **Options** (the entry's *Configure*): a menu over the same steps,
 pre-filled, plus the thresholds and time constants, the remaining
 parameters, where notifications go ([below](#events-and-notifications)),
-and the data directory. For a charge point: the meter, the charging power, and
+and **Storage**. For a charge point: the meter, the charging power,
 *add a tariff from a date* — tariffs are never edited; a new price is a new
-entry, and a correction is a new entry under the same date. Saving any of
-them reloads the entry, which the stream records as stop, start and the
-new configuration.
+entry, and a correction is a new entry under the same date — and
+**Storage**. Saving any of them reloads the entry, which the stream
+records as stop, start and the new configuration.
+
+**Storage** has one field, **Data directory**: the directory the entry's
+stream is kept under — for a vehicle its receipts and derivation too —
+`<config>/vledger/` unless changed ([below](#where-the-data-is)). Every
+entry, vehicle or charge point, has its own. The path is taken as written:
+give an absolute one, since a relative path is read from Home Assistant's
+working directory, not from its configuration directory. Home Assistant's
+`allowlist_external_dirs` does not apply; the directory needs only to be
+writable by Home Assistant, and is created when the first line is written.
+Changing it moves nothing: the stop line goes to the old directory, the
+start line to the new one, and from then on the integration writes and
+derives from the new directory alone. What was written under the old one
+stays there, and is no longer read — neither by the entity states nor by
+the derivation.
 
 Among the remaining parameters, **How movement is reported** says whether
 the vehicle reports its odometer and position while driving (*sampled*,
@@ -501,7 +515,8 @@ a notification, it is logged and nothing else changes.
 
 Every verb works on a data directory, given as `--base DIR` or by the
 environment variable `VLEDGER_BASE`, and defaults to the current directory.
-Under Home Assistant that directory is `<config>/vledger/`. A stream is
+Under Home Assistant that directory is `<config>/vledger/`, or the
+**Data directory** set under the entry's **Storage**. A stream is
 named by what it belongs to: `--vehicle ID` or `--chargepoint ID`, the
 subject id the integration minted. That id is the name of the subject's
 directory under the data directory without its prefix — `vehicle-<id>`,
