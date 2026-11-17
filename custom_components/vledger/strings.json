@@ -1494,6 +1494,19 @@
           "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
         }
       },
+      "fuel_l_per_100km_total": {
+        "name": "Fuel per 100 km over the whole distance",
+        "state_attributes": {
+          "state_held": { "name": "State held" },
+          "start": { "name": "Start" },
+          "end": { "name": "End" },
+          "gaps": { "name": "Capture gaps" },
+          "fuel_l_per_100km_error_pct": { "name": "Relative error (%)" },
+          "fuel_consumed_source": { "name": "Fuel consumed source", "state": { "trip_computer": "Trip computer", "fuel_level": "Fuel level" } },
+          "fuel_level_corrected": { "name": "Corrected by the fuel level" },
+          "state_quality": { "name": "Quality of the state", "state": { "measured": "Measured", "receipt": "Receipt", "estimated": "Estimated", "incomplete": "Incomplete" } }
+        }
+      },
       "grid_kwh_per_100km_total": {
         "name": "Grid energy per 100 km in total",
         "state_attributes": {

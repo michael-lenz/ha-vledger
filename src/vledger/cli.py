@@ -62,7 +62,8 @@ def _base(args) -> Path:
 
 
 def _t(args) -> str:
-    return args.t or clock.to_text(clock.now())
+    """The time a verb writes: ``--t`` in L0's one spelling, or now."""
+    return clock.to_text(clock.parse(args.t) if args.t else clock.now())
 
 
 def _json_arg(text: str):
@@ -102,7 +103,7 @@ def _add_stream_args(sp: argparse.ArgumentParser) -> None:
 
 
 def _add_t(sp: argparse.ArgumentParser) -> None:
-    sp.add_argument("--t", help="the event's time, UTC ISO 8601 (default: now)")
+    sp.add_argument("--t", help="the event's time, ISO 8601 with a zone, written in UTC (default: now)")
 
 
 # --- l0 verbs --------------------------------------------------------------
@@ -696,7 +697,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     def receipt_common(sp: argparse.ArgumentParser) -> None:
         _add_stream_args(sp)
-        sp.add_argument("--t", help="the time of entry, UTC ISO 8601 (default: now)")
+        sp.add_argument("--t", help="the time of entry, ISO 8601 with a zone, written in UTC (default: now)")
         g = sp.add_mutually_exclusive_group()
         g.add_argument("--anchor", help="when the refuelling or charge happened, as typed")
         g.add_argument("--from-candidate", metavar="START",
@@ -725,7 +726,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp = rverbs.add_parser("cancel", help="take a receipt out, with a receipt of its own")
     _add_stream_args(sp)
     sp.add_argument("id", metavar="UUID", help="the receipt to cancel")
-    sp.add_argument("--t", help="the time of entry, UTC ISO 8601 (default: now)")
+    sp.add_argument("--t", help="the time of entry, ISO 8601 with a zone, written in UTC (default: now)")
     sp.add_argument("--note", help="why")
     sp.set_defaults(func=cmd_receipt_cancel)
 

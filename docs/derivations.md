@@ -480,7 +480,11 @@ each metric flagged with the weakest of what it rests on. The fuel a
 period consumed is the sum of its trips' trip-computer figures where
 every trip has one, else the level's stock correction, the source named
 on the line (ADR-0049). Fuel consumption is tank to tank between receipts, corrected by the
-level sensor, with its error bound beside it. The definitions are
+level sensor, with its error bound beside it. Beside it, the lifetime
+line divides its consumed litres by its distance (ADR-0070): with the
+trips' summed trip-computer errors, `measured`, or with 2 ×
+`fuel_level_resolution_l`, `estimated`, and no figure where a trip's rate
+would have none (ADR-0026). The periods have no such rate. The definitions are
 [l1-format.md](l1-format.md#periods). The same arithmetic over a span
 chosen freely is the report, `vledger report metrics`, computed from the
 event files and the stream on demand; it also lists every tank-to-tank
@@ -490,7 +494,8 @@ refuellings (VER-09).
 **Limitations.** Counts over a period with a capture gap are lower bounds,
 and `gaps` says how many there were. Without `battery_net_kwh` there is no
 battery-side energy, without `tank_capacity_l` no tank fills, without
-`fuel_level_resolution_l` no error bound on a partial-fill consumption.
+`fuel_level_resolution_l` no error bound on a partial-fill consumption and
+no fuel per 100 km on the whole distance from the level.
 
 ## Where these are tested
 

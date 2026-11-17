@@ -10,6 +10,7 @@ from custom_components.vledger.const import (
     DOMAIN,
     OPT_BASE_PATH,
 )
+from homeassistant.config_entries import ConfigEntryDisabler
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.util import dt as dt_util
@@ -118,6 +119,41 @@ async def test_reload_writes_stop_start_config(hass, vehicle_entry, tmp_path):
     await hass.async_block_till_done()
     last = [r.line for r in l0.read(tmp_path, V)][-1]
     assert last["kind"] == "stop" and last["reason"] == "unload"
+
+
+
+async def _last_stop(hass, entry, tmp_path, act):
+    """Set the entry up, do ``act`` to it, and return the stream's stop lines."""
+    hass.states.async_set("sensor.volvo_odometer", "100")
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await _settle(hass, entry)
+    await act()
+    await hass.async_block_till_done()
+    return [r.line for r in l0.read(tmp_path, V) if r.line["kind"] == "stop"]
+
+
+async def test_a_reload_of_the_entry_writes_its_stop_as_reload(hass, vehicle_entry, tmp_path):
+    """ADR-0008, point 5: a reload from the entry's menu, not only one the
+    options start, gives its stop marker the reason reload (ISSUE-0129)."""
+    stops = await _last_stop(hass, vehicle_entry, tmp_path,
+                             lambda: hass.config_entries.async_reload(vehicle_entry.entry_id))
+    assert [s["reason"] for s in stops] == ["reload"]
+
+
+async def test_removing_the_entry_writes_its_stop_as_unload(hass, vehicle_entry, tmp_path):
+    stops = await _last_stop(hass, vehicle_entry, tmp_path,
+                             lambda: hass.config_entries.async_remove(vehicle_entry.entry_id))
+    assert [s["reason"] for s in stops] == ["unload"]
+
+
+async def test_disabling_the_entry_writes_its_stop_as_unload(hass, vehicle_entry, tmp_path):
+    """Disabling reloads the entry in Home Assistant, but nothing starts
+    again: the stream ends with unload, not reload."""
+    stops = await _last_stop(hass, vehicle_entry, tmp_path,
+                             lambda: hass.config_entries.async_set_disabled_by(
+                                 vehicle_entry.entry_id, ConfigEntryDisabler.USER))
+    assert [s["reason"] for s in stops] == ["unload"]
 
 
 async def test_a_removed_entity_is_unavailable_and_raises_an_issue(hass, vehicle_entry, tmp_path):

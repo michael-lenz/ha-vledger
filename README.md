@@ -1,16 +1,5 @@
 # ha-vledger
 
-> **Beta.** Everything the design describes is built — capture, trips,
-> refuellings, charging sessions, receipts, metrics, entities, statistics,
-> exports — and runs on the author's vehicle, against whose drives every
-> derivation has been checked; against nobody else's yet. The options may
-> still change between releases, a release may rebuild the derivation from
-> the raw log, and there is no support. The log format is decided and will
-> be read by every later version, so what is captured now is kept. Install
-> it through HACS as a custom repository if you want to try it; this
-> notice goes when the register's checklist for leaving it is met
-> (TASK-0032).
-
 A vehicle ledger for Home Assistant. It keeps a raw log of the handful of
 vehicle states that matter to a ledger — odometer, position, fuel level,
 state of charge, charging state — and derives from it what the vehicle's
@@ -20,9 +9,8 @@ the vehicle, without a line of manufacturer-specific code, and without
 touching anything else the vehicle reports: it is a ledger, not a monitor.
 
 **Status:** everything described here is built, in the library and in
-the integration, and the notice above says what that is worth. Every
-behaviour is the design, held as requirements in the project's register
-(`ha-vledger-pm`).
+the integration. Every behaviour is the design, held as requirements in
+the project's register (`ha-vledger-pm`).
 
 ## What it does
 
@@ -77,6 +65,8 @@ custom_components/vledger/ the Home Assistant integration, a shell over the
 tests/                     pytest: library tests on L0 fixtures, integration
                            tests with pytest-homeassistant-custom-component;
                            the card's model with Node's own test runner
+acceptance/                pytest: a module per requirement, showing it met
+                           through the vledger command as a user meets it
 docs/                      design documents, operating manuals, the user guide
 ```
 
@@ -84,6 +74,9 @@ A vehicle is a config entry; its source entities are assigned to roles
 (`odometer`, `position`, `fuel_level`, `soc`, `charging_state`, …), and
 what the vehicle can do follows from the roles it has. Everything is
 configured in the UI; no YAML.
+The integration's interface — setup and options, entity names, repairs,
+action errors, notifications and the card — comes in English and German,
+following Home Assistant's language; any other language gets English.
 
 ## Documentation
 
@@ -104,11 +97,10 @@ register, `ha-vledger-pm`, not prose here.
 
 ## Installing
 
-Through HACS, as a custom repository while the notice above stands:
-*Integrations → ⋮ → Custom repositories*, add
-`https://github.com/michael-lenz/ha-vledger` as an *Integration*, install
-it and restart; or copy `custom_components/vledger` into the configuration
-directory by hand. Either way Home Assistant installs the library from
+Through HACS: *Integrations → Explore & download repositories*, search
+for *Vehicle Ledger*, download it and restart; or copy
+`custom_components/vledger` into the configuration directory by hand.
+Either way Home Assistant installs the library from
 PyPI (`vledger==<version>`, pinned in the manifest). Then *Settings →
 Devices & services → Add integration → Vehicle Ledger*: the
 [user guide](docs/user-guide.md) walks the four steps. The library on its

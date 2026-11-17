@@ -222,6 +222,9 @@
       "fuel_consumption": {
         "default": "mdi:fuel"
       },
+      "fuel_l_per_100km_total": {
+        "default": "mdi:fuel"
+      },
       "grid_kwh_per_100km_total": {
         "default": "mdi:transmission-tower-export"
       },

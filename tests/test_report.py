@@ -51,7 +51,10 @@ def test_the_whole_stream_is_the_lifetime_line(ledger, tmp_path):
     # capture are the lifetime line's alone (VER-11).
     own = {"period", "charge_cycles", "tank_fills"}
     assert {k: v for k, v in r["report"].items() if k not in own} == \
-        {k: v for k, v in life.items() if k not in own}
+        {k: v for k, v in life.items() if k not in own | set(periods.LIFETIME_FUEL)}
+    # Fuel per 100 km on the whole distance is the lifetime line's alone
+    # (ADR-0070, point 4).
+    assert not set(periods.LIFETIME_FUEL) & set(r["report"])
     assert (r["report"]["charge_cycles"], r["report"]["tank_fills"]) == (0.2, 0.575)
     assert (life["charge_cycles"], life["tank_fills"]) == (100.2, 10.575)
     assert set(periods.METRICS) < set(r["report"]) and set(periods.CONSUMPTION) < set(r["report"])

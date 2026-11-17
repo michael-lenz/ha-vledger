@@ -44,8 +44,12 @@ ha = ["pytest-homeassistant-custom-component"]
 where = ["src"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+# acceptance/ holds the tests that show a requirement met as a user meets
+# the product, through the CLI; they run with the rest (docs/developing.md).
+testpaths = ["tests", "acceptance"]
 asyncio_mode = "auto"
+# ADR-0045, point 1: the requirement a test discharges.
+markers = ["req(id): the requirement a test discharges (ADR-0045)"]
 
 [tool.ruff]
 src = ["src", "tests", "custom_components"]

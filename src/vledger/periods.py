@@ -50,6 +50,10 @@ METRICS = ("distance_km", "fuel_purchased_l", "fuel_cost_eur", "fuel_consumed_l"
 CONSUMPTION = ("consumption_l_per_100km", "consumption_quality", "consumption_from",
                "consumption_to", "consumption_receipts", "consumption_error_pct")
 
+#: The lifetime line's fuel per 100 km on the whole distance (ADR-0070), beside
+#: the tank-to-tank figure and never in its place; named as a trip's are.
+LIFETIME_FUEL = ("fuel_l_per_100km", "fuel_l_per_100km_quality", "fuel_l_per_100km_error_pct")
+
 
 def weakest(*qualities: str | None) -> str:
     """The weakest of the given qualities; ``measured`` for none at all —
@@ -262,10 +266,15 @@ def metrics(s: Stream, events: dict[str, list[dict]], period: str, start: str, e
     # The trips' trip-computer figures where every trip has one: the sum of
     # the finer measurement instead of the level's stock (ADR-0049, point 1).
     computed = [e.get("fuel_consumed_l") for e in trips if e.get("fuel_consumed_source") == TRIP_COMPUTER]
+    consumed_err = 2 * float(p["fuel_level_resolution_l"]) if p.get("fuel_level_resolution_l") else None
+    if not fuel_corrected:
+        consumed_err = None     # purchases alone: no consumption to bound
     if trips and len(computed) == len(trips) and all(x is not None for x in computed):
         consumed = sum(computed)
         consumed_q = weakest(*(e.get("fuel_consumed_quality") for e in trips))
         consumed_from = TRIP_COMPUTER
+        errors = [e.get("fuel_consumed_error_l") for e in trips]
+        consumed_err = sum(errors) if all(x is not None for x in errors) else None
 
     # Electricity: grid-side as charged, battery-side corrected for the SoC
     # stock (VER-03).
@@ -362,7 +371,23 @@ def metrics(s: Stream, events: dict[str, list[dict]], period: str, start: str, e
     line["gaps"] = gaps
     if period == LIFETIME:
         line.update(consumption(s, all_refuellings))
+        line.update(whole_distance(consumed, consumed_err, weakest(consumed_q, km_q), km))
     return line
+
+
+def whole_distance(consumed: float | None, error: float | None, quality: str, km: float) -> dict:
+    """The lifetime line's fuel per 100 km on the whole distance (ADR-0070,
+    points 1 and 2): the line's consumed litres over its distance, with the
+    error of their source — the trips' trip-computer errors summed, or
+    2 × ``fuel_level_resolution_l`` for the level's stock correction, no
+    figure without it — and ``null`` where a trip's rate would be
+    (ADR-0026, point 1). Never the tank-to-tank figure, nor in its place."""
+    from vledger import trips  # it imports this module
+
+    rate, share = trips.rate(consumed, error, km)
+    if rate is None:
+        return dict.fromkeys(LIFETIME_FUEL)
+    return dict(zip(LIFETIME_FUEL, (rate, quality, share), strict=True))
 
 
 # --- the vehicle's consumption: tank to tank (VER-01, VER-10) ---------------
