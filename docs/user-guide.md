@@ -72,6 +72,9 @@ From the moment an entry is set up its raw log is written under
 with the lines written since start, the last line's time and the last
 heartbeat. Stopping Home Assistant, unloading or reloading the entry ends
 the stream orderly; a crash does not, and the next start shows as a gap.
+The stop line says which: `shutdown` when Home Assistant stops, `reload`
+when the entry is reloaded, from its menu or by saving its options, and
+`unload` when it is deleted or disabled.
 
 Next to it, in the device's *Diagnostic* section, the raw log in numbers:
 the size of the current month file and of the whole log, the number of
