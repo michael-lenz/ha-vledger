@@ -200,7 +200,6 @@ def test_l0_stats_counts_the_complete_lines_past_a_torn_last_line(base):
 
 # --- the lines that follow it ------------------------------------------------------
 
-@pytest.mark.xfail(strict=True, reason="ISSUE-0135")
 @pytest.mark.parametrize("fragment", [TORN, TORN_IN_A_CHARACTER],
                          ids=["cut-in-a-key", "cut-in-a-character"])
 def test_the_lines_written_after_the_crash_are_not_lost(base, fragment):
@@ -215,7 +214,6 @@ def test_the_lines_written_after_the_crash_are_not_lost(base, fragment):
         *WRITTEN, ("start", None), ("state", "12350"), ("state", "Zuhause")]
 
 
-@pytest.mark.xfail(strict=True, reason="ISSUE-0135")
 def test_the_crash_shows_as_a_gap_and_the_stream_reads_on(base):
     """The crash and the restart show in ``l0 gaps`` as a gap with the reason
     ``crash``, and the stream after it is counted by ``l0 stats``."""
