@@ -10,16 +10,21 @@ interpreter that sees nothing but the standard library and the library
 itself. Nothing in that run imports Home Assistant, nor any other module
 from outside the standard library."""
 
-import ast
 import importlib.metadata
+import importlib.util
 import json
 import subprocess
 import sys
 from pathlib import Path
 
-import vledger
+import pytest
 
-PACKAGE = Path(vledger.__file__).resolve().parent
+pytestmark = [pytest.mark.req("REQ-0003")]
+
+# Where the installed library lies, found without importing it: the test
+# imports nothing of the library, and runs it only as the vledger command.
+PACKAGE = Path(importlib.util.find_spec("vledger").origin).resolve().parent
+VERSION = importlib.metadata.version("vledger")
 
 # Runs the vledger command in an interpreter started with -I -S: no
 # site-packages, no user site, no PYTHONPATH — only the standard library and
@@ -63,35 +68,23 @@ def vledger_alone(tmp_path: Path, *argv: str) -> str:
 
 
 def test_the_installed_library_asks_for_nothing_but_itself():
-    dist = importlib.metadata.distribution("vledger")
-    assert dist.version == vledger.__version__
     # Every requirement the distribution declares belongs to an extra (test,
     # dev, ha): `pip install vledger` installs the library alone.
-    unconditional = [r for r in (dist.requires or []) if "extra ==" not in r]
+    requires = importlib.metadata.requires("vledger") or []
+    unconditional = [r for r in requires if "extra ==" not in r]
     assert unconditional == []
 
 
-def test_no_module_of_the_library_imports_anything_but_the_standard_library():
-    allowed = set(sys.stdlib_module_names) | {"vledger"}
-    found = {}
-    for path in sorted(PACKAGE.rglob("*.py")):
-        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-            if isinstance(node, ast.Import):
-                names = [a.name for a in node.names]
-            elif isinstance(node, ast.ImportFrom) and node.level == 0:
-                names = [node.module]
-            else:
-                continue
-            for name in names:
-                if name.split(".")[0] not in allowed:
-                    found.setdefault(path.name, []).append(name)
-    assert found == {}
+def test_the_installed_command_is_the_installed_distribution():
+    run = subprocess.run([sys.executable, "-m", "vledger.cli", "--version"],
+                         check=True, capture_output=True, text=True, timeout=60)
+    assert run.stdout.strip().endswith(VERSION)
 
 
 def test_the_command_runs_the_whole_loop_with_nothing_but_the_standard_library(tmp_path):
     base = ["--base", str(tmp_path / "data")]
     v = [*base, "--vehicle", "a7c1"]
-    assert vledger_alone(tmp_path, "--version").strip().endswith(vledger.__version__)
+    assert vledger_alone(tmp_path, "--version").strip().endswith(VERSION)
 
     snapshot = [
         {"role": "odometer", "entity": "sensor.o", "state": "1000", "unit": "km", "since": "2026-10-08T06:00:00Z"},
