@@ -155,14 +155,22 @@ def append(base: Path, subject: Subject, line: Line) -> Path:
 
     Written whole and flushed to disk before returning: a line is on disk or
     it is not, and the reader's torn-line rule (ERF-07) covers the crash in
-    between. Blocking — the integration calls this off the event loop.
+    between. A file a crash left without its last line break gets one before
+    the new line, so the torn line stays a line of its own, which readers
+    skip, and the new one is not glued onto it (REQ-0029). Blocking — the
+    integration calls this off the event loop.
     """
     if line.get("subject") != subject.id:
         raise ValueError("line and stream disagree on the subject")
     path = layout.l0_file(base, subject, clock.month_of(line["t"]))
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "a", encoding="utf-8") as f:
-        f.write(encode(line) + "\n")
+    with open(path, "a+b") as f:
+        text = encode(line).encode("utf-8") + b"\n"
+        if f.tell() > 0:
+            f.seek(-1, os.SEEK_END)
+            if f.read(1) != b"\n":
+                text = b"\n" + text
+        f.write(text)
         f.flush()
         os.fsync(f.fileno())
     return path
@@ -180,7 +188,8 @@ class Read:
 
 
 class TornLine(Exception):
-    """A line that is not complete JSON and is not the file's last line."""
+    """A line no reader can take: in L0 one that is JSON but no object, which
+    neither the writer nor a crash leaves."""
 
 
 def _raw_lines(path: Path) -> Iterator[tuple[int, str, bool]]:
@@ -200,14 +209,17 @@ def _raw_lines(path: Path) -> Iterator[tuple[int, str, bool]]:
 
 
 def read_file(path: Path) -> Iterator[Read]:
-    """Every line of one month file, in order; a torn last line is skipped (ERF-07)."""
-    for number, text, torn in _raw_lines(path):
+    """Every line of one month file, in order; a torn line is skipped (ERF-07).
+
+    A torn line is one that is not JSON: the last line, cut off by a crash,
+    or such a line that :func:`append` closed with a line break before the
+    next one, so that every line after the crash still reads (REQ-0029).
+    """
+    for number, text, _last in _raw_lines(path):
         try:
             line = json.loads(text)
         except json.JSONDecodeError:
-            if torn:
-                return
-            raise TornLine(f"{path}:{number}: not JSON and not the last line") from None
+            continue
         # A torn tail that still parsed is complete JSON without its newline:
         # the crash came after the text and before the newline. The line is
         # whole, and it is kept.
@@ -373,7 +385,7 @@ def validate(base: Path, subject: Subject) -> Report:
                 if torn:
                     report.problem("warning", where, "torn last line, skipped by readers")
                 else:
-                    report.problem("error", where, "not JSON")
+                    report.problem("warning", where, "torn line, skipped by readers")
                 continue
             if not isinstance(line, dict):
                 report.problem("error", where, "not a JSON object")
