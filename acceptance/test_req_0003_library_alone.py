@@ -15,6 +15,7 @@ import importlib.util
 import json
 import subprocess
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -130,7 +131,8 @@ def test_the_command_runs_the_whole_loop_with_nothing_but_the_standard_library(t
     trips = [json.loads(line) for line in vledger_alone(tmp_path, "l1", "read", *v, "--kind", "trip").splitlines()]
     assert len(trips) == 1
     assert trips[0]["distance_km"] == 22
-    assert trips[0]["start"] == "2026-10-08T08:00:00Z"
+    # compared by the instant, not the spelling, which is REQ-0024's
+    assert datetime.fromisoformat(trips[0]["start"]) == datetime(2026, 10, 8, 8, 0, tzinfo=UTC)
 
     csv = vledger_alone(tmp_path, "export", "csv", *v, "--kind", "trip").splitlines()
     assert len(csv) == 2                                   # a header and the one trip
