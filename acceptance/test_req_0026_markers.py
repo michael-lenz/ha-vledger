@@ -62,6 +62,12 @@ def iso(t):
     return t.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def instant(text):
+    """A time the command wrote, in the spelling of :func:`iso`, so that a
+    gap is compared by the instants it spans and not by how they are spelt."""
+    return iso(datetime.fromisoformat(text).astimezone(UTC))
+
+
 def jsonl(text):
     return [json.loads(x) for x in text.splitlines() if x.strip()]
 
@@ -103,7 +109,8 @@ class Stream:
     def gaps(self, now, *more):
         out = vledger(self.base, "l0", "gaps", "--vehicle", VEHICLE, "--now", iso(now),
                       "--json", *more).stdout
-        return [(g["start"], g["end"], g["reason"]) for g in json.loads(out)]
+        return [(instant(g["start"]), instant(g["end"]), g["reason"])
+                for g in json.loads(out)]
 
 
 @pytest.fixture

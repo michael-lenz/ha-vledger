@@ -312,3 +312,16 @@ def test_the_cli_complains_without_a_traceback(tmp_path, capsys):
     code, _, err = run(capsys, "state", "--base", str(tmp_path), "--vehicle", "x",
                        "--role", "odometer", "--entity", "e", "--state", "1", "--t", "yesterday")
     assert code == 2 and "yesterday" in err
+
+
+@pytest.mark.parametrize(("given", "written"), [
+    ("2026-10-09T08:16:00Z", "2026-10-09T08:16:00.000Z"),
+    ("2026-10-09T10:15:30.250+02:00", "2026-10-09T08:15:30.250Z"),
+])
+def test_a_time_given_with_t_is_written_as_l0_spells_time(tmp_path, capsys, given, written):
+    """--t is parsed and written in the one spelling: UTC, milliseconds, Z."""
+    b = ["--base", str(tmp_path), "--vehicle", "a7c1"]
+    assert run(capsys, "state", *b, "--role", "odometer", "--entity", "e",
+               "--state", "1", "--t", given)[0] == 0
+    assert run(capsys, "heartbeat", *b, "--lines", "1", "--t", given)[0] == 0
+    assert [r.line["t"] for r in l0.read(tmp_path, V)] == [written, written]
