@@ -206,7 +206,6 @@ def test_a_record_written_now_carries_the_time_in_utc_to_the_millisecond(base):
     assert before - dt.timedelta(milliseconds=1) <= instant(line["t"]) <= after
 
 
-@pytest.mark.xfail(strict=True, reason="ISSUE-0125")
 @pytest.mark.parametrize(("given", "expected"), [
     ("2026-10-09T08:16:00Z", dt.datetime(2026, 10, 9, 8, 16, tzinfo=dt.UTC)),
     ("2026-10-09T10:15:30.250+02:00", dt.datetime(2026, 10, 9, 8, 15, 30, 250000, dt.UTC)),
