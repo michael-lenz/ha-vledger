@@ -131,16 +131,63 @@ def test_a_torn_last_line_is_skipped_and_reported(tmp_path, capsys):
     assert code == 0 and "torn last line" in out and "0 error(s), 1 warning(s)" in out
 
 
-def test_a_torn_line_in_the_middle_is_an_error(tmp_path, capsys):
+def test_a_line_written_after_a_torn_last_line_starts_a_line_of_its_own(tmp_path, capsys):
+    """REQ-0029, ISSUE-0135: the writer closes the torn line before its own,
+    so the torn line is skipped and nothing written after the crash is lost."""
+    b = ["--base", str(tmp_path), "--vehicle", "a7c1"]
+    assert run(capsys, "start", *b, "--t", "2026-10-08T10:00:00.000Z",
+               "--homeassistant", "2026.10.1", "--snapshot", "[]")[0] == 0
+    assert run(capsys, "state", *b, "--t", "2026-10-08T10:02:00.000Z", "--role", "odometer",
+               "--entity", "sensor.o", "--state", "100", "--unit", "km")[0] == 0
+    path = tmp_path / "vehicle-a7c1/l0/2026-10.jsonl"
+    fragment = b'{"v":1,"t":"2026-10-08T10:03:00.000Z","ki'
+    with open(path, "ab") as f:  # the crash
+        f.write(fragment)
+    before = path.read_bytes()
+    assert run(capsys, "start", *b, "--t", "2026-10-08T11:00:00.000Z",
+               "--homeassistant", "2026.10.1", "--snapshot", "[]")[0] == 0
+    assert run(capsys, "state", *b, "--t", "2026-10-08T11:02:00.000Z", "--role", "odometer",
+               "--entity", "sensor.o", "--state", "101", "--unit", "km")[0] == 0
+    # The bytes already on disk stay as they were (REQ-0034); a line break closes the fragment.
+    assert path.read_bytes().startswith(before + b"\n{")
+    lines = [r.line for r in l0.read(tmp_path, V)]
+    assert [line["kind"] for line in lines] == ["start", "state", "start", "state"]
+    assert lines[-1]["state"] == "101"
+    code, out, _ = run(capsys, "validate", *b)
+    assert code == 0 and "0 error(s), 1 warning(s)" in out
+    assert "[warning] 2026-10.jsonl:3: torn line, skipped by readers" in out
+    gaps = l0.gaps(tmp_path, V, now="2026-10-08T11:03:00.000Z")
+    assert [(g.reason, g.end) for g in gaps] == [("crash", "2026-10-08T11:00:00.000Z")]
+
+
+def test_a_file_that_ends_in_a_line_break_gets_none_added(tmp_path):
+    line = l0.heartbeat("2026-10-01T00:00:00.000Z", V, lines=0)
+    path = l0.append(tmp_path, V, line)
+    l0.append(tmp_path, V, line)
+    assert path.read_text() == (l0.encode(line) + "\n") * 2
+
+
+def test_a_torn_line_in_the_middle_is_skipped_and_reported(tmp_path, capsys):
     b = build_stream(tmp_path, capsys)
     path = tmp_path / "vehicle-a7c1/l0/2026-10.jsonl"
     lines = path.read_text().splitlines()
     lines.insert(2, '{"v":1,"t":"2026-10-01T0')
     path.write_text("\n".join(lines) + "\n")
+    assert len(list(l0.read(tmp_path, V))) == 10
+    code, out, _ = run(capsys, "validate", *b)
+    assert code == 0 and "[warning] 2026-10.jsonl:3: torn line, skipped by readers" in out
+
+
+def test_a_line_that_is_json_but_no_object_is_an_error(tmp_path, capsys):
+    b = build_stream(tmp_path, capsys)
+    path = tmp_path / "vehicle-a7c1/l0/2026-10.jsonl"
+    lines = path.read_text().splitlines()
+    lines.insert(2, '[1, 2]')
+    path.write_text("\n".join(lines) + "\n")
     with pytest.raises(l0.TornLine):
         list(l0.read(tmp_path, V))
     code, out, _ = run(capsys, "validate", *b)
-    assert code == 1 and "[error] 2026-10.jsonl:3: not JSON" in out
+    assert code == 1 and "[error] 2026-10.jsonl:3: not a JSON object" in out
 
 
 def test_validate_passes_a_clean_stream_and_names_its_versions(tmp_path, capsys):

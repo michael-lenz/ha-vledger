@@ -573,9 +573,11 @@ vledger l0 validate --vehicle a7c1 --json
 
 Counts files and lines by kind, names the schema versions the stream holds,
 and lists every problem: an error is a line the writer could not have
-written, a warning is a line readers skip (a torn last line, an unknown
-kind) or something odd (time running backwards). The exit code is 1 when
-there is an error.
+written, a warning is a line readers skip (a torn line, an unknown kind)
+or something odd (time running backwards). A torn line is what a crash
+cut off part way; the next line written after it starts on a line of its
+own, so the stream reads on past it. The exit code is 1 when there is an
+error.
 
 ### Counting
 
