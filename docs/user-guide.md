@@ -72,6 +72,9 @@ From the moment an entry is set up its raw log is written under
 with the lines written since start, the last line's time and the last
 heartbeat. Stopping Home Assistant, unloading or reloading the entry ends
 the stream orderly; a crash does not, and the next start shows as a gap.
+The stop line says which: `shutdown` when Home Assistant stops, `reload`
+when the entry is reloaded, from its menu or by saving its options, and
+`unload` when it is deleted or disabled.
 
 Every state line carries the time Home Assistant reported the state. A
 source's own measurement time — when the car took the reading, which a
