@@ -595,6 +595,16 @@ LIFETIME_SENSORS: tuple[LifetimeSensorDescription, ...] = (
         value="consumption_l_per_100km", quality="consumption_quality",
         attributes=("consumption_from", "consumption_to", "consumption_receipts",
                     "consumption_error_pct")),
+    # Fuel per 100 km on the whole distance (ADR-0070, point 3): beside the
+    # tank-to-tank figure, never in its place; what was used, so it rests on
+    # the fuel level as the fuel consumed does (ADR-0047, point 1).
+    LifetimeSensorDescription(
+        key="fuel_l_per_100km_total", translation_key="fuel_l_per_100km_total", needs=FUEL,
+        state_class=SensorStateClass.MEASUREMENT, native_unit_of_measurement=L_PER_100KM,
+        suggested_display_precision=1,
+        value="fuel_l_per_100km", quality="fuel_l_per_100km_quality",
+        attributes=("fuel_l_per_100km_error_pct", "fuel_consumed_source", "fuel_level_corrected"),
+        rests_on=(FUEL_STOCK,)),
     # The overall consumption and totals (ADR-0025, point 6): the rates a
     # level, the sums total without last_reset, as the counters above. The
     # electricity rates carry the energy_distance class (ADR-0032).
@@ -636,8 +646,9 @@ LIFETIME_SENSORS: tuple[LifetimeSensorDescription, ...] = (
 
 class LifetimeSensor(_HoldingSensor):
     """A value of the lifetime line: the cumulative counters, starting
-    values included (VER-11), the tank-to-tank consumption (VER-01), and
-    the overall electricity rates and totals (ADR-0025, point 6)."""
+    values included (VER-11), the tank-to-tank consumption (VER-01), the
+    fuel per 100 km on the whole distance beside it (ADR-0070), and the
+    overall electricity rates and totals (ADR-0025, point 6)."""
 
     entity_description: LifetimeSensorDescription
 

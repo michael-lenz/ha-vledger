@@ -1494,6 +1494,19 @@
           "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
         }
       },
+      "fuel_l_per_100km_total": {
+        "name": "Kraftstoff pro 100 km über die ganze Strecke",
+        "state_attributes": {
+          "state_held": { "name": "Zustand gehalten" },
+          "start": { "name": "Beginn" },
+          "end": { "name": "Ende" },
+          "gaps": { "name": "Erfassungslücken" },
+          "fuel_l_per_100km_error_pct": { "name": "Relativer Fehler (%)" },
+          "fuel_consumed_source": { "name": "Quelle des verbrauchten Kraftstoffs", "state": { "trip_computer": "Bordcomputer", "fuel_level": "Kraftstoffstand" } },
+          "fuel_level_corrected": { "name": "Um den Tankfüllstand korrigiert" },
+          "state_quality": { "name": "Qualität des Zustands", "state": { "measured": "Gemessen", "receipt": "Beleg", "estimated": "Geschätzt", "incomplete": "Unvollständig" } }
+        }
+      },
       "grid_kwh_per_100km_total": {
         "name": "Netzenergie pro 100 km insgesamt",
         "state_attributes": {

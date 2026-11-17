@@ -254,16 +254,29 @@ as charged instead of as missing stock.
 Each is named after its period — *Distance this month*, *Distance this
 year*, *Distance in the rolling period*. The month's entities are
 enabled; the year's and the rolling period's exist but are disabled, and
-*Settings → Entities* enables the ones you want. Nine more show the
+*Settings → Entities* enables the ones you want. Ten more show the
 lifetime line, the vehicle's overall figures: **Charge cycles in total**
 and **Tank fills in total**, both including the starting values
 configured; **Fuel per 100 km in total**, tank to tank, with the receipts
-it spans and its relative error as attributes; **Grid energy per 100 km in
+it spans and its relative error as attributes; **Fuel per 100 km over
+the whole distance**, the fuel consumed since capture began over the
+distance driven; **Grid energy per 100 km in
 total** and **Battery energy per 100 km in total**, the electricity
 consumption on the whole distance since capture began; and the totals
 **Distance in total**, **Fuel consumed in total**, **Grid energy in
-total** and **Battery energy consumed in total**. The fuel consumption on the
-whole distance is the tank-to-tank figure, never a sum of the trips'.
+total** and **Battery energy consumed in total**.
+
+The two fuel rates answer different questions. **Fuel per 100 km in
+total** is the consumption between two refuelling receipts — the latest
+interval precise enough, from the pump's litres — and stays *unknown*
+until two receipts span one. **Fuel per 100 km over the whole distance**
+is everything since capture began: the trip computer's litres where every
+trip has its figure, else the litres bought corrected by the fuel level
+at both ends. Its attributes say which (**Fuel consumed source**), its
+**Quality of the state** and its **Relative error (%)**; it needs the
+fuel level sensor's resolution among the parameters when it rests on the
+level, and it stays *unknown* while the litres are still within their
+error. Neither stands in for the other.
 
 Every metric entity's attributes are its line's **Start**, **End**,
 **Still running** and **Capture gaps**, and **Quality of the state**;
@@ -301,8 +314,9 @@ What they keep as statistics:
   no statistics: a sliding window is neither a level nor a running sum.
 - A **rate** or **share** is a level, kept as one.
 - **Charge cycles in total**, **Tank fills in total** and the four
-  totals are running totals; **Fuel per 100 km in total** and the two
-  overall rates are levels.
+  totals are running totals; **Fuel per 100 km in total**, **Fuel per
+  100 km over the whole distance** and the two overall electricity rates
+  are levels.
 
 Distances and litres follow the instance's units, as above. The
 electricity rates, `kWh/100km`, carry a device class, so an entity's
@@ -765,7 +779,7 @@ capture:
 
 ```bash
 vledger derive periods --vehicle a7c1 | jq 'select(.period == "month") | {start, distance_km, fuel_eur_per_100km, grid_kwh_per_100km, eur_per_100km}'
-vledger derive periods --vehicle a7c1 | jq 'select(.period == "lifetime") | {consumption_l_per_100km, consumption_error_pct, charge_cycles, tank_fills}'
+vledger derive periods --vehicle a7c1 | jq 'select(.period == "lifetime") | {consumption_l_per_100km, consumption_error_pct, fuel_l_per_100km, fuel_l_per_100km_error_pct, charge_cycles, tank_fills}'
 ```
 
 Each line has the distance; the litres and the fuel cost bought, from the
@@ -780,12 +794,17 @@ period it starts in, so a trip across midnight on the last of the month
 counts in that month, whole. `gaps` says how many capture gaps lie in the
 period: what happened inside one is missing from the counts.
 
-The fuel consumption in litres per 100 km is on the lifetime line only,
-measured tank to tank between two receipts — the latest such interval
-whose possible error is under 5 %, which is always the case between two
-full tanks. Between partial fills it needs the fuel level sensor's
-resolution among the parameters; without it only full to full counts.
-Receipt the refuellings: one without a receipt breaks the interval.
+Litres per 100 km are on the lifetime line only, two ways. The fuel
+consumption, `consumption_l_per_100km`, is measured tank to tank between
+two receipts — the latest such interval whose possible error is under
+5 %, which is always the case between two full tanks. Between partial
+fills it needs the fuel level sensor's resolution among the parameters;
+without it only full to full counts. Receipt the refuellings: one without
+a receipt breaks the interval. Beside it, `fuel_l_per_100km` is the
+line's litres used over its distance, the whole of capture, with its
+quality and relative error; it is `null` while those litres are within
+their error, and from the fuel level it needs the sensor's resolution
+too.
 
 ## Receipts: `vledger receipt`
 
