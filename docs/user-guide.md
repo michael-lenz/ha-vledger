@@ -521,8 +521,10 @@ named by what it belongs to: `--vehicle ID` or `--chargepoint ID`, the
 subject id the integration minted. That id is the name of the subject's
 directory under the data directory without its prefix — `vehicle-<id>`,
 `chargepoint-<id>` — and the entry's **Download diagnostics** shows it as
-`subject` under `entry` → `data`. Times are UTC ISO 8601; a verb that
-writes takes `--t` and defaults to now.
+`subject` under `entry` → `data`. Times are UTC ISO 8601 to the
+millisecond; a verb that writes takes `--t`, an ISO 8601 time with a zone
+such as `2026-10-09T10:15:30+02:00`, writes that instant in UTC
+(`2026-10-09T08:15:30.000Z`), and defaults to now.
 
 ```bash
 export VLEDGER_BASE=~/vledger
