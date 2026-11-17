@@ -48,6 +48,8 @@ where = ["src"]
 # the product, through the CLI; they run with the rest (docs/developing.md).
 testpaths = ["tests", "acceptance"]
 asyncio_mode = "auto"
+# ADR-0045 point 1: a test names the requirement it proves.
+markers = ["req(id): the requirement a test proves (ADR-0045)"]
 
 [tool.ruff]
 src = ["src", "tests", "custom_components"]
