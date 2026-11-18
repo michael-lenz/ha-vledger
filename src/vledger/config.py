@@ -84,6 +84,30 @@ DEFAULT_PARAMETERS = {
 }
 
 
+def parameters_of(config: dict | None) -> dict:
+    """The parameters a vehicle's config line reads with: what it names over
+    the defaults of its fuel (ISSUE-0170). A line written unchecked, by
+    ``vledger l0 config``, may name a fuel and leave out the keys whose
+    default depends on it; those are then the fuel's, as :func:`vehicle`
+    would have written them, and petrol's only without a fuel."""
+    given = (config or {}).get("parameters") or {}
+    p = dict(DEFAULT_PARAMETERS)
+    p.update(FUEL_PARAMETERS.get(given.get("fuel"), {}))
+    p.update(given)
+    return p
+
+
+def thresholds_of(config: dict | None) -> dict:
+    """The thresholds a vehicle's config line reads with: what it names over
+    the defaults of its fuel, as :func:`parameters_of` reads the parameters."""
+    config = config or {}
+    fuel = (config.get("parameters") or {}).get("fuel")
+    thr = dict(DEFAULT_THRESHOLDS)
+    thr.update(FUEL_THRESHOLDS.get(fuel, {}))
+    thr.update(config.get("thresholds") or {})
+    return thr
+
+
 def vehicle(name: str, roles: dict, parameters: dict | None = None,
             thresholds: dict | None = None, time_zone: str | None = None) -> dict:
     """A vehicle's configuration, complete: what is given over the defaults.
@@ -245,5 +269,6 @@ def is_chargepoint(config: dict) -> bool:
 __all__ = [
     "CHARGEPOINT_ROLES", "DEFAULT_PARAMETERS", "DEFAULT_THRESHOLDS", "DOMAIN_STATES",
     "FUELS", "MOVEMENT_ROLES", "NEGATIVE_STATES", "VEHICLE_ROLES", "chargepoint", "domain_state",
-    "is_chargepoint", "missing", "tariff_at", "unlisted", "vehicle", "zone_of",
+    "is_chargepoint", "missing", "parameters_of", "tariff_at", "thresholds_of", "unlisted", "vehicle",
+    "zone_of",
 ]

@@ -156,7 +156,9 @@ Every key a vehicle's `config` takes is listed in the user guide under
 each enumerated role's positive state in its `map`, the parameters —
 among them `movement_reporting`, `sampled` or `per_cycle` (ADR-0024) —
 and the thresholds, among them the exit window `exit_window_s`. A
-parameter or threshold the line leaves out reads as its default.
+parameter or threshold the line leaves out reads as its default, and
+one whose default depends on the fuel reads as the default of the
+line's `fuel`, as a petrol vehicle's without one.
 
 A charge point is its own subject with its own stream, and tariffs are
 never in a vehicle's stream. Its `config` line:

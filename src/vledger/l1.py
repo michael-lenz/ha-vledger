@@ -306,10 +306,9 @@ def through_of(events: list[dict], previous: str | None = None) -> str | None:
 # --- derivation with receipts (ADR-0013) ---------------------------------
 
 def thresholds(base: Path, subject: Subject) -> dict:
-    """The thresholds of the latest config line, over the defaults."""
-    thr = dict(vconfig.DEFAULT_THRESHOLDS)
-    thr.update((latest_config(base, subject) or {}).get("thresholds") or {})
-    return thr
+    """The thresholds of the latest config line, over the defaults of its
+    fuel."""
+    return vconfig.thresholds_of(latest_config(base, subject))
 
 
 def kinds(base: Path, subject: Subject) -> list[str]:

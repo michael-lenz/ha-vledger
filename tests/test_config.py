@@ -111,3 +111,33 @@ def test_the_trip_computer_needs_the_trip_counter_and_the_level_its_resolution()
     assert any(s.startswith("fuel_level_resolution_l:") for s in said)
     v = config.vehicle("V", {"trip_distance": {"entity": "sensor.t"}, "trip_consumption": {"entity": "sensor.a"}})
     assert not any(s.startswith("trip_distance:") for s in config.missing(v))
+
+
+# A config line written unchecked (`vledger l0 config`) may name a fuel and
+# leave out the keys whose default depends on it (ISSUE-0170).
+DIESEL_LINE = {"name": "D", "roles": {"odometer": {"entity": "sensor.o"}},
+               "parameters": {"fuel": "diesel"}}
+
+
+def test_a_partial_line_reads_with_the_defaults_of_its_fuel():
+    p, thr = config.parameters_of(DIESEL_LINE), config.thresholds_of(DIESEL_LINE)
+    assert p["eta_ice"] == 0.33
+    assert thr["heating_value_kwh_per_l"] == 9.8
+    assert thr["beta_per_k"] == 8.0e-4
+    assert thr["t_still_s"] == config.DEFAULT_THRESHOLDS["t_still_s"]
+    full = config.vehicle("D", DIESEL_LINE["roles"], DIESEL_LINE["parameters"])
+    assert p == full["parameters"] and thr == full["thresholds"]
+
+
+def test_a_partial_line_keeps_what_it_names_over_its_fuels_defaults():
+    line = {"parameters": {"fuel": "diesel", "eta_ice": 0.3},
+            "thresholds": {"beta_per_k": 9e-4}}
+    assert config.parameters_of(line)["eta_ice"] == 0.3
+    assert config.thresholds_of(line)["beta_per_k"] == 9e-4
+    assert config.thresholds_of(line)["heating_value_kwh_per_l"] == 9.8
+
+
+def test_a_line_without_a_fuel_or_without_a_line_reads_petrols_defaults():
+    for line in (None, {}, {"parameters": {"fuel": None}}):
+        assert config.parameters_of(line) == config.DEFAULT_PARAMETERS
+        assert config.thresholds_of(line) == config.DEFAULT_THRESHOLDS

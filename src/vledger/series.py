@@ -83,16 +83,10 @@ class Stream:
     base: Path | None = None
 
     def thresholds(self) -> dict:
-        thr = dict(vconfig.DEFAULT_THRESHOLDS)
-        if self.config:
-            thr.update(self.config.get("thresholds") or {})
-        return thr
+        return vconfig.thresholds_of(self.config)
 
     def parameters(self) -> dict:
-        p = dict(vconfig.DEFAULT_PARAMETERS)
-        if self.config:
-            p.update(self.config.get("parameters") or {})
-        return p
+        return vconfig.parameters_of(self.config)
 
 
 def _position_from(line: dict) -> Fix | None:
