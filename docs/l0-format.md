@@ -151,11 +151,43 @@ its calendar months and years begin in; the integration writes Home
 Assistant's own at every start. A config line without one — every line
 written before it existed — reads as UTC.
 
-A charge point is its own subject with its own stream; its `config` line
-carries name, position, radius, meter entity, the constant charging power
-`power_kw` where the owner declared one (ADR-0038; a line without it reads
-as none) and the tariff history, and tariffs are never in a vehicle's
-stream. The derivation reads configuration
+Every key a vehicle's `config` takes is listed in the user guide under
+[The raw log → Writing](user-guide.md#writing): the roles, the key of
+each enumerated role's positive state in its `map`, the parameters —
+among them `movement_reporting`, `sampled` or `per_cycle` (ADR-0024) —
+and the thresholds, among them the exit window `exit_window_s`. A
+parameter or threshold the line leaves out reads as its default.
+
+A charge point is its own subject with its own stream, and tariffs are
+never in a vehicle's stream. Its `config` line:
+
+```json
+{"v":5,"t":"2026-10-09T06:00:00.050Z","kind":"config","subject":"c3d4…",
+ "config":{"name":"Home","latitude":48.1371,"longitude":11.5754,"radius_m":100.0,
+   "meter":{"entity":"sensor.wallbox_energy"},"power_kw":null,
+   "tariffs":[{"from":"2026-01-01","eur_per_kwh":0.3},{"from":"2026-07-01","eur_per_kwh":0.32}]}}
+```
+
+| key | meaning |
+|---|---|
+| `name` | the charge point's name |
+| `latitude`, `longitude` | its position, in decimal degrees |
+| `radius_m` | in metres: a charging session whose position lies within it is at this charge point — at the nearest, where several hold it |
+| `meter` | `{"entity": …}`, the energy meter entity, whose readings the stream logs under the role `energy_meter`; `null` without one |
+| `power_kw` | the constant charging power where the owner declared one (ADR-0038), otherwise `null`; a line without it reads as none |
+| `tariffs` | the tariff history: entries `{"from": …, "eur_per_kwh": …}`, `from` the date the price is valid from (`YYYY-MM-DD`), `eur_per_kwh` the price, 0 included |
+
+A session takes the entry with the latest `from` not after the date, in
+UTC, of its start; of entries with the same `from`, the one listed last.
+So a tariff is never edited: a new price is an entry appended, and a
+correction an entry appended under the same date. Before the first `from`
+a session has no tariff. A config line is a charge point's because it
+carries `tariffs`.
+
+`vledger l0 config` writes the JSON it is given unchecked, and `vledger l0
+validate` checks only that `config` is an object: a tariff entry without
+`from` or `eur_per_kwh` passes both, and `vledger derive charging` then
+fails. The derivation reads configuration
 from L0, never from Home Assistant — which is what lets the CLI run without
 one.
 

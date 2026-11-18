@@ -622,6 +622,14 @@ a diesel names `eta_ice`, `heating_value_kwh_per_l` and `beta_per_k`
 itself, or takes them from `vledger l0 read --kind config` of a stream
 Home Assistant wrote, which holds every key written out.
 
+A charge point's configuration, given with `--chargepoint`, has the shape
+[l0-format.md](l0-format.md#config) shows: `name`, `latitude`,
+`longitude`, `radius_m`, `meter`, `power_kw` and `tariffs`, each tariff
+an entry such as `{"from": "2026-01-01", "eur_per_kwh": 0.30}`. It is
+written unchecked too, and `vledger l0 validate` does not check it: a
+tariff entry under other keys fails only when `vledger derive charging`
+reads it.
+
 ### Reading
 
 ```bash
