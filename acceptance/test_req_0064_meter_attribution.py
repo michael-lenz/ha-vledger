@@ -35,13 +35,17 @@ with an odometer, a position, a SoC and a charging state whose source reads
 ``Charging`` for *charging* and ``Connected`` or ``Charge complete``
 otherwise. Neither vehicle has a net battery capacity and the charge point no
 charging power, so a session whose meter difference is not assigned to it has
-no other grid-side energy to fall back on. Each car reports a position fix ten
-minutes before it starts charging, "the one before the start" that places a
-session (ISSUE-0182), and the meter reports a reading before the first session
-besides the start line's snapshot, except in the one test of ISSUE-0180. The sessions are read as ``vledger
-derive charging`` prints them and as L1 holds them after ``derive all
---write``. Nothing of ``vledger`` is imported: the command runs in a process
-of its own."""
+no other grid-side energy to fall back on. Each stream's lines are written in
+time order, its heartbeats among them, as the integration appends them: a
+stream whose t ran backwards would show a silence before each session, across
+which nothing is read (ISSUE-0187). No car reports a fix while charging or
+after it, so the position fix in its start line's snapshot is "the one before
+the start" that places its session; and the meter reports a reading before the
+first session besides the start line's snapshot, except in the one test where
+the snapshot is all there is. The sessions are read as ``vledger derive
+charging`` prints them and as L1 holds them after ``derive all --write``.
+Nothing of ``vledger`` is imported: the command runs in a process of its
+own."""
 
 import json
 import os
@@ -86,7 +90,36 @@ def jsonl(text: str) -> list[dict]:
     return [json.loads(line) for line in text.splitlines() if line.strip()]
 
 
-class ChargePoint:
+class Stream:
+    """One subject's stream, begun at midnight with its start and config
+    lines. Every later line is held back and written by ``heartbeats``,
+    together with the heartbeats and in time order, as the integration appends
+    them: a line at the same moment as a heartbeat goes before it. ``vledger l0
+    validate`` then finds nothing to warn of, t running backwards least of
+    all."""
+
+    def __init__(self, base: Path, flag: str, subject: str):
+        self.base, self.flag, self.subject = base, flag, subject
+        self.pending: list[tuple[float, list[str]]] = []
+
+    def line(self, minutes: float, *argv: str) -> None:
+        self.pending.append((minutes, ["l0", argv[0], self.flag, self.subject,
+                                       "--t", at(minutes), *argv[1:]]))
+
+    def heartbeats(self, until: float, every: float = 30):
+        m = every
+        while m <= until:
+            self.line(m, "heartbeat", "--lines", "0")
+            m += every
+        for _, argv in sorted(self.pending, key=lambda entry: entry[0]):
+            vledger(self.base, *argv)
+        self.pending = []
+        report = vledger(self.base, "l0", "validate", self.flag, self.subject)
+        assert "0 error(s), 0 warning(s)" in report, (self.subject, report)
+        return self
+
+
+class ChargePoint(Stream):
     """A charge point with an energy meter, its stream begun at midnight and
     the meter standing at ``kwh`` from 00:30 on, after a last small draw. With
     ``snapshot_only`` the meter stands at ``kwh`` already in the start line's
@@ -94,7 +127,7 @@ class ChargePoint:
 
     def __init__(self, base: Path, subject: str, name: str, where: tuple[float, float],
                  kwh: float, snapshot_only: bool = False):
-        self.base, self.subject = base, subject
+        super().__init__(base, "--chargepoint", subject)
         self.entity = f"sensor.{subject}_energy"
         self.kwh = kwh if snapshot_only else kwh - 0.2
         vledger(base, "l0", "start", "--chargepoint", subject, "--t", at(0),
@@ -111,9 +144,8 @@ class ChargePoint:
 
     def meter(self, minutes: float, kwh: float) -> "ChargePoint":
         self.kwh = kwh
-        vledger(self.base, "l0", "state", "--chargepoint", self.subject, "--t", at(minutes),
-                "--role", "energy_meter", "--entity", self.entity,
-                "--state", f"{kwh:.1f}", "--unit", "kWh")
+        self.line(minutes, "state", "--role", "energy_meter", "--entity", self.entity,
+                  "--state", f"{kwh:.1f}", "--unit", "kWh")
         return self
 
     def draws(self, first: float, last: float, kwh: float, every: float = 10) -> "ChargePoint":
@@ -125,25 +157,15 @@ class ChargePoint:
             self.meter(first + i * every, start + kwh * i / steps)
         return self
 
-    def heartbeats(self, until: float, every: float = 30) -> "ChargePoint":
-        beat(self.base, "--chargepoint", self.subject, until, every)
-        return self
 
-
-def beat(base: Path, flag: str, subject: str, until: float, every: float) -> None:
-    m = every
-    while m <= until:
-        vledger(base, "l0", "heartbeat", flag, subject, "--t", at(m), "--lines", "0")
-        m += every
-
-
-class Car:
+class Car(Stream):
     """A vehicle parked at ``where`` all day, its charging state's source
-    reading ``Connected`` when capture starts at midnight."""
+    reading ``Connected`` when capture starts at midnight; its only position
+    fix is the start line's snapshot."""
 
     def __init__(self, base: Path, subject: str, where: tuple[float, float]):
-        self.base, self.subject, self.soc, self.where = base, subject, 30, where
-        self.fixes = 0
+        super().__init__(base, "--vehicle", subject)
+        self.soc, self.where = 30, where
         self.entities = {role: f"sensor.{subject}_{role}"
                          for role in ("odometer", "soc", "charging_state")}
         self.entities["position"] = f"device_tracker.{subject}"
@@ -177,25 +199,12 @@ class Car:
                 "--config", json.dumps(config))
 
     def state(self, minutes: float, role: str, value: str, unit: str | None = None) -> None:
-        argv = ["l0", "state", "--vehicle", self.subject, "--t", at(minutes),
-                "--role", role, "--entity", self.entities[role], "--state", value]
-        vledger(self.base, *argv, *(["--unit", unit] if unit else []))
-
-    def fix(self, minutes: float) -> None:
-        """A position fix where the car stands, a metre or so from the last."""
-        self.fixes += 1
-        latitude = self.where[0] + (0.00001 if self.fixes % 2 else 0.0)
-        vledger(self.base, "l0", "state", "--vehicle", self.subject, "--t", at(minutes),
-                "--role", "position", "--entity", self.entities["position"],
-                "--state", "not_home", "--attr", f"latitude={latitude}",
-                "--attr", f"longitude={self.where[1]}", "--attr", "gps_accuracy=0")
+        self.line(minutes, "state", "--role", role, "--entity", self.entities[role],
+                  "--state", value, *(["--unit", unit] if unit else []))
 
     def charges(self, first: float, last: float) -> "Car":
-        """The car reports its position ten minutes before ``first``, the
-        fix before the start that places the session; the charging state reads
-        ``Charging`` from ``first`` and ``Charge complete`` from ``last``, the
-        SoC rising every 15 minutes between."""
-        self.fix(first - 10)
+        """The charging state reads ``Charging`` from ``first`` and ``Charge
+        complete`` from ``last``, the SoC rising every 15 minutes between."""
         self.state(first, "charging_state", TICKED)
         m = first + 15
         while m < last:
@@ -205,11 +214,8 @@ class Car:
         self.state(last, "charging_state", "Charge complete")
         return self
 
-    def heartbeats(self, until: float, every: float = 30) -> "Car":
-        beat(self.base, "--vehicle", self.subject, until, every)
-        return self
-
     def derived(self) -> list[dict]:
+        assert not self.pending, (self.subject, "lines held back; call heartbeats()")
         return jsonl(vledger(self.base, "derive", "charging", "--vehicle", self.subject))
 
     def l1(self) -> list[dict]:
@@ -362,7 +368,6 @@ def test_a_vehicle_charging_at_a_foreign_place_meanwhile_does_not_count(tmp_path
         assert the_session(sessions, 60, 180)["chargepoint"] == "foreign", (where, sessions)
 
 
-@pytest.mark.xfail(strict=True, reason="ISSUE-0180")
 def test_a_meter_known_only_from_the_snapshot_still_gives_the_difference(tmp_path):
     """The charge point's stream begins with the meter at 1000.0 kWh in its
     start line's snapshot, and the meter reports nothing more until car A,
