@@ -227,7 +227,9 @@ back they lie is not known from the end (`--last N --waiting`) —
 `l1.waiting` the count above, and `l1.current_periods` the current month,
 year, rolling and lifetime lines of `periods.jsonl` — per period its last
 line, the one holding the stream's last line (`vledger l1 read --kind
-period --current`). A torn last line is skipped by all of them.
+period --current`). A torn line — one that is not JSON, the last line
+cut off by a crash or such a line closed by the next append — is skipped
+by all of them wherever it stands.
 Home Assistant's event and metric entities read the last event of each
 kind, the count and the current periods once at start and again after
 every run of the writer, and show nothing else (ARC-05); the month lines,
@@ -240,7 +242,10 @@ cost added by `trips.with_costs` (ADR-0043).
 
 - Event files are **append-only between rebuilds**: a rebuild writes them
   whole, the incremental derivation appends an event the moment it is
-  complete, flushed and synced like an L0 line.
+  complete, flushed and synced like an L0 line. An event appended after a
+  crash finds the file without its last line break and writes one before
+  its own line, changing nothing already on disk: the torn line stays a
+  line of its own, and every event after it still reads.
 - `periods.jsonl` is **rewritten whole**, atomically, from the event files
   as written: by a rebuild into `l1.tmp/` before the swap, and by every
   incremental run after its appends, whether or not it appended anything,
