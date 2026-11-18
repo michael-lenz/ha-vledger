@@ -13,7 +13,7 @@ from datetime import timedelta
 
 import pytest
 
-from vledger import clock, l1, receipts
+from vledger import clock, l0, l1, receipts
 from vledger.cli import main
 from vledger.layout import Subject
 
@@ -164,6 +164,40 @@ def test_a_torn_last_line_is_skipped_and_unknown_kinds_passed_over(entry):
     with open(p, "a") as f:
         f.write('{"v":1,"kind":"voucher","id":"z"}\n{"v":1,"kind":"refu')
     assert [r["id"] for r in entry.listed()] == [a["id"]]
+
+
+def test_a_receipt_written_after_a_torn_last_line_starts_a_line_of_its_own(entry):
+    """REQ-0029, ISSUE-0149: the writer closes the torn line before its own,
+    as the L0 writer does, so the torn line is skipped and the receipts read on."""
+    a = entry.refuel(at(0))
+    p = entry.base / f"vehicle-{V.id}" / "receipts.jsonl"
+    with open(p, "ab") as f:  # the crash
+        f.write(b'{"v":1,"t":"2026-10-09T10:0')
+    before = p.read_bytes()
+    b = entry.refuel(at(60 * 24), q=30.0)
+    # The bytes already on disk stay as they were; a line break closes the fragment.
+    assert p.read_bytes().startswith(before + b"\n{")
+    assert [r["id"] for r in entry.listed()] == [a["id"], b["id"]]
+    c = entry.refuel(at(60 * 48), q=20.0)
+    assert [r["id"] for r in entry.listed()] == [a["id"], b["id"], c["id"]]
+
+
+def test_a_receipts_file_that_ends_in_a_line_break_gets_none_added(entry):
+    entry.refuel(at(0))
+    p = entry.base / f"vehicle-{V.id}" / "receipts.jsonl"
+    first = p.read_bytes()
+    entry.refuel(at(60 * 24))
+    assert p.read_bytes().startswith(first + b"{")
+    assert b"\n\n" not in p.read_bytes()
+
+
+def test_a_receipt_line_that_is_json_but_no_object_is_an_error(entry):
+    entry.refuel(at(0))
+    p = entry.base / f"vehicle-{V.id}" / "receipts.jsonl"
+    with open(p, "a") as f:
+        f.write("[1, 2]\n")
+    with pytest.raises(l0.TornLine):
+        list(receipts.read(entry.base, V))
 
 
 # --- matching ----------------------------------------------------------
