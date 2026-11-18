@@ -341,3 +341,18 @@ def test_an_event_appended_to_a_closed_file_adds_no_empty_line(tmp_path):
     l1.append(tmp_path, V, ev)
     l1.append(tmp_path, V, ev)
     assert l1.path_of(tmp_path, V, "trip").read_bytes() == (l1.encode(ev) + "\n").encode() * 2
+
+
+def test_a_config_line_naming_diesel_alone_reads_diesels_thresholds(tmp_path, capsys):
+    """ISSUE-0170: the verb writes the line unchecked, and the fuel-dependent
+    thresholds it leaves out are the fuel's, not petrol's."""
+    b = Builder(tmp_path, capsys)
+    end = b.drive(60)
+    b.run("config", *b.b, "--t", at(end + 70), "--config",
+          '{"name":"V","roles":{"odometer":{"entity":"sensor.o"}},"parameters":{"fuel":"diesel"}}')
+    thr = l1.thresholds(tmp_path, V)
+    assert thr["heating_value_kwh_per_l"] == 9.8
+    assert thr["beta_per_k"] == 8.0e-4
+    s = series.load(tmp_path, V)
+    assert s.parameters()["eta_ice"] == 0.33
+    assert s.thresholds()["heating_value_kwh_per_l"] == 9.8

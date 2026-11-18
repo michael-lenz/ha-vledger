@@ -1117,8 +1117,7 @@ def with_costs(base: Path, subject: Subject, lines: list[dict]) -> list[dict]:
     itself is not touched (ADR-0043, point 1)."""
     if not lines:
         return lines
-    p = dict(vconfig.DEFAULT_PARAMETERS)
-    p.update((l1.latest_config(base, subject) or {}).get("parameters") or {})
+    p = vconfig.parameters_of(l1.latest_config(base, subject))
     refuellings = list(l1.read(base, subject, "refuelling"))
     sessions = list(l1.read(base, subject, "charging"))
     return [{**line, **cost(line, refuellings, sessions, p)} for line in lines]
