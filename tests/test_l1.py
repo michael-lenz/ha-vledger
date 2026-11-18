@@ -307,3 +307,37 @@ def test_the_last_events_are_read_from_the_end(tmp_path, capsys, monkeypatch):
     out, err = capsys.readouterr()
     assert [json.loads(x) for x in out.splitlines()] == every[-2:] and err.strip() == "2 event(s)"
     assert main(["l1", "read", *b.b, "--kind", "trip", "--last", "0"]) == 2
+
+
+def test_an_event_appended_after_a_torn_last_line_starts_a_line_of_its_own(tmp_path, monkeypatch):
+    """REQ-0029, ISSUE-0168: the writer closes the torn line before its own,
+    as the L0 and receipt writers do, so the torn line is skipped wherever
+    it stands and every event after it still reads."""
+    first = {"kind": "trip", "start": at(0), "end": at(60), "distance_km": 1.0}
+    second = {"kind": "trip", "start": at(120), "end": at(180), "distance_km": 2.0}
+    third = {"kind": "trip", "start": at(240), "end": at(300), "distance_km": 3.0}
+    l1.append(tmp_path, V, first)
+    p = l1.path_of(tmp_path, V, "trip")
+    with open(p, "ab") as f:                       # the crash: no line break
+        f.write(b'{"kind":"tr')
+    l1.append(tmp_path, V, second)
+    l1.append(tmp_path, V, third)
+    # Nothing already on disk changed: the fragment is a line of its own.
+    assert p.read_bytes().split(b"\n")[1] == b'{"kind":"tr'
+    assert read_lines(tmp_path, "trip") == [first, second, third]
+    # From the end too, whatever the chunk: a torn line in the middle counts
+    # for none of the n.
+    for chunk in (64 * 1024, 7):
+        monkeypatch.setattr(l1, "_TAIL_CHUNK", chunk)
+        assert l1.last(tmp_path, V, "trip") == [third]
+        assert l1.last(tmp_path, V, "trip", 2) == [second, third]
+        assert l1.last(tmp_path, V, "trip", 3) == [first, second, third]
+        assert l1.last(tmp_path, V, "trip", 9) == [first, second, third]
+
+
+def test_an_event_appended_to_a_closed_file_adds_no_empty_line(tmp_path):
+    """The line break goes before the event only where the file lacks one."""
+    ev = {"kind": "trip", "start": at(0), "end": at(60)}
+    l1.append(tmp_path, V, ev)
+    l1.append(tmp_path, V, ev)
+    assert l1.path_of(tmp_path, V, "trip").read_bytes() == (l1.encode(ev) + "\n").encode() * 2
