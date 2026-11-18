@@ -105,7 +105,10 @@ sensor pair), and `in_use`; markers `ignition`, `plug_state`,
    however far apart its reports are. A span still open at the stream's
    end is movement up to its last line, and the trip it belongs to is not
    complete. A capture gap between two movements
-   ends the span before it and starts a new one. The trip after a
+   ends the span before it and starts a new one; movements of one instant
+   have nothing between them, and stay one span even where that instant
+   lies inside a gap, as a restart's snapshot places them (ISSUE-0177).
+   The trip after a
    gap is `incomplete`, since it may have begun inside it; the trip before
    it too when the gap begins within T_still of its last movement, since
    its end is then unknown. That answer is fixed the moment the trip
