@@ -209,7 +209,9 @@ def _spans(moves: list[Movement], t_still_s: float, gaps: list[l0.Gap],
     use_ranges = [(clock.parse(a), clock.parse(b)) for a, b, _ in in_use]
 
     def gap_between(ta, tb) -> bool:
-        return any(gs < tb and ge > ta for gs, ge in gap_ranges)
+        # Two movements of one instant have no time between them for a gap
+        # to lie in, even when that instant lies inside one (ISSUE-0177).
+        return ta < tb and any(gs < tb and ge > ta for gs, ge in gap_ranges)
 
     def in_use_throughout(ta, tb) -> bool:
         return any(ua <= ta and tb <= ub for ua, ub in use_ranges)

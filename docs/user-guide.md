@@ -739,8 +739,9 @@ instead: each from its departure to the upload at its stop, and legs whose
 stops are shorter than T_still make one trip; an unlock that nothing
 follows within T_still was a door, not a departure ([glossary](glossary.md),
 *Leg*). Every trip carries its own consumption: `fuel_consumed_l` with
-its source (`trip_computer` where the trip computer's average is
-assigned, else `fuel_level`), quality and possible error, and
+its source, `fuel_consumed_source` (`trip_computer` where the trip
+computer's average is assigned, else `fuel_level`), its quality,
+`fuel_consumed_quality`, and its possible error, `fuel_consumed_error_l`, and
 `fuel_l_per_100km` on the trip's distance; `battery_consumed_kwh` from
 the change in state of charge, and `battery_kwh_per_100km`. A rate is
 empty when its source cannot tell it from zero to one step of 0.1 per
@@ -750,11 +751,18 @@ there.
 Printed, a trip also carries its cost, `cost_eur`, priced from the
 receipts the vehicle's L1 holds now; `--write` stores none
 ([derivations.md](derivations.md#a-trips-cost)).
-Every trip carries its distance with its source and quality (`odometer`
-measured, `trip_counter` measured, `waypoints` estimated), the positions
+Every trip carries its distance with its source and quality,
+`distance_source` and `distance_quality` (`odometer` measured,
+`trip_counter` measured, `waypoints` estimated), the positions
 and zones at both ends, every fix in between, the mean outside
 temperature, and ΔSoC and Δfuel as estimates — Δfuel also at 15 °C,
-`delta_fuel_15c_l`, when an outside temperature role is assigned. A trip that spans a capture
+`delta_fuel_15c_l`, when an outside temperature role is assigned. The
+distance, each consumption, each rate and each cost has its quality
+beside it: `distance_quality`, `fuel_consumed_quality`,
+`fuel_l_per_100km_quality`, `battery_consumed_quality`,
+`battery_kwh_per_100km_quality`, and `fuel_cost_eur_quality`,
+`electricity_cost_eur_quality` and `cost_eur_quality` where the trip is
+printed; [l1-format.md](l1-format.md#trips) names every key of a trip. A trip that spans a capture
 gap is `incomplete`, and so is one whose standstill a gap falls into —
 its end is unknown; a gap after the standstill has elapsed leaves the
 completed trip as it was. A vehicle that reports per driving cycle, and
