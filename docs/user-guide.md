@@ -364,6 +364,10 @@ form is a handful of entities on the vehicle's device; put them on a card:
   price, a candidate that is gone), the message says why and the form keeps
   what you typed.
 
+The form has no field for a refuelling's fuel type nor for a charge's
+provider: those two are entered with the actions below or the `receipt`
+verbs, as `fuel` and `provider`.
+
 What is typed is held in memory only: a restart clears a half-filled form,
 and nothing counts until the button is pressed.
 
@@ -569,6 +573,54 @@ wrote so you can see what was kept. A state is always a string: `--state
 123457`, never a number the shell made of it. `--measured-at` and
 `--reported-before` take a time each, as [l0-format.md](l0-format.md)
 defines the keys.
+
+A vehicle's configuration, as `--config` takes it, is what the setup and
+options steps above write — the line's `config` key in
+[l0-format.md](l0-format.md#config):
+
+```json
+{"name": "Volvo",
+ "roles": {"odometer": {"entity": "sensor.volvo_odometer"},
+           "fuel_level": {"entity": "sensor.volvo_fuel_level"},
+           "soc": {"entity": "sensor.volvo_battery"},
+           "charging_state": {"entity": "sensor.volvo_charging", "map": {"charging": ["Charging"]}},
+           "position": {"entity": "device_tracker.volvo", "measured_at": "last_updated_at"}},
+ "parameters": {"fuel": "petrol", "tank_capacity_l": 71, "battery_net_kwh": 14.7},
+ "thresholds": {"t_still_s": 1800},
+ "time_zone": "Europe/Berlin"}
+```
+
+- `roles` names, per role, the `entity` that reports it, and optionally
+  `measured_at`, the attribute that carries the source's measurement time.
+  The roles are `odometer`, `position`, `position_latitude`,
+  `position_longitude`, `trip_distance`, `fuel_level`, `soc`,
+  `charging_state`, `plug_state`, `ignition`, `outside_temperature`,
+  `fuel_price`, `engine`, `lock`, `in_use`, `fuel_flap` and
+  `trip_consumption`; one movement role is required, as in *Roles* above.
+- `map`, for an enumerated role only, lists under its one positive state
+  the source values that mean it, as *Mapping* above ticks them:
+  `charging` for `charging_state`, `plugged` for `plug_state`, `on` for
+  `ignition`, `running` for `engine`, `locked` for `lock`, `in_use` for
+  `in_use`, `open` for `fuel_flap`.
+- `parameters`: `fuel` (`petrol` or `diesel`), `tank_capacity_l`,
+  `battery_net_kwh` (the net capacity), `fuel_level_resolution_l`,
+  `soc_resolution_pct`, `charging_loss_factor`, `eta_el`, `eta_ice`,
+  `charge_cycles_start`, `tank_fills_start` and `movement_reporting`
+  (`sampled` or `per_cycle`).
+- `thresholds`, units in the key: `t_still_s`, `min_move_m`,
+  `refuel_threshold_l`, `t_settle_s`, `charging_threshold_pct`,
+  `matching_tolerance_s`, `plausibility_pct`, `heartbeat_s`, `outage_s`,
+  `rolling_period_d`, `consumption_error_pct`, `heating_value_kwh_per_l`,
+  `beta_per_k`, `temperature_tau_s`, `exit_window_s` and
+  `trip_consumption_step_l_per_100km`.
+- `time_zone` is the IANA zone the months and years begin in; without
+  it they are UTC's.
+
+The verb writes the JSON as given, unchecked. A parameter or threshold
+left out reads as its default, and those defaults are a petrol vehicle's:
+a diesel names `eta_ice`, `heating_value_kwh_per_l` and `beta_per_k`
+itself, or takes them from `vledger l0 read --kind config` of a stream
+Home Assistant wrote, which holds every key written out.
 
 ### Reading
 
@@ -814,9 +866,9 @@ edited ([receipts-format.md](receipts-format.md)).
 
 ```bash
 vledger receipt add refuelling --vehicle a7c1 --anchor 2026-10-12T16:40Z \
-    --quantity-l 41.37 --total-price 72.36 --full --place "motorway services"
+    --quantity-l 41.37 --total-price 72.36 --full --place "motorway services" --fuel E10
 vledger receipt add charging --vehicle a7c1 --anchor 2026-10-14T09:10Z \
-    --energy-kwh 11.8 --total-price 6.49 --provider "roaming card"
+    --energy-kwh 11.8 --total-price 6.49 --provider "roaming card" --note "100 kW"
 vledger receipt list --vehicle a7c1             # the receipts that count, by anchor time
 vledger receipt list --vehicle a7c1 --all       # every line, corrected and cancelled ones too
 ```
@@ -830,7 +882,10 @@ waits for it, and `derive match` lists it as pending. To enter a receipt
 for an event the ledger detected, give its start as `--from-candidate`
 instead; it then meets exactly that event. `--partial` instead of
 `--full` says the tank was not filled; `--unit-price` may stand beside or
-instead of `--total-price`.
+instead of `--total-price`. The rest is optional free text, as the receipt
+says it: `--place` and `--note` on both kinds, `--fuel` on a refuelling
+(the fuel type, such as `E10`) and `--provider` on a charge (who billed
+it). `--help` on each verb lists its options.
 
 A mistake is corrected or cancelled by a receipt of its own:
 
@@ -844,6 +899,35 @@ A correction is the whole receipt again, not just the field that was
 wrong. Only the current receipt can be corrected or cancelled. A receipt
 that meets two events equally, or that another receipt competes with, is
 reported as ambiguous and assigned to nothing: correct its anchor.
+
+`derive match` prints one JSON line per current receipt, refuellings
+first, and a count on standard error:
+
+```json
+{"receipt": "5b0e…", "kind": "refuelling", "anchor": "2026-10-12T16:40:00.000Z", "exact": false, "match": "event", "event_start": "2026-10-12T16:31:05.000Z", "distance_s": 0.0}
+{"receipt": "9d42…", "kind": "charging", "anchor": "2026-10-14T09:10:00.000Z", "exact": false, "match": "ambiguous", "events": ["2026-10-14T07:02:11.000Z", "2026-10-14T11:20:40.000Z"]}
+```
+
+`receipt`, `kind`, `anchor` and `exact` are the receipt's own; `match` says
+what became of it:
+
+- `event` — it met the event that starts at `event_start`, `distance_s`
+  seconds from its anchor (0 inside the event).
+- `pending` — it waits for the candidate starting at `event_start`, still
+  settling or charging; it is nowhere in L1 until that completes.
+- `ambiguous` — it is assigned to nothing; `events` lists the starts of
+  the events it competes for.
+- `own` — it met nothing within the matching tolerance, and stands in L1
+  as an event of its own: a refuelling or charging session whose `start`
+  and `end` are its anchor and whose `quality` is `receipt`, carrying the
+  receipt's values (`vledger l1 read --kind refuelling` once L1 is
+  written).
+
+A refuelling or charging session in L1 says the other side: `receipt` is
+the id it carries or `null`, and `confirmation` is `receipt`,
+`chargepoint` (a session at a configured charge point, without one),
+`unconfirmed` (waiting for one) or `ambiguous`, with `contenders` naming
+the competing receipts ([l1-format.md](l1-format.md#receipts-in-events)).
 
 ## The derivation on disk: `vledger l1`
 
