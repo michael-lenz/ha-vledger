@@ -86,7 +86,7 @@ is marked with a status line under the H1 or with `(planned)`. A change
 maintains every genre it touches and deletes, in the same change, what it
 makes obsolete.
 
-Everything committed is English (ADR-0001). Design discussion may be in
+Everything committed is English (ADR-0069). Design discussion may be in
 German.
 
 ## Releasing

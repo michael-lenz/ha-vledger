@@ -2,7 +2,7 @@
 
 *Design document — the one English spelling of every domain term, fixed
 here so code, documentation and the requirements register cannot drift
-apart (ADR-0001). A term used anywhere in this repository means what this
+apart (ADR-0069). A term used anywhere in this repository means what this
 page says; a new term is added here before it is used.*
 
 ## Data and layers
