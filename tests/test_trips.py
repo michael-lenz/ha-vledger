@@ -666,7 +666,7 @@ def test_per_cycle_trips_line_by_line_equal_one_rebuild(tmp_path, capsys):
     replay(tmp_path / "stream", tmp_path / "replay")
 
 
-# --- legs: a vehicle that reports once per driving cycle (ADR-0023) ---------
+# --- legs: a vehicle that reports once per driving cycle (ADR-0024) ---------
 
 PER_CYCLE = {"movement_reporting": "per_cycle"}
 
@@ -940,10 +940,10 @@ def test_a_short_move_takes_the_counter_within_the_odometers_step(tmp_path, caps
 
 
 def test_a_short_first_leg_keeps_its_unlock_and_a_plug_pulled_hours_before_departs_nothing(tmp_path, capsys):
-    """ADR-0056: unlocked four minutes before a two-minute first leg's
-    arrival with the engine started between — a departure, not an exit;
-    and the plug pulled in the morning, which nothing followed, is no
-    start for the afternoon's trip."""
+    """ADR-0057, points 1 and 2: unlocked four minutes before a two-minute
+    first leg's arrival with the engine started between — a departure, not
+    an exit; and the plug pulled in the morning, which nothing followed, is
+    no start for the afternoon's trip."""
     b = cycle_builder(tmp_path, capsys)
     b.heartbeat(0)
     b.state(5, "plug_state", "off", before=4)                 # unplugged, then nothing for hours

@@ -59,7 +59,7 @@ export function sections(config, kinds) {
   return shown;
 }
 
-// --- strings (ADR-0039, point 8; ADR-0001: English the source) ----------
+// --- strings (ADR-0039, point 8; ADR-0069: English the source) ----------
 
 export const STRINGS = {
   en: {

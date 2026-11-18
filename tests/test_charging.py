@@ -403,7 +403,7 @@ def test_a_short_gap_inside_a_session_leaves_it_measured_and_counted(tmp_path, c
 
 
 def test_the_stops_late_odometer_report_is_no_movement_while_charging(tmp_path, capsys):
-    """ADR-0056, point 3: the odometer polled every six minutes reports the
+    """ADR-0057, point 3: the odometer polled every six minutes reports the
     stop four minutes into the charge; a drive after the window counts."""
     v = vehicle(tmp_path, capsys)
     for m in (-40, -34, -28, -22, -16, -10):                 # the odometer's cadence, measured
