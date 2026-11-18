@@ -10,6 +10,8 @@ import json
 from datetime import timedelta
 from itertools import pairwise
 
+import pytest
+
 from vledger import clock, export, geo, series, trips, units
 from vledger.cli import main
 from vledger.layout import Subject
@@ -504,6 +506,40 @@ def test_without_in_use_the_same_drive_starts_at_its_upload(tmp_path, capsys):
     b.heartbeat(110)
     [t] = trips.derive_from(tmp_path, V)
     assert t.start == at(52)        # the unlock is 47 minutes before: beyond T_still
+
+
+@pytest.mark.parametrize("dropout", ["unavailable", "unknown"])
+def test_a_dropout_of_in_use_holds_it_and_splits_no_trip(tmp_path, capsys, dropout):
+    """ISSUE-0166: unavailable and unknown hold the last known state
+    (ADR-0021 point 1), so a dropout between two in-use reports does not
+    leave use, and no standstill lies in the odometer's silence."""
+    b = Builder(tmp_path, capsys, roles=CYCLE_ROLES)
+    b.heartbeat(0)
+    b.state(10, "odometer", 1005, "km").state(12, "in_use", "car_in_use", before=-20)
+    b.state(15, "odometer", 1009, "km").state(17, "in_use", "car_in_use", before=16)
+    b.state(20, "in_use", dropout, before=19)
+    b.state(53, "in_use", "car_in_use", before=20)
+    b.state(55, "odometer", 1014, "km").state(57, "in_use", "connected", before=53)
+    b.state(60, "odometer", 1018, "km")
+    b.heartbeat(120)
+    [t] = trips.derive_from(tmp_path, V)
+    assert t.start <= at(12) and t.end >= at(53)
+    assert [(a, z) for a, z, _ in trips.in_use_spans(series.load(tmp_path, V))] == [(at(12), at(53))]
+
+
+def test_an_unmapped_value_between_in_use_reports_leaves_use(tmp_path, capsys):
+    """The control: any other value means not in use (ADR-0008), and the
+    odometer's silence of more than T_still between the spans is a stop."""
+    b = Builder(tmp_path, capsys, roles=CYCLE_ROLES)
+    b.heartbeat(0)
+    b.state(10, "odometer", 1005, "km").state(12, "in_use", "car_in_use", before=-20)
+    b.state(15, "odometer", 1009, "km").state(17, "in_use", "car_in_use", before=16)
+    b.state(20, "in_use", "disconnected", before=19)
+    b.state(53, "in_use", "car_in_use", before=20)
+    b.state(55, "odometer", 1014, "km").state(57, "in_use", "connected", before=53)
+    b.state(60, "odometer", 1018, "km")
+    b.heartbeat(120)
+    assert len(trips.derive_from(tmp_path, V)) == 2
 
 
 def test_lock_and_engine_only_ever_start_a_trip(tmp_path, capsys):

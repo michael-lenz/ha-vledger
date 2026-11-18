@@ -355,10 +355,8 @@ async def test_a_span_in_use_keeps_the_trip_whole(ui, freezer, source):
 
 
 @pytest.mark.parametrize("between, trips_found", [
-    pytest.param("unavailable", 1,
-                 marks=pytest.mark.xfail(strict=True, reason="ISSUE-0166")),
-    pytest.param("unknown", 1,
-                 marks=pytest.mark.xfail(strict=True, reason="ISSUE-0166")),
+    ("unavailable", 1),
+    ("unknown", 1),
     ("disconnected", 2),
 ], ids=["unavailable-holds", "unknown-holds", "unmapped-is-not-in-use"])
 async def test_the_source_s_values_are_read_through_its_mapping(
