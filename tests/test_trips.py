@@ -30,7 +30,7 @@ def at(minutes: float) -> str:
 class Builder:
     """Builds a stream the way the integration would, verb by verb."""
 
-    def __init__(self, base, capsys, thresholds=None, roles=None, parameters=None):
+    def __init__(self, base, capsys, thresholds=None, roles=None, parameters=None, snapshot=()):
         self.b = ["--base", str(base), "--vehicle", "a7c1"]
         self.capsys = capsys
         self.n = 0
@@ -40,6 +40,7 @@ class Builder:
              "attrs": {"latitude": HOME[0], "longitude": HOME[1], "gps_accuracy": 0}},
             {"role": "soc", "entity": "sensor.s", "state": "80", "unit": "%", "since": at(-120)},
             {"role": "fuel_level", "entity": "sensor.f", "state": "20.5", "unit": "L", "since": at(-120)},
+            *snapshot,
         ]
         self.run("start", *self.b, "--t", at(-60), "--homeassistant", "2026.9.4", "--snapshot", json.dumps(snapshot))
         cfg = {"name": "V", "roles": {"odometer": {"entity": "sensor.o"}, "position": {"entity": "device_tracker.v"},
@@ -517,6 +518,33 @@ def test_lock_and_engine_only_ever_start_a_trip(tmp_path, capsys):
     [t] = trips.derive_from(tmp_path, V)
     assert t.start == at(57)                          # the latest start marker: the engine
     assert t.end == at(105) and t.refined_by == {"start": "engine", "end": None}
+
+
+def test_the_first_unlock_after_a_start_is_a_start_marker(tmp_path, capsys):
+    """Home Assistant started with the car parked locked: the start line's
+    snapshot holds the lock's last state, and the config line that maps it
+    comes after the start line. The unlock is a change from locked all the
+    same, and starts the trip (ISSUE-0160)."""
+    locked = {"role": "lock", "entity": "lock.v", "state": "locked", "since": at(-120)}
+    b = Builder(tmp_path, capsys, roles=CYCLE_ROLES, snapshot=[locked])
+    b.heartbeat(0)
+    b.state(56, "lock", "unlocked")
+    end = plain_drive(b, 60)                         # moves at 75, 90, 105
+    b.heartbeat(end + 60)
+    [t] = trips.derive_from(tmp_path, V)
+    assert t.start == at(56) and t.refined_by["start"] == "lock"
+
+
+def test_a_snapshot_is_mapped_by_the_config_that_follows_its_start_line(tmp_path, capsys):
+    """The latest config line maps every domain value of the stream, the
+    snapshot's before it included: the snapshot's locked is locked, and no
+    value the map lists is reported unmapped (ISSUE-0160)."""
+    locked = {"role": "lock", "entity": "lock.v", "state": "locked", "since": at(-120)}
+    b = Builder(tmp_path, capsys, roles=CYCLE_ROLES, snapshot=[locked])
+    b.state(5, "lock", "unlocked")
+    s = series.load(tmp_path, V)
+    assert [(x.t, x.state) for x in s.domain["lock"]] == [(at(-120), "locked"), (at(5), "unlocked")]
+    assert s.unmapped == {"lock": {"unlocked"}}
 
 
 def test_a_slower_roles_late_report_does_not_extend_the_trip(tmp_path, capsys):

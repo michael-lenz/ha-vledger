@@ -288,7 +288,6 @@ def test_a_value_not_ticked_as_locked_means_unlocked(base):
     assert refined(trip, "start") == "lock"
 
 
-@pytest.mark.xfail(strict=True, reason="ISSUE-0160")
 def test_the_first_unlock_after_a_start_is_a_start_marker(base):
     """Home Assistant started at 04:00 with the car already parked locked,
     so the start line's snapshot is the lock's last state; unlocked at 06:26,

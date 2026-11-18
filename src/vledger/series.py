@@ -278,11 +278,10 @@ def load(base: Path, subject: Subject, *, since: str | None = None,
             raw = line.get("state")
             if raw in DROPOUT_STATES:
                 add(s.dropouts.setdefault(role, []), t)
-            state = vconfig.domain_state(role, raw, mapping)
-            if vconfig.unlisted(role, raw, mapping):
-                s.unmapped.setdefault(role, set()).add(raw)
+            # Mapped again by :func:`_map_domain` once the config is read.
             add(s.domain.setdefault(role, []),
-                DomainSample(t, state, raw, line.get("reported_before")))
+                DomainSample(t, vconfig.domain_state(role, raw, mapping), raw,
+                             line.get("reported_before")))
 
     seeds, prev_t = _seed_lines(base, subject, since) if since else ([], None)
     for line in seeds + [r.line for r in l0.read(base, subject, since=since, until=until)]:
@@ -321,10 +320,26 @@ def load(base: Path, subject: Subject, *, since: str | None = None,
     s.fixes.sort(key=lambda x: clock.parse(x.t))
     for role in s.domain:
         s.domain[role].sort(key=lambda x: clock.parse(x.t))
+    _map_domain(s)
     for role in s.dropouts:
         s.dropouts[role].sort(key=clock.parse)
     s.gaps = l0.gaps(base, subject, now=now or s.last_t) if s.last_t else []
     return s
+
+
+def _map_domain(s: Stream) -> None:
+    """Map every domain value of the stream by the config the stream is read
+    with, the latest in range: a start line comes before the config line
+    that maps its snapshot, so a snapshot read as it came would be mapped
+    by no map at all — a lock parked ``locked`` read as unlocked, and the
+    first unlock after the start no change (ISSUE-0160)."""
+    s.unmapped = {}
+    for role, samples in s.domain.items():
+        mapping = ((s.config or {}).get("roles", {}).get(role) or {}).get("map") or {}
+        for i, x in enumerate(samples):
+            samples[i] = replace(x, state=vconfig.domain_state(role, x.raw, mapping))
+            if vconfig.unlisted(role, x.raw, mapping):
+                s.unmapped.setdefault(role, set()).add(x.raw)
 
 
 def reached(s: Stream, t: str) -> bool:

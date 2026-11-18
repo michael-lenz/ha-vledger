@@ -35,7 +35,11 @@ and never parses a line itself:
   `engine`, `lock`, `in_use`, `fuel_flap`) become
   domain states through the configured map (ADR-0008): a mapped value is
   the positive state, `unavailable` and `unknown` hold the last known
-  state, anything else is the negative state.
+  state, anything else is the negative state. The map is the one of the
+  config the stream is read with, its latest config line, for every value
+  of the stream: a start line's snapshot, which comes before the config
+  line written at the same start, included, so that the first change
+  after a start is judged against the snapshot's state (ISSUE-0160).
 - A **start line's snapshot** seeds every series with the value before its
   first change, read at the entry's `since` but no earlier than the
   stream's last line before the start, so that a restart never reaches
