@@ -36,14 +36,8 @@ import pytest
 
 pytest.importorskip("pytest_homeassistant_custom_component")
 
-from homeassistant.components import frontend
+from browser import Browser, open_frontend
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.translation import async_get_translations
-from homeassistant.setup import async_setup_component
-
-DOMAIN = "vledger"
-FLOW = "/api/config/config_entries/flow"
-ENTRIES = "/api/config/config_entries/entry"
 
 pytestmark = [pytest.mark.req("REQ-0023")]
 
@@ -55,92 +49,7 @@ async def ui(hass: HomeAssistant, tmp_path, enable_custom_integrations, hass_cli
     """A Home Assistant with its frontend's API and nothing configured for the
     ledger. The configuration directory is a temporary one, so the raw log
     lands under it, in ``<config>/vledger/``."""
-    hass.config.config_dir = str(tmp_path)
-    hass.config.latitude, hass.config.longitude = 52.52, 13.40
-    assert await async_setup_component(hass, "config", {})
-    # The frontend's own package is not part of the test stack; it is stood in
-    # for as set up, with nowhere to serve from.
-    hass.data[frontend.DATA_EXTRA_MODULE_URL] = frontend.UrlManager(lambda *_: None, [])
-    hass.config.components.add("frontend")
-    await hass.async_block_till_done()
-    # Home Assistant keeps its router open after start, since an integration
-    # set up later in the UI adds paths to it; the test client starts the
-    # server before any entry exists, so the router is kept open likewise.
-    hass.http.app.router.freeze = lambda: None
-    return UI(hass, await hass_client())
-
-
-class UI:
-    def __init__(self, hass, client):
-        self.hass, self.client = hass, client
-
-    async def post(self, path, data=None):
-        resp = await self.client.post(path, json=data)
-        assert resp.status == 200, await resp.text()
-        return await resp.json()
-
-    async def entries(self):
-        resp = await self.client.get(f"{ENTRIES}?domain={DOMAIN}")
-        assert resp.status == 200, await resp.text()
-        return await resp.json()
-
-    async def config_flow(self):
-        labels = await async_get_translations(self.hass, "en", "config", [DOMAIN])
-        return Flow(self, FLOW, await self.post(FLOW, {"handler": DOMAIN}), labels)
-
-
-class Flow:
-    """One config flow as the browser shows it: a menu or a form, by its
-    labels."""
-
-    def __init__(self, ui, path, step, labels):
-        self.ui, self.path, self.step, self.labels = ui, path, step, labels
-
-    def _label(self, *parts):
-        return self.labels.get(".".join(("component", DOMAIN, "config", "step",
-                                         self.step["step_id"], *parts)))
-
-    @property
-    def title(self):
-        return self._label("title")
-
-    def fields(self):
-        assert self.step["type"] == "form", self.step
-        return {self._label("data", f["name"]): f for f in self.step["data_schema"]}
-
-    def field(self, name):
-        """A field by the name the user guide gives it, whatever its case:
-        the label that reads so, or else the one label that reads so and adds
-        a parenthesis ("Position (device tracker)")."""
-        labels = [lab for lab in self.fields() if lab]
-        found = [lab for lab in labels if lab.casefold() == name.casefold()]
-        found = found or [lab for lab in labels
-                          if lab.casefold().startswith(name.casefold() + " (")]
-        assert len(found) == 1, f"{name!r} not among {sorted(self.fields(), key=str)}"
-        return found[0]
-
-    def shown(self, label):
-        field = self.fields()[label]
-        return field.get("description", {}).get("suggested_value", field.get("default"))
-
-    async def choose(self, label):
-        assert self.step["type"] == "menu", self.step
-        menu = {self._label("menu_options", o): o for o in self.step["menu_options"]}
-        assert label in menu, f"{label!r} not among {sorted(menu, key=str)}"
-        self.step = await self.ui.post(f"{self.path}/{self.step['flow_id']}",
-                                       {"next_step_id": menu[label]})
-
-    async def fill(self, values):
-        """Fill in by label and submit. As in the browser, a field left alone
-        is sent with what the form showed in it."""
-        fields = self.fields()
-        values = {self.field(k): v for k, v in values.items()}
-        data = {}
-        for label, field in fields.items():
-            value = values[label] if label in values else self.shown(label)
-            if value is not None:
-                data[field["name"]] = value
-        self.step = await self.ui.post(f"{self.path}/{self.step['flow_id']}", data)
+    return Browser(hass, await open_frontend(hass, tmp_path, hass_client))
 
 
 async def add_vehicle(ui, roles):

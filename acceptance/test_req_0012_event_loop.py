@@ -32,10 +32,9 @@ import pytest
 
 pytest.importorskip("pytest_homeassistant_custom_component")
 
-from homeassistant.components import frontend
+from browser import open_frontend
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.translation import async_get_translations
-from homeassistant.setup import async_setup_component
 
 DOMAIN = "vledger"
 
@@ -107,27 +106,14 @@ async def instance(hass: HomeAssistant, tmp_path, enable_custom_integrations,
     """A Home Assistant whose configuration directory is a temporary one,
     with diagnostics and the media folder as on an instance, and the watch
     on its event loop installed before the ledger is ever set up."""
-    hass.config.config_dir = str(tmp_path)
     hass.config.media_dirs = {"local": str(tmp_path / "media")}
     # As Home Assistant's configuration does on an instance: its media
     # folders may be written to.
     hass.config.allowlist_external_dirs = {str(tmp_path / "media")}
-    hass.config.latitude, hass.config.longitude = 52.52, 13.40
-    assert await async_setup_component(hass, "diagnostics", {})
-    # The frontend's own package (home-assistant-frontend) is not part of the
-    # test stack; it is stood in for as set up, with nowhere to serve from.
-    hass.data[frontend.DATA_EXTRA_MODULE_URL] = frontend.UrlManager(lambda *_: None, [])
-    hass.config.components.add("frontend")
-    await hass.async_block_till_done()
-    # Home Assistant's own server keeps its router open after it starts, since
-    # an integration set up later in the UI adds paths to it (the http
-    # component's start). The test client starts the server here, before any
-    # entry exists, and which test client a test stack provides is not fixed:
-    # the router is kept open as Home Assistant keeps it.
-    hass.http.app.router.freeze = lambda: None
+    client = await open_frontend(hass, tmp_path, hass_client, "diagnostics")
     watch = LoopIO(tmp_path)
     watch.install(monkeypatch)
-    return hass, watch, await hass_client()
+    return hass, watch, client
 
 
 async def flow_by_labels(hass, category, result, steps):

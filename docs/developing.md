@@ -48,6 +48,19 @@ Assistant need `.[dev,ha]` and skip themselves without it, as `tests/ha`
 is left out. `python -m pytest` runs them with the rest; `python -m pytest
 acceptance` runs them alone.
 
+What the tests of Home Assistant share is in `acceptance/browser.py`, which
+a module imports after its `pytest.importorskip`: `open_frontend` sets
+Home Assistant up as an instance with its frontend and nothing of the
+ledger configured, and starts the server the browser talks to; `Browser`
+and `Flow` drive the setup and options screens by the labels a person
+reads on them. A module that needs more — the websocket, diagnostics, a
+step of its own — passes it to `open_frontend` or subclasses `Browser` or
+`Flow`, rather than copying them. Home Assistant's own server keeps its
+router open after it starts, since an integration set up later in the UI
+adds paths to it, and `open_frontend` keeps it open likewise; a test that
+starts the test client itself must do the same before any entry is set
+up, or the integration's views find the router frozen (ISSUE-0122).
+
 ## Setting up
 
 ```bash
@@ -242,7 +255,7 @@ tests/                     the library's tests; tests/ha/ the integration's;
                            tests/frontend/ the card's model;
                            tests/fixtures/ real streams, anonymised
 acceptance/                one test file per requirement, shown met through the CLI
-                           or Home Assistant
+                           or Home Assistant; browser.py what those of Home Assistant share
 docs/                      design documents, operating manuals, the user guide
 .github/workflows/         tests.yml on every push, release.yml on a tag
 ```

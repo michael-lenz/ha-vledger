@@ -45,18 +45,14 @@ import pytest
 
 pytest.importorskip("pytest_homeassistant_custom_component")
 
-from homeassistant.components import frontend
+from browser import Browser, open_frontend
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.translation import async_get_translations
-from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import async_fire_time_changed
 
 pytestmark = [pytest.mark.req("REQ-0044")]
 
 SRC = pathlib.Path(__file__).resolve().parent.parent / "src"
 DOMAIN = "vledger"
-FLOW = "/api/config/config_entries/flow"
-ENTRIES = "/api/config/config_entries/entry"
 
 # Two vehicles, each with its own odometer.
 CARS = {"Volvo": "sensor.volvo_odometer", "Fiat": "sensor.fiat_odometer"}
@@ -83,24 +79,14 @@ async def ui(hass: HomeAssistant, tmp_path, enable_custom_integrations, hass_cli
     """A Home Assistant with its frontend's API and nothing configured for the
     ledger. The configuration directory is a temporary one, so the raw log
     lands under it, in ``<config>/vledger/``."""
-    hass.config.config_dir = str(tmp_path)
-    hass.config.latitude, hass.config.longitude = 52.52, 13.40
-    assert await async_setup_component(hass, "config", {})
-    # The frontend's own package is not part of the test stack; it is stood in
-    # for as set up, with nowhere to serve from.
-    hass.data[frontend.DATA_EXTRA_MODULE_URL] = frontend.UrlManager(lambda *_: None, [])
-    hass.config.components.add("frontend")
-    await hass.async_block_till_done()
-    # Home Assistant keeps its router open after it starts, since an
-    # integration set up later in the UI adds paths to it; the test client
-    # starts the server before any entry exists.
-    hass.http.app.router.freeze = lambda: None
-    return UI(hass, await hass_client(), hass_ws_client, hass_admin_user)
+    client = await open_frontend(hass, tmp_path, hass_client)
+    return UI(hass, client, hass_ws_client, hass_admin_user)
 
 
-class UI:
+class UI(Browser):
     def __init__(self, hass, client, ws_client, user):
-        self.hass, self.client, self.ws_client, self.user = hass, client, ws_client, user
+        super().__init__(hass, client)
+        self.ws_client, self.user = ws_client, user
         self.ids = {}
 
     async def remember_entries(self):
@@ -115,20 +101,6 @@ class UI:
             self.user, "https://example.com/app")
         return await self.ws_client(self.hass, self.hass.auth.async_create_access_token(refresh))
 
-    async def post(self, path, data=None):
-        resp = await self.client.post(path, json=data)
-        assert resp.status == 200, await resp.text()
-        return await resp.json()
-
-    async def entries(self):
-        resp = await self.client.get(f"{ENTRIES}?domain={DOMAIN}")
-        assert resp.status == 200, await resp.text()
-        return await resp.json()
-
-    async def config_flow(self):
-        labels = await async_get_translations(self.hass, "en", "config", [DOMAIN])
-        return Flow(self, FLOW, await self.post(FLOW, {"handler": DOMAIN}), labels)
-
     async def recompute(self, **data):
         """*Developer tools → Actions*: Vehicle Ledger: Recompute, with what
         ``data`` names, called over the websocket as the frontend calls it,
@@ -140,47 +112,6 @@ class UI:
         assert msg["success"], msg
         await settle(self.hass)
         await ws.close()
-
-
-class Flow:
-    def __init__(self, ui, path, step, labels):
-        self.ui, self.path, self.step, self.labels = ui, path, step, labels
-
-    def _label(self, *parts):
-        return self.labels.get(".".join(("component", DOMAIN, "config", "step",
-                                         self.step["step_id"], *parts)))
-
-    @property
-    def title(self):
-        return self._label("title")
-
-    def fields(self):
-        assert self.step["type"] == "form", self.step
-        return {self._label("data", f["name"]): f for f in self.step["data_schema"]}
-
-    def shown(self, label):
-        field = self.fields()[label]
-        return field.get("description", {}).get("suggested_value", field.get("default"))
-
-    async def choose(self, label):
-        assert self.step["type"] == "menu", self.step
-        options = {self._label("menu_options", o): o for o in self.step["menu_options"]}
-        assert label in options, f"{label!r} not among {sorted(options, key=str)}"
-        self.step = await self.ui.post(f"{self.path}/{self.step['flow_id']}",
-                                       {"next_step_id": options[label]})
-
-    async def fill(self, values):
-        """Fill in by label and submit; a field left alone is sent with what
-        the form showed in it, an empty one is not sent."""
-        fields = self.fields()
-        missing = set(values) - set(fields)
-        assert not missing, f"{sorted(missing)} not among {sorted(fields, key=str)}"
-        data = {}
-        for label, field in fields.items():
-            value = values[label] if label in values else self.shown(label)
-            if value is not None:
-                data[field["name"]] = value
-        self.step = await self.ui.post(f"{self.path}/{self.step['flow_id']}", data)
 
 
 # --- the vehicles and their sources ------------------------------------------

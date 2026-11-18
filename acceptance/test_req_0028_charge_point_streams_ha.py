@@ -38,18 +38,12 @@ import pytest
 
 pytest.importorskip("pytest_homeassistant_custom_component")
 
-from homeassistant.components import frontend
+from browser import Browser, open_frontend
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.translation import async_get_translations
-from homeassistant.setup import async_setup_component
 
 pytestmark = [pytest.mark.req("REQ-0028")]
 
 SRC = pathlib.Path(__file__).resolve().parent.parent / "src"
-DOMAIN = "vledger"
-FLOW = "/api/config/config_entries/flow"
-OPTIONS = "/api/config/config_entries/options/flow"
-ENTRIES = "/api/config/config_entries/entry"
 
 ODOMETER, CHARGING = "sensor.car_odometer", "sensor.car_charging"
 HOME_METER, WORK_METER = "sensor.home_wallbox_energy", "sensor.work_wallbox_energy"
@@ -64,79 +58,7 @@ async def ui(hass: HomeAssistant, tmp_path, enable_custom_integrations, hass_cli
     """A Home Assistant with its frontend's API and nothing configured for the
     ledger. The configuration directory is a temporary one, so the raw log
     lands under it, in ``<config>/vledger/``."""
-    hass.config.config_dir = str(tmp_path)
-    hass.config.latitude, hass.config.longitude = 52.52, 13.40
-    assert await async_setup_component(hass, "config", {})
-    # The frontend's own package is not part of the test stack; it is stood in
-    # for as set up, with nowhere to serve from.
-    hass.data[frontend.DATA_EXTRA_MODULE_URL] = frontend.UrlManager(lambda *_: None, [])
-    hass.config.components.add("frontend")
-    await hass.async_block_till_done()
-    # Home Assistant's own server keeps its router open after it starts, since
-    # an integration set up later in the UI adds paths to it. The test client
-    # starts the server here, before any entry exists: the router is kept open
-    # as Home Assistant keeps it (ISSUE-0122).
-    hass.http.app.router.freeze = lambda: None
-    return UI(hass, await hass_client())
-
-
-class UI:
-    """What a person's browser does: start a flow, read the form with its
-    labels, fill it in by label, submit."""
-
-    def __init__(self, hass, client):
-        self.hass, self.client = hass, client
-
-    async def post(self, path, data=None):
-        resp = await self.client.post(path, json=data)
-        assert resp.status == 200, await resp.text()
-        return await resp.json()
-
-    async def entries(self):
-        resp = await self.client.get(f"{ENTRIES}?domain={DOMAIN}")
-        assert resp.status == 200, await resp.text()
-        return await resp.json()
-
-    async def flow(self, path, category, handler):
-        labels = await async_get_translations(self.hass, "en", category, [DOMAIN])
-        return Flow(self, path, category, await self.post(path, {"handler": handler}), labels)
-
-
-class Flow:
-    def __init__(self, ui, path, category, step, labels):
-        self.ui, self.path, self.category, self.step, self.labels = ui, path, category, step, labels
-
-    def _label(self, *parts):
-        return self.labels.get(".".join(("component", DOMAIN, self.category, "step",
-                                         self.step["step_id"], *parts)))
-
-    def fields(self):
-        assert self.step["type"] == "form", self.step
-        return {self._label("data", f["name"]): f for f in self.step["data_schema"]}
-
-    def shown(self, label):
-        field = self.fields()[label]
-        return field.get("description", {}).get("suggested_value", field.get("default"))
-
-    async def choose(self, label):
-        assert self.step["type"] == "menu", self.step
-        options = {self._label("menu_options", o): o for o in self.step["menu_options"]}
-        assert label in options, f"{label!r} not among {sorted(options, key=str)}"
-        self.step = await self.ui.post(f"{self.path}/{self.step['flow_id']}",
-                                       {"next_step_id": options[label]})
-
-    async def fill(self, values):
-        """Fill in by label and submit. As in the browser, a field left alone
-        is sent with what the form showed, and an empty one is not sent."""
-        fields = self.fields()
-        missing = set(values) - set(fields)
-        assert not missing, f"{sorted(missing)} not among {sorted(fields, key=str)}"
-        data = {}
-        for label, field in fields.items():
-            value = values[label] if label in values else self.shown(label)
-            if value is not None:
-                data[field["name"]] = value
-        self.step = await self.ui.post(f"{self.path}/{self.step['flow_id']}", data)
+    return Browser(hass, await open_frontend(hass, tmp_path, hass_client))
 
 
 async def settle(hass):
@@ -162,7 +84,7 @@ async def add_vehicle(ui, name="Family car"):
                                                  "device_class": "distance",
                                                  "state_class": "total_increasing"})
     ui.hass.states.async_set(CHARGING, "not_charging", {})
-    flow = await ui.flow(FLOW, "config", DOMAIN)
+    flow = await ui.config_flow()
     await flow.choose("A vehicle")
     await flow.fill({"Name": name})
     await flow.fill({"Odometer": ODOMETER, "Charging state": CHARGING})
@@ -176,7 +98,7 @@ async def add_vehicle(ui, name="Family car"):
 async def add_chargepoint(ui, name, where, meter_entity=None):
     """Add integration → Vehicle Ledger → A charge point: name, location and
     radius, the energy meter where one is given, and the first tariff."""
-    flow = await ui.flow(FLOW, "config", DOMAIN)
+    flow = await ui.config_flow()
     await flow.choose("A charge point")
     values = {"Name": name, "Location and radius": where,
               "Tariff": 0.31, "Tariff valid from": "2026-01-01"}
@@ -327,7 +249,7 @@ async def test_a_meter_added_under_configure_is_logged_in_the_same_charge_point_
     assert mentions(before, HOME_METER) == []
 
     meter(ui.hass, HOME_METER, 1520.4)
-    flow = await ui.flow(OPTIONS, "options", entry_id)
+    flow = await ui.options_flow(entry_id)
     await flow.choose("Energy meter")
     await flow.fill({"Energy meter entity (empty: none)": HOME_METER})
     assert flow.step["type"] == "create_entry", flow.step
