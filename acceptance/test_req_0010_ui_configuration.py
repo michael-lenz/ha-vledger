@@ -22,10 +22,9 @@ import pytest
 
 pytest.importorskip("pytest_homeassistant_custom_component")
 
-from homeassistant.components import frontend
+from browser import open_frontend
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.translation import async_get_translations
-from homeassistant.setup import async_setup_component
 
 DOMAIN = "vledger"
 
@@ -37,22 +36,9 @@ async def ui(hass: HomeAssistant, tmp_path, enable_custom_integrations, hass_cli
     """A Home Assistant with its frontend's API and nothing configured for the
     ledger: no YAML of it, no entry. The configuration directory is a
     temporary one, so the raw log lands there."""
-    hass.config.config_dir = str(tmp_path)
-    hass.config.latitude, hass.config.longitude = 52.52, 13.40
-    assert await async_setup_component(hass, "config", {})
-    # The frontend's own package (home-assistant-frontend) is not part of the
-    # test stack; it is stood in for as set up, with nowhere to serve from.
-    hass.data[frontend.DATA_EXTRA_MODULE_URL] = frontend.UrlManager(lambda *_: None, [])
-    hass.config.components.add("frontend")
-    await hass.async_block_till_done()
+    client = await open_frontend(hass, tmp_path, hass_client)
     assert DOMAIN not in hass.config.as_dict().get("components", [])
-    # Home Assistant's own server keeps its router open after it starts, since
-    # an integration set up later in the UI adds paths to it (the http
-    # component's start). The test client starts the server here, before any
-    # entry exists, and which test client a test stack provides is not fixed:
-    # the router is kept open as Home Assistant keeps it.
-    hass.http.app.router.freeze = lambda: None
-    return UI(hass, await hass_client())
+    return UI(hass, client)
 
 
 class UI:

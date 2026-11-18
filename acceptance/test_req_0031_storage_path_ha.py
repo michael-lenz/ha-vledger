@@ -41,18 +41,12 @@ import pytest
 
 pytest.importorskip("pytest_homeassistant_custom_component")
 
-from homeassistant.components import frontend
+from browser import Browser, open_frontend
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.translation import async_get_translations
-from homeassistant.setup import async_setup_component
 
 pytestmark = [pytest.mark.req("REQ-0031")]
 
 SRC = pathlib.Path(__file__).resolve().parent.parent / "src"
-DOMAIN = "vledger"
-FLOW = "/api/config/config_entries/flow"
-OPTIONS = "/api/config/config_entries/options/flow"
-ENTRIES = "/api/config/config_entries/entry"
 
 ODOMETER, CHARGING, FUEL_LEVEL = "sensor.odometer", "sensor.charging", "sensor.fuel_level"
 
@@ -77,83 +71,7 @@ async def ui(hass: HomeAssistant, tmp_path, enable_custom_integrations, hass_cli
     """A Home Assistant with its frontend's API and nothing configured for the
     ledger. The configuration directory is a temporary one, so the raw log
     lands under it, in ``<config>/vledger/``."""
-    hass.config.config_dir = str(tmp_path)
-    hass.config.latitude, hass.config.longitude = 52.52, 13.40
-    assert await async_setup_component(hass, "config", {})
-    # The frontend's own package is not part of the test stack; it is stood in
-    # for as set up, with nowhere to serve from.
-    hass.data[frontend.DATA_EXTRA_MODULE_URL] = frontend.UrlManager(lambda *_: None, [])
-    hass.config.components.add("frontend")
-    await hass.async_block_till_done()
-    # Home Assistant's own server keeps its router open after it starts, since
-    # an integration set up later in the UI adds paths to it. The test client
-    # starts the server here, before any entry exists: the router is kept open
-    # as Home Assistant keeps it.
-    hass.http.app.router.freeze = lambda: None
-    return UI(hass, await hass_client())
-
-
-class UI:
-    """What a person's browser does: start a flow, read the form with its
-    labels, fill it in by label, submit."""
-
-    def __init__(self, hass, client):
-        self.hass, self.client = hass, client
-
-    async def post(self, path, data=None):
-        resp = await self.client.post(path, json=data)
-        assert resp.status == 200, await resp.text()
-        return await resp.json()
-
-    async def entries(self):
-        resp = await self.client.get(f"{ENTRIES}?domain={DOMAIN}")
-        assert resp.status == 200, await resp.text()
-        return await resp.json()
-
-    async def flow(self, path, category, handler):
-        labels = await async_get_translations(self.hass, "en", category, [DOMAIN])
-        return Flow(self, path, category, await self.post(path, {"handler": handler}), labels)
-
-
-class Flow:
-    def __init__(self, ui, path, category, step, labels):
-        self.ui, self.path, self.category, self.step, self.labels = ui, path, category, step, labels
-
-    def _label(self, *parts):
-        return self.labels.get(".".join(("component", DOMAIN, self.category, "step",
-                                         self.step["step_id"], *parts)))
-
-    @property
-    def title(self):
-        return self._label("title")
-
-    def fields(self):
-        assert self.step["type"] == "form", self.step
-        return {self._label("data", f["name"]): f for f in self.step["data_schema"]}
-
-    def shown(self, label):
-        field = self.fields()[label]
-        return field.get("description", {}).get("suggested_value", field.get("default"))
-
-    async def choose(self, label):
-        assert self.step["type"] == "menu", self.step
-        options = {self._label("menu_options", o): o for o in self.step["menu_options"]}
-        assert label in options, f"{label!r} not among {sorted(options, key=str)}"
-        self.step = await self.ui.post(f"{self.path}/{self.step['flow_id']}",
-                                       {"next_step_id": options[label]})
-
-    async def fill(self, values):
-        """Fill in by label and submit. As in the browser, a field left alone
-        is sent with what the form showed, and an empty one is not sent."""
-        fields = self.fields()
-        missing = set(values) - set(fields)
-        assert not missing, f"{sorted(missing)} not among {sorted(fields, key=str)}"
-        data = {}
-        for label, field in fields.items():
-            value = values[label] if label in values else self.shown(label)
-            if value is not None:
-                data[field["name"]] = value
-        self.step = await self.ui.post(f"{self.path}/{self.step['flow_id']}", data)
+    return Browser(hass, await open_frontend(hass, tmp_path, hass_client))
 
 
 async def settle(hass):
@@ -180,7 +98,7 @@ async def add_vehicle(ui, name="Family car"):
     and the charging state; Mapping, *Laden* means charging; Parameters,
     petrol and a 52 L tank."""
     sources(ui.hass)
-    flow = await ui.flow(FLOW, "config", DOMAIN)
+    flow = await ui.config_flow()
     await flow.choose("A vehicle")
     await flow.fill({"Name": name})
     await flow.fill({"Odometer": ODOMETER, "Charging state": CHARGING})
@@ -197,7 +115,7 @@ async def add_vehicle(ui, name="Family car"):
 async def add_chargepoint(ui, name="Home"):
     """Add integration → Vehicle Ledger → A charge point, with a location and
     radius of its own and its first tariff."""
-    flow = await ui.flow(FLOW, "config", DOMAIN)
+    flow = await ui.config_flow()
     await flow.choose("A charge point")
     await flow.fill({"Name": name,
                      "Location and radius": {"latitude": 51.4437, "longitude": 7.1413,
@@ -213,7 +131,7 @@ async def change(ui, entry_id, step, values):
     """Configure → <step>: the values given, the rest as the form shows it,
     and saved; a step that follows (such as the mapping after the roles) is
     saved as shown."""
-    flow = await ui.flow(OPTIONS, "options", entry_id)
+    flow = await ui.options_flow(entry_id)
     await flow.choose(step)
     await flow.fill(values)
     while flow.step["type"] == "form":
