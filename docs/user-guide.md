@@ -617,10 +617,10 @@ options steps above write — the line's `config` key in
   it they are UTC's.
 
 The verb writes the JSON as given, unchecked. A parameter or threshold
-left out reads as its default, and those defaults are a petrol vehicle's:
-a diesel names `eta_ice`, `heating_value_kwh_per_l` and `beta_per_k`
-itself, or takes them from `vledger l0 read --kind config` of a stream
-Home Assistant wrote, which holds every key written out.
+left out reads as its default. The three whose default depends on the
+fuel — `eta_ice`, `heating_value_kwh_per_l` and `beta_per_k` — read as
+the defaults of the `fuel` the line names, and as a petrol vehicle's
+where it names none.
 
 A charge point's configuration, given with `--chargepoint`, has the shape
 [l0-format.md](l0-format.md#config) shows: `name`, `latitude`,
