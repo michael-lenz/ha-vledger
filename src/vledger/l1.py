@@ -164,16 +164,20 @@ def rebuild_due(base: Path, subject: Subject) -> str | None:
 # --- reading and writing events ----------------------------------------
 
 def read(base: Path, subject: Subject, kind: str) -> Iterator[dict]:
+    """A kind's events in file order; a torn line is skipped.
+
+    A torn line is one that is not JSON: the last line, cut off by a crash,
+    or such a line that :func:`append` closed with a line break before the
+    next event, so that every event after the crash still reads (REQ-0029),
+    as in L0 and the receipts."""
     p = path_of(base, subject, kind)
     if not p.is_file():
         return
-    for number, text, torn in l0._raw_lines(p):
+    for _number, text, _last in l0._raw_lines(p):
         try:
             yield json.loads(text)
         except json.JSONDecodeError:
-            if torn:
-                return
-            raise ValueError(f"{p}:{number}: not JSON and not the last line") from None
+            continue
 
 
 #: How far back :func:`last` reads at a time.
@@ -184,9 +188,9 @@ def last(base: Path, subject: Subject, kind: str, n: int = 1, *,
          waiting: bool = False) -> list[dict]:
     """The last ``n`` events of a kind, in order of start, read from the
     end of the file rather than the whole of it (ADR-0016, point 8). A
-    torn last line is skipped, as :func:`read` skips it. With ``waiting``,
-    the last ``n`` of those :func:`is_waiting` holds true for (ADR-0039,
-    point 4) — read whole, as :func:`waiting` reads them: how far back
+    torn line is skipped wherever it stands, as :func:`read` skips it, and
+    counts for none of the ``n``. With ``waiting``, the last ``n`` of those
+    :func:`is_waiting` holds true for (ADR-0039, point 4) — read whole, as :func:`waiting` reads them: how far back
     they lie is not known from the end, and a vehicle's refuellings and
     charging sessions are a few lines a week."""
     p = path_of(base, subject, kind)
@@ -195,30 +199,25 @@ def last(base: Path, subject: Subject, kind: str, n: int = 1, *,
     if waiting:
         return [e for e in read(base, subject, kind) if is_waiting(e)][-n:]
     with open(p, "rb") as f:
-        size = f.seek(0, os.SEEK_END)
-        data, pos = b"", size
-        # One line more than asked for: the first one in the buffer may be
-        # cut off by the chunk's start, and a torn tail does not count.
-        while pos > 0 and data.count(b"\n") <= n:
+        data, pos = b"", f.seek(0, os.SEEK_END)
+        while True:
+            # The first line in the buffer may be cut off by the chunk's
+            # start, so it is read only once the file's start is reached.
+            parts = data.split(b"\n")
+            if pos > 0:
+                parts = parts[1:]
+            out: list[dict] = []
+            for text in parts:
+                try:
+                    out.append(json.loads(text.decode("utf-8", errors="replace")))
+                except json.JSONDecodeError:
+                    continue             # torn, or the empty tail
+            if len(out) >= n or pos == 0:
+                return out[-n:]
             step = min(_TAIL_CHUNK, pos)
             pos -= step
             f.seek(pos)
             data = f.read(step) + data
-    parts = data.decode("utf-8", errors="replace").split("\n")
-    if pos > 0:
-        parts = parts[1:]
-    torn_tail = parts[-1] != ""
-    if not torn_tail:
-        parts.pop()
-    out: list[dict] = []
-    for i, text in enumerate(parts):
-        try:
-            out.append(json.loads(text))
-        except json.JSONDecodeError:
-            if torn_tail and i == len(parts) - 1:
-                break
-            raise ValueError(f"{p}: a line before the last is not JSON") from None
-    return out[-n:]
 
 
 #: The lines of periods.jsonl that are current (ADR-0018, point 1).
@@ -267,11 +266,19 @@ def encode(event: dict) -> str:
 
 
 def append(base: Path, subject: Subject, event: dict) -> Path:
-    """One completed event, whole, flushed and synced — like an L0 line."""
+    """One completed event, whole, flushed and synced — like an L0 line. A
+    file a crash left without its last line break gets one before the
+    event, so the torn line stays a line of its own, which readers skip,
+    and the event is not glued onto it (REQ-0029)."""
     p = path_of(base, subject, event["kind"])
     p.parent.mkdir(parents=True, exist_ok=True)
-    with open(p, "a", encoding="utf-8") as f:
-        f.write(encode(event) + "\n")
+    with open(p, "a+b") as f:
+        text = encode(event).encode("utf-8") + b"\n"
+        if f.tell() > 0:
+            f.seek(-1, os.SEEK_END)
+            if f.read(1) != b"\n":
+                text = b"\n" + text
+        f.write(text)
         f.flush()
         os.fsync(f.fileno())
     return p
