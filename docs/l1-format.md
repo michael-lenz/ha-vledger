@@ -112,6 +112,45 @@ the writer, the count can still include the event it was entered for.
 `vledger_candidate` event and the card's candidates all use it (ADR-0020,
 ADR-0039).
 
+## Trips
+
+A line of `trips.jsonl` carries, beside the envelope (`kind` `trip`,
+`subject`, `start`, `end`, `quality`, `version`), these keys. Its
+`quality` is `measured`, or `incomplete` for a trip a capture gap makes
+so ([user guide](user-guide.md#the-derivations-vledger-derive)); a
+quantity's own quality is `incomplete` then too. A value that cannot be
+read is `null`, and its quality with it.
+
+| key | what |
+|---|---|
+| `distance_km` | the trip's distance |
+| `distance_source`, `distance_quality` | where it came from, and how good: `odometer` `measured`, `trip_counter` `measured`, `waypoints` `estimated` |
+| `start_position`, `end_position` | the fixes at both ends: `t`, `latitude`, `longitude`, and `accuracy_m` where known |
+| `start_zone`, `end_zone` | the Home Assistant zones of those fixes |
+| `waypoints` | every fix from the one before the start to the last, in the same shape |
+| `outside_temperature_c` | the mean outside temperature over the trip |
+| `delta_soc_pct`, `delta_fuel_l` | the change in state of charge and fuel level, estimates |
+| `delta_fuel_15c_l` | the same fuel change at 15 °C, with an outside temperature role assigned |
+| `fuel_consumed_l`, `fuel_consumed_error_l` | the litres burnt and their possible error |
+| `fuel_consumed_source`, `fuel_consumed_quality` | `trip_computer` `measured`, or `fuel_level` `estimated` |
+| `fuel_refuelled_l` | the litres a refuelling inside the trip added, read from the level, which the consumption from `fuel_level` adds back |
+| `fuel_l_per_100km`, `fuel_l_per_100km_quality`, `fuel_l_per_100km_error_pct` | the litres on the distance, the weaker of the litres' and the distance's quality, the error as a share of the litres; all `null` where the rate cannot be told from zero |
+| `battery_consumed_kwh`, `battery_consumed_quality`, `battery_consumed_error_kwh` | the energy the battery delivered, from the change in state of charge and the net battery capacity, always `estimated`; negative where the battery gained |
+| `battery_kwh_per_100km`, `battery_kwh_per_100km_quality`, `battery_kwh_per_100km_error_pct` | the same rate rule as the fuel's |
+| `refined_by` | `{"start": …, "end": …}`: the role that set each end, or `null` |
+| `movements_while_plugged` | moving samples taken while plugged in or charging |
+| `gaps` | the capture gaps inside the trip, whatever their length |
+
+A trip that is read — by `vledger derive trips`, `vledger.read_events`
+and the exports — also carries its cost, computed then and never stored
+([derivations.md](derivations.md#a-trips-cost)):
+
+| key | what |
+|---|---|
+| `fuel_cost_eur`, `fuel_cost_eur_quality` | the litres at the last receipt's unit price before the start |
+| `electricity_cost_eur`, `electricity_cost_eur_quality` | the battery's energy at the last priced charging session's price before the start, `estimated` at best |
+| `cost_eur`, `cost_eur_quality` | their sum, as good as the weaker |
+
 ## Periods
 
 `periods.jsonl` is the current answer, not a log: one line per calendar
