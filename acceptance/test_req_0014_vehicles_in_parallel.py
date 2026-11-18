@@ -175,6 +175,35 @@ async def settle(hass):
         await asyncio.sleep(0.05)
 
 
+def subjects_on_disk(hass):
+    """The subjects whose stream directory is under ``<config>/vledger/``."""
+    return {d.name.removeprefix("vehicle-")
+            for d in pathlib.Path(hass.config.path("vledger")).glob("vehicle-*")}
+
+
+def has_streams(*names):
+    """Whether a stream of each vehicle named reads back, its configuration
+    line among its lines."""
+    def ready(hass):
+        try:
+            return set(names) <= set(streams(hass))
+        except AssertionError:
+            return False
+    return ready
+
+
+async def written(hass, ready):
+    """Settle until ``ready(hass)`` holds, or give up after a few seconds.
+
+    A vehicle's first lines are handed to capture as its entry is set up and
+    written off the event loop afterwards, so its stream may not be on disk
+    yet when the entry already shows as loaded (ISSUE-0161)."""
+    for _ in range(40):
+        await settle(hass)
+        if ready(hass):
+            return
+
+
 # --- the tests ----------------------------------------------------------------
 
 async def test_each_vehicle_added_is_a_config_entry_of_its_own(ui):
@@ -252,7 +281,9 @@ async def test_removing_one_vehicle_leaves_the_others(ui):
     await ui.add_vehicle("Van", odometer(ui.hass, "sensor.van_odometer", 80000))
     await ui.capture_status()
     entry = {e["title"]: e["entry_id"] for e in await ui.entries()}
+    await written(ui.hass, has_streams("Family car", "Van"))
     before = {name: s["subject"] for name, s in streams(ui.hass).items()}
+    assert set(before) == {"Family car", "Van"}, before
 
     resp = await ui.client.delete(f"{ENTRIES}/{entry['Family car']}")
     assert resp.status == 200, await resp.text()
@@ -264,8 +295,7 @@ async def test_removing_one_vehicle_leaves_the_others(ui):
     assert states_of(streams(ui.hass)["Van"]) == [("sensor.van_odometer", "80001")]
 
     await ui.add_vehicle("Family car", odometer(ui.hass, "sensor.family_odometer", 12400))
-    await settle(ui.hass)
-    subjects = {d.name.removeprefix("vehicle-")
-                for d in pathlib.Path(ui.hass.config.path("vledger")).glob("vehicle-*")}
+    await written(ui.hass, lambda hass: len(subjects_on_disk(hass)) == 3)
+    subjects = subjects_on_disk(ui.hass)
     assert before["Family car"] in subjects and before["Van"] in subjects
     assert len(subjects) == 3
