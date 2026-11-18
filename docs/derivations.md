@@ -97,7 +97,8 @@ sensor pair), and `in_use`; markers `ignition`, `plug_state`,
    fix, so GPS jitter at rest is not a trip — a tracker that jitters more
    is tuned there (ADR-0030); the first and the last report of a
    span the vehicle was reported in use (ADR-0021) — the last being the
-   `reported_before` of the line that leaves it.
+   `reported_before` of the line that leaves it. *unavailable* and
+   *unknown* hold the state and leave no span (ADR-0021 point 1).
 2. **Spans.** A trip runs from the first movement event after a
    standstill to the last before the next; a standstill is at least
    T_still without a movement event, and none lies inside a span in use,

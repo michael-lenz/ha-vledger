@@ -72,10 +72,14 @@ def in_use_spans(s: Stream) -> list[tuple[str, str, float | None]]:
     """(first report, last report, poll interval) of every span the vehicle
     was reported in use (ADR-0021). The last report is the reported_before of
     the line that leaves the state — the last poll that still saw it — or the
-    first report where the stream does not say."""
+    first report where the stream does not say. A dropout (unavailable,
+    unknown) holds the last known state (ADR-0021 point 1): it neither
+    opens nor leaves a span."""
     out: list[tuple[str, str, float | None]] = []
     first = None
     for x in s.domain.get("in_use", []):
+        if x.state is None:
+            continue
         positive = x.state == "in_use"
         if positive and first is None:
             first = x
