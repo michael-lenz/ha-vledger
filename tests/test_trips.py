@@ -388,6 +388,24 @@ def test_a_fix_that_moved_inside_the_gap_keeps_it_a_gap(tmp_path, capsys):
     assert found and all(t.quality == "incomplete" for t in found)
 
 
+def test_movements_of_one_instant_inside_a_gap_make_one_trip(tmp_path, capsys):
+    """ISSUE-0177: the restart's snapshot places the odometer's and the
+    position's change at the same since, inside the gap; the two movements
+    of that instant are one trip, not two lines of L1 with one name."""
+    b = Builder(tmp_path, capsys)
+    b.heartbeat(0)
+    restart(b, 60, 240, 1040.0, 180, STOP, 180, reason="shutdown")
+    b.heartbeat(270)
+    b.state(300, "odometer", 1045, "km").fix(300, *ROAD[0])
+    b.state(315, "odometer", 1050, "km").fix(315, *ROAD[1])
+    b.heartbeat(400)
+    found = trips.derive_from(tmp_path, V)
+    starts = [t.start for t in found]
+    assert len(starts) == len(set(starts))
+    assert (found[0].start, found[0].end, found[0].quality, found[0].gaps) == (at(180), at(180), "incomplete", 1)
+    assert len(found) == 2
+
+
 def test_a_per_cycle_vehicle_reads_a_bridged_gap_as_a_gap(tmp_path, capsys):
     """ADR-0037, point 4: a per-cycle vehicle's values move once per cycle,
     so a reload in a short stop still ends the trip (ADR-0024)."""
