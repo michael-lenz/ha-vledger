@@ -16,7 +16,11 @@ matching inside L1 and receipt entry in Home Assistant (ADR-0015) exist.
 
 One file per vehicle, next to `l0/` and apart from it. JSON Lines, UTF-8,
 one JSON object per line, appended whole and flushed; a torn last line is
-skipped on reading, as in L0. Nothing in it is ever rewritten.
+skipped on reading, as in L0. The next receipt written after a crash finds
+the file without its last line break and writes one before its own line,
+changing nothing already on disk: the torn line stays a line of its own,
+which readers skip wherever it stands, and every receipt after it still
+reads. Nothing in it is ever rewritten.
 
 Every line carries:
 

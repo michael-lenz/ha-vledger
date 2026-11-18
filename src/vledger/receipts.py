@@ -146,18 +146,21 @@ class Read:
 
 
 def read(base: Path, subject: Subject) -> Iterator[Read]:
-    """Every receipt line, in file order; a torn last line is skipped, a
-    line of an unknown kind is passed over like an unknown L0 kind."""
+    """Every receipt line, in file order; a torn line is skipped, a line
+    of an unknown kind is passed over like an unknown L0 kind.
+
+    A torn line is one that is not JSON: the last line, cut off by a crash,
+    or such a line that :func:`append` closed with a line break before the
+    next receipt, so that every receipt after the crash still reads
+    (REQ-0029), as in L0."""
     p = layout.receipts_file(base, subject)
     if not p.is_file():
         return
-    for number, text, torn in l0._raw_lines(p):
+    for number, text, _last in l0._raw_lines(p):
         try:
             line = json.loads(text)
         except json.JSONDecodeError:
-            if torn:
-                return
-            raise l0.TornLine(f"{p}:{number}: not JSON and not the last line") from None
+            continue
         if not isinstance(line, dict):
             raise l0.TornLine(f"{p}:{number}: not a JSON object")
         if line.get("v", 0) > VERSION:
@@ -225,15 +228,23 @@ def check(led: Ledger, line: dict) -> None:
 
 def append(base: Path, subject: Subject, line: dict) -> Path:
     """Check the line against the file, then append it whole, flushed and
-    synced — like an L0 line. Changes the receipts hash, so the next
-    derivation rebuilds L1 (ADR-0009, 4)."""
+    synced — like an L0 line. A file a crash left without its last line
+    break gets one before the new line, so the torn line stays a line of
+    its own, which readers skip, and the receipt is not glued onto it
+    (REQ-0029). Changes the receipts hash, so the next derivation rebuilds
+    L1 (ADR-0009, 4)."""
     if line.get("subject") != subject.id:
         raise Refused("receipt and vehicle disagree on the subject")
     check(ledger(base, subject), line)
     p = layout.receipts_file(base, subject)
     p.parent.mkdir(parents=True, exist_ok=True)
-    with open(p, "a", encoding="utf-8") as f:
-        f.write(l0.encode(line) + "\n")
+    with open(p, "a+b") as f:
+        text = l0.encode(line).encode("utf-8") + b"\n"
+        if f.tell() > 0:
+            f.seek(-1, os.SEEK_END)
+            if f.read(1) != b"\n":
+                text = b"\n" + text
+        f.write(text)
         f.flush()
         os.fsync(f.fileno())
     return p
