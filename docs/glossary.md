@@ -19,7 +19,15 @@ Home Assistant shows is a rendering of it.
 **Marker.** An L0 record that is not a state: the *start marker* with a
 snapshot of every assigned role, the *stop marker* at orderly shutdown, and
 the periodic *heartbeat*. A **capture gap** is a span the markers show
-nothing was captured in; nothing is interpolated across one.
+nothing was captured in; nothing is interpolated across one. A capture
+gap is **bridged** for the trips when the vehicle's distance source —
+the first of `odometer`, `trip_distance`, `position` its stream holds —
+reads at the gap's end what it read before the gap's start, and no
+movement of any role lies inside it: the vehicle drove nothing in it,
+and the gap neither ends a trip nor marks one `incomplete` (ADR-0037).
+Every other reading of the gap stays: the events' and periods' `gaps`
+count it. A `silence` or `open` gap, and a gap of a vehicle that reports
+per driving cycle, is never bridged.
 
 **Configuration state.** The complete configuration of a vehicle or charge
 point, written to L0 whenever any of it changes, so a derivation can read
@@ -230,8 +238,8 @@ capacity, which would be circular.
 **Quality flag.** On every derived value, one of `measured` (from a sensor),
 `receipt` (from a receipt), `estimated` (computed under an assumption) or
 `incomplete` (spans a capture gap that could hide a standstill: any gap
-for a sampled vehicle's trip, one of T_still or longer for a per-cycle
-trip or a charging session, ADR-0054). A value computed from several
+but a bridged one for a sampled vehicle's trip, ADR-0037, one of T_still
+or longer for a per-cycle trip or a charging session, ADR-0054). A value computed from several
 inherits the weakest.
 
 **Tank-to-tank consumption.** Fuel consumption over an interval between two

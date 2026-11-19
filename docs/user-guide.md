@@ -765,7 +765,15 @@ beside it: `distance_quality`, `fuel_consumed_quality`,
 printed; [l1-format.md](l1-format.md#trips) names every key of a trip. A trip that spans a capture
 gap is `incomplete`, and so is one whose standstill a gap falls into —
 its end is unknown; a gap after the standstill has elapsed leaves the
-completed trip as it was. A vehicle that reports per driving cycle, and
+completed trip as it was. A gap the vehicle's distance source held
+through is the exception: when the first of odometer, trip counter and
+position the stream records reads at the restart what it read before
+the gap, and no movement of any role lies inside the gap, the gap is
+*bridged* ([glossary](glossary.md), *Capture gap*) — the vehicle drove
+nothing in it. A bridged gap neither splits a trip nor makes it
+`incomplete`: a restart in the middle of a drive, or within T_still of
+its end, leaves one trip, `measured`, with the gap counted in its
+`gaps`. A vehicle that reports per driving cycle, and
 a charging session of any vehicle, is `incomplete` only for a gap of
 T_still or longer; a shorter one — a restart of a minute — is counted in
 the event's `gaps` and changes nothing. Nothing is read across a gap:
