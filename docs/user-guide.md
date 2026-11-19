@@ -626,9 +626,12 @@ A charge point's configuration, given with `--chargepoint`, has the shape
 [l0-format.md](l0-format.md#config) shows: `name`, `latitude`,
 `longitude`, `radius_m`, `meter`, `power_kw` and `tariffs`, each tariff
 an entry such as `{"from": "2026-01-01", "eur_per_kwh": 0.30}`. It is
-written unchecked too, and `vledger l0 validate` does not check it: a
-tariff entry under other keys fails only when `vledger derive charging`
-reads it.
+written unchecked too; `vledger l0 validate --chargepoint` names each
+part of it the derivation cannot read — a tariff entry without `from` or
+`eur_per_kwh`, a `from` that is no date, a negative price, a position or
+radius that is no number — and `vledger derive charging` refuses to run
+while a charge point's configuration has one, naming the charge point
+and what is wrong.
 
 ### Reading
 
@@ -649,8 +652,9 @@ vledger l0 validate --vehicle a7c1 --json
 
 Counts files and lines by kind, names the schema versions the stream holds,
 and lists every problem: an error is a line the writer could not have
-written, a warning is a line readers skip (a torn line, an unknown kind)
-or something odd (time running backwards). A torn line is what a crash
+written, or a charge point's configuration the derivation cannot read; a
+warning is a line readers skip (a torn line, an unknown kind) or something
+odd (time running backwards). A torn line is what a crash
 cut off part way; the next line written after it starts on a line of its
 own, so the stream reads on past it. The exit code is 1 when there is an
 error.

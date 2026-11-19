@@ -186,10 +186,15 @@ correction an entry appended under the same date. Before the first `from`
 a session has no tariff. A config line is a charge point's because it
 carries `tariffs`.
 
-`vledger l0 config` writes the JSON it is given unchecked, and `vledger l0
-validate` checks only that `config` is an object: a tariff entry without
-`from` or `eur_per_kwh` passes both, and `vledger derive charging` then
-fails. The derivation reads configuration
+`vledger l0 config` writes the JSON it is given unchecked. `vledger l0
+validate` checks that `config` is an object and, for a charge point's
+line, that the derivation can read it: `latitude`, `longitude` and a
+positive `radius_m` numbers, `power_kw` `null` or positive, `meter` `null`
+or naming an entity, and each tariff entry an object with a `from` date
+and an `eur_per_kwh` number not below 0; each part that is not is an
+error. `vledger derive charging` refuses to run while a charge point's
+latest configuration has such an error, rather than failing part way.
+The derivation reads configuration
 from L0, never from Home Assistant — which is what lets the CLI run without
 one.
 
