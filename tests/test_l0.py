@@ -325,3 +325,24 @@ def test_a_time_given_with_t_is_written_as_l0_spells_time(tmp_path, capsys, give
                "--state", "1", "--t", given)[0] == 0
     assert run(capsys, "heartbeat", *b, "--lines", "1", "--t", given)[0] == 0
     assert [r.line["t"] for r in l0.read(tmp_path, V)] == [written, written]
+
+
+def test_validate_names_a_chargepoint_configuration_the_derivation_cannot_read(tmp_path, capsys):
+    """ISSUE-0173: a tariff entry under other keys is an error, not clean."""
+    b = ["--base", str(tmp_path), "--chargepoint", "cp1"]
+    run(capsys, "config", *b, "--t", "2026-10-01T00:00:00.1Z", "--config", json.dumps(
+        {"name": "Home", "latitude": 48.1, "longitude": 11.5, "radius_m": 100, "meter": None,
+         "tariffs": [{"valid_from": "2026-01-01", "price": 0.30}]}))
+    code, out, _ = run(capsys, "validate", *b)
+    assert code == 1
+    assert "[error] 2026-10.jsonl:1: charge point config: tariffs[0] lacks 'from'" in out
+    assert "tariffs[0] lacks 'eur_per_kwh'" in out
+
+
+def test_validate_passes_a_good_chargepoint_configuration(tmp_path, capsys):
+    b = ["--base", str(tmp_path), "--chargepoint", "cp1"]
+    run(capsys, "config", *b, "--t", "2026-10-01T00:00:00.1Z", "--config", json.dumps(
+        {"name": "Home", "latitude": 48.1, "longitude": 11.5, "radius_m": 100, "meter": None,
+         "tariffs": [{"from": "2026-01-01", "eur_per_kwh": 0.30}]}))
+    code, out, _ = run(capsys, "validate", *b, "--json")
+    assert code == 0 and json.loads(out)["problems"] == []

@@ -565,3 +565,17 @@ def test_a_charge_points_configuration_is_in_the_vehicles_manifest(tmp_path, cap
     l1.rebuild(tmp_path, cp)
     assert "chargepoints" not in l1.read_manifest(tmp_path, cp)
     assert main(["l1", "status", *v.b]) == 0
+
+
+def test_a_chargepoint_configuration_it_cannot_read_ends_the_run_with_a_message(tmp_path, capsys):
+    """ISSUE-0173: no traceback; the run is refused, naming the charge point
+    and what of its configuration is wrong."""
+    chargepoint(tmp_path, capsys, "home", HOME, [{"valid_from": "2026-01-01", "price": 0.30}])
+    v = vehicle(tmp_path, capsys)
+    end = charge(v, 0, 40, 80)
+    v.heartbeat(end + 30)
+    assert main(["derive", "charging", *v.b]) == 2
+    out, err = capsys.readouterr()
+    assert out == ""
+    assert err.strip() == ("vledger: charge point home: tariffs[0] lacks 'from'; "
+                           "tariffs[0] lacks 'eur_per_kwh' (vledger l0 validate --chargepoint home)")

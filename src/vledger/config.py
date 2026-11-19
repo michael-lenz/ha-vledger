@@ -180,19 +180,61 @@ def chargepoint(name: str, latitude: float, longitude: float, radius_m: float,
     """A charge point's configuration (LAD-01, LAD-02): ``power_kw`` is the
     constant power a vehicle draws there, where the owner knows it
     (ADR-0038)."""
-    if radius_m <= 0:
-        raise ValueError("radius_m must be positive")
-    if power_kw is not None and power_kw <= 0:
-        raise ValueError("power_kw must be positive")
+    out = {"name": name, "latitude": latitude, "longitude": longitude, "radius_m": radius_m,
+           "meter": deepcopy(meter), "power_kw": power_kw, "tariffs": deepcopy(tariffs)}
+    problems = chargepoint_problems(out)
+    if problems:
+        raise ValueError(problems[0])
+    out.update(latitude=float(latitude), longitude=float(longitude), radius_m=float(radius_m),
+               power_kw=float(power_kw) if power_kw is not None else None)
+    return out
+
+
+def _is_number(x) -> bool:
+    return isinstance(x, int | float) and not isinstance(x, bool)
+
+
+def chargepoint_problems(config: dict) -> list[str]:
+    """What of a charge point's configuration the derivation cannot read
+    (ISSUE-0173): the shape l0-format.md gives. ``vledger l0 validate``
+    reports each as an error, and the charging derivation refuses a charge
+    point that has one rather than failing part way."""
+    out = []
+    for key in ("latitude", "longitude", "radius_m"):
+        if not _is_number(config.get(key)):
+            out.append(f"{key} is not a number")
+    if _is_number(config.get("radius_m")) and config["radius_m"] <= 0:
+        out.append("radius_m must be positive")
+    power = config.get("power_kw")
+    if power is not None and not _is_number(power):
+        out.append("power_kw is not a number")
+    elif power is not None and power <= 0:
+        out.append("power_kw must be positive")
+    meter = config.get("meter")
     if meter is not None and (not isinstance(meter, dict) or not meter.get("entity")):
-        raise ValueError("meter names no entity")
-    for t in tariffs:
-        date.fromisoformat(t["from"])
-        if t["eur_per_kwh"] < 0:
-            raise ValueError("a tariff is not negative")
-    return {"name": name, "latitude": float(latitude), "longitude": float(longitude),
-            "radius_m": float(radius_m), "meter": deepcopy(meter),
-            "power_kw": float(power_kw) if power_kw is not None else None, "tariffs": deepcopy(tariffs)}
+        out.append("meter names no entity")
+    tariffs = config.get("tariffs")
+    if not isinstance(tariffs, list):
+        return out + ["tariffs is not a list"]
+    for i, t in enumerate(tariffs):
+        where = f"tariffs[{i}]"
+        if not isinstance(t, dict):
+            out.append(f"{where} is not an object")
+            continue
+        for key in ("from", "eur_per_kwh"):
+            if key not in t:
+                out.append(f"{where} lacks {key!r}")
+        if "from" in t:
+            try:
+                date.fromisoformat(t["from"])
+            except (TypeError, ValueError):
+                out.append(f"{where}: from {t['from']!r} is not a date YYYY-MM-DD")
+        if "eur_per_kwh" in t:
+            if not _is_number(t["eur_per_kwh"]):
+                out.append(f"{where}: eur_per_kwh is not a number")
+            elif t["eur_per_kwh"] < 0:
+                out.append(f"{where}: eur_per_kwh is negative")
+    return out
 
 
 def missing(config: dict) -> list[str]:
@@ -268,7 +310,7 @@ def is_chargepoint(config: dict) -> bool:
 
 __all__ = [
     "CHARGEPOINT_ROLES", "DEFAULT_PARAMETERS", "DEFAULT_THRESHOLDS", "DOMAIN_STATES",
-    "FUELS", "MOVEMENT_ROLES", "NEGATIVE_STATES", "VEHICLE_ROLES", "chargepoint", "domain_state",
-    "is_chargepoint", "missing", "parameters_of", "tariff_at", "thresholds_of", "unlisted", "vehicle",
+    "FUELS", "MOVEMENT_ROLES", "NEGATIVE_STATES", "VEHICLE_ROLES", "chargepoint",
+    "chargepoint_problems", "domain_state", "is_chargepoint", "missing", "parameters_of", "tariff_at", "thresholds_of", "unlisted", "vehicle",
     "zone_of",
 ]

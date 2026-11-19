@@ -352,6 +352,10 @@ def _check(line: Line, where: str, subject: Subject, month: str, report: Report)
         report.problem("error", where, f"unknown stop reason {line.get('reason')!r}")
     elif kind == "config" and not isinstance(line.get("config"), dict):
         report.problem("error", where, "config is not an object")
+    elif kind == "config" and subject.kind == "chargepoint" and "tariffs" in line["config"]:
+        from vledger.config import chargepoint_problems  # config imports this module
+        for what in chargepoint_problems(line["config"]):
+            report.problem("error", where, f"charge point config: {what}")
 
 
 def _check_reported_before(line: Line, where: str, report: Report) -> None:

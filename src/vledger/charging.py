@@ -210,6 +210,10 @@ def chargepoints(base: Path, *, now: str | None = None) -> list[ChargePoint]:
             continue
         s = series.load(base, subject, now=now)
         if s.config and vconfig.is_chargepoint(s.config):
+            problems = vconfig.chargepoint_problems(s.config)
+            if problems:
+                raise ValueError(f"charge point {subject.id}: {'; '.join(problems)} "
+                                 f"(vledger l0 validate --chargepoint {subject.id})")
             out.append(ChargePoint(subject.id, s.config, s))
     return out
 

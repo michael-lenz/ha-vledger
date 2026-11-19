@@ -141,3 +141,34 @@ def test_a_line_without_a_fuel_or_without_a_line_reads_petrols_defaults():
     for line in (None, {}, {"parameters": {"fuel": None}}):
         assert config.parameters_of(line) == config.DEFAULT_PARAMETERS
         assert config.thresholds_of(line) == config.DEFAULT_THRESHOLDS
+
+
+def test_a_chargepoint_configuration_names_what_the_derivation_cannot_read():
+    """ISSUE-0173: the shape l0-format.md gives, checked as validation and
+    the derivation read it."""
+    good = config.chargepoint("Home", 48.1, 11.5, 50, [{"from": "2026-01-01", "eur_per_kwh": 0.3}],
+                              meter={"entity": "sensor.m"}, power_kw=11)
+    assert config.chargepoint_problems(good) == []
+    assert config.chargepoint_problems({k: v for k, v in good.items() if k != "power_kw"}) == []
+    bad = dict(good, tariffs=[{"valid_from": "2026-01-01", "price": 0.3},
+                              {"from": "2026-13-01", "eur_per_kwh": 0.3},
+                              {"from": "2026-07-01", "eur_per_kwh": -1},
+                              {"from": "2026-08-01", "eur_per_kwh": "0.3"}, 7])
+    assert config.chargepoint_problems(bad) == [
+        "tariffs[0] lacks 'from'", "tariffs[0] lacks 'eur_per_kwh'",
+        "tariffs[1]: from '2026-13-01' is not a date YYYY-MM-DD",
+        "tariffs[2]: eur_per_kwh is negative", "tariffs[3]: eur_per_kwh is not a number",
+        "tariffs[4] is not an object"]
+    assert config.chargepoint_problems(dict(good, tariffs={"from": "2026-01-01"})) == [
+        "tariffs is not a list"]
+    assert config.chargepoint_problems({"tariffs": []}) == [
+        "latitude is not a number", "longitude is not a number", "radius_m is not a number"]
+    assert config.chargepoint_problems(dict(good, radius_m=0, power_kw=0, meter={})) == [
+        "radius_m must be positive", "power_kw must be positive", "meter names no entity"]
+
+
+def test_the_chargepoint_constructor_refuses_what_the_check_names():
+    with pytest.raises(ValueError, match="tariffs\\[0\\] lacks 'from'"):
+        config.chargepoint("Home", 48.1, 11.5, 50, [{"eur_per_kwh": 0.3}])
+    with pytest.raises(ValueError, match="eur_per_kwh is negative"):
+        config.chargepoint("Home", 48.1, 11.5, 50, [{"from": "2026-01-01", "eur_per_kwh": -0.1}])
