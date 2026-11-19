@@ -199,22 +199,34 @@ class ChargePoint:
     subject: str
     config: dict
     stream: Stream
+    #: What of its configuration the derivation cannot read (ISSUE-0173).
+    problems: tuple[str, ...] = ()
+
+    def refuse(self) -> None:
+        """Raise what ``vledger l0 validate`` names of this charge point,
+        if anything: a session that needs it is not derived from guesses."""
+        if self.problems:
+            raise ValueError(f"charge point {self.subject}: {'; '.join(self.problems)} "
+                             f"(vledger l0 validate --chargepoint {self.subject})")
+
+    def position_unreadable(self) -> bool:
+        return any(p.startswith(("latitude ", "longitude ", "radius_m ")) for p in self.problems)
 
 
 def chargepoints(base: Path, *, now: str | None = None) -> list[ChargePoint]:
     """Every charge point under ``base`` with a config line, its stream read
-    and its gaps judged against ``now``, the vehicle's last line."""
+    and its gaps judged against ``now``, the vehicle's last line. One whose
+    configuration the derivation cannot read is kept with its problems:
+    it fails a session that needs it, not every derivation that reads the
+    charge points (ISSUE-0173)."""
     out = []
     for subject in layout.subjects(base):
         if subject.kind != "chargepoint":
             continue
         s = series.load(base, subject, now=now)
         if s.config and vconfig.is_chargepoint(s.config):
-            problems = vconfig.chargepoint_problems(s.config)
-            if problems:
-                raise ValueError(f"charge point {subject.id}: {'; '.join(problems)} "
-                                 f"(vledger l0 validate --chargepoint {subject.id})")
-            out.append(ChargePoint(subject.id, s.config, s))
+            out.append(ChargePoint(subject.id, s.config, s,
+                                   tuple(vconfig.chargepoint_problems(s.config))))
     return out
 
 
@@ -230,6 +242,9 @@ def place(position: dict | None, points: list[ChargePoint]) -> ChargePoint | Non
     several do. ``None``: foreign, or no position to place."""
     if position is None:
         return None
+    for cp in points:
+        if cp.position_unreadable():
+            cp.refuse()     # without its position no session can be told to lie outside it
     best, best_m = None, None
     for cp in points:
         m = 1000 * geo.distance_km(position["latitude"], position["longitude"],
@@ -416,15 +431,20 @@ def derive(s: Stream, points: list[ChargePoint], others: list[Stream]) -> list[S
     the other vehicles' streams, both read against this stream's last line.
     """
     moves = trips.movements(s)
-    taken = occupancy(others, points)
+    taken = None
     out: list[Session] = []
     for span in spans(s):
         position = _position(s, span)
         cp = place(position, points)
+        if cp is not None:
+            cp.refuse()
+        if taken is None and cp is not None:
+            # Only a session at a charge point asks who else charged there.
+            taken = occupancy(others, points)
         waits = ([cp.stream] if cp is not None and cp.config.get("meter") else []) + others
         if not all(series.reached(x, span.end) for x in waits):
             break       # a stream reaches a later end no sooner: the rest wait too
-        out.append(_session(s, span, cp, position, taken, moves))
+        out.append(_session(s, span, cp, position, taken or [], moves))
     return out
 
 

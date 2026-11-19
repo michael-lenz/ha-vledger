@@ -579,3 +579,45 @@ def test_a_chargepoint_configuration_it_cannot_read_ends_the_run_with_a_message(
     assert out == ""
     assert err.strip() == ("vledger: charge point home: tariffs[0] lacks 'from'; "
                            "tariffs[0] lacks 'eur_per_kwh' (vledger l0 validate --chargepoint home)")
+
+
+BAD_TARIFFS = [{"valid_from": "2026-01-01", "price": 0.30}]
+
+
+def test_a_chargepoint_it_cannot_read_leaves_a_vehicle_without_charging_alone(tmp_path, capsys):
+    """ISSUE-0173, review: every derivation of every vehicle reads the
+    charge points, so one the derivation cannot read fails only a session
+    that needs it; l1 update of a vehicle with no session there succeeds."""
+    chargepoint(tmp_path, capsys, "cp1", HOME, BAD_TARIFFS)
+    v = vehicle(tmp_path, capsys, sid="v1")
+    v.heartbeat(120)
+    assert main(["l1", "update", *v.b]) == 0
+    capsys.readouterr()
+    assert main(["l1", "status", *v.b]) == 0
+    assert capsys.readouterr().out.splitlines()[-1] == "current"
+    assert main(["derive", "charging", *v.b]) == 0
+
+
+def test_a_session_elsewhere_is_derived_beside_a_chargepoint_it_cannot_read(tmp_path, capsys):
+    chargepoint(tmp_path, capsys, "home", HOME, HOME_TARIFFS, meter=False)
+    chargepoint(tmp_path, capsys, "work", WORK, BAD_TARIFFS, meter=False)
+    v = vehicle(tmp_path, capsys)
+    end = charge(v, 0, 40, 80)
+    v.heartbeat(end + 30)
+    s, = charging.derive_from(tmp_path, V)
+    assert (s.chargepoint, s.tariff_eur_per_kwh) == ("home", 0.30)
+
+
+def test_a_chargepoint_whose_position_it_cannot_read_refuses_every_placed_session(tmp_path, capsys):
+    """Without its position no session can be told to lie outside it."""
+    cfg = {"name": "Work", "latitude": "51.2", "longitude": WORK[1], "radius_m": 50,
+           "meter": None, "tariffs": HOME_TARIFFS}
+    assert main(["l0", "config", "--base", str(tmp_path), "--chargepoint", "work",
+                 "--t", at(-60), "--config", json.dumps(cfg)]) == 0
+    v = vehicle(tmp_path, capsys)
+    end = charge(v, 0, 40, 80)
+    v.heartbeat(end + 30)
+    capsys.readouterr()
+    assert main(["derive", "charging", *v.b]) == 2
+    assert capsys.readouterr().err.strip() == (
+        "vledger: charge point work: latitude is not a number (vledger l0 validate --chargepoint work)")
