@@ -192,8 +192,12 @@ line, that the derivation can read it: `latitude`, `longitude` and a
 positive `radius_m` numbers, `power_kw` `null` or positive, `meter` `null`
 or naming an entity, and each tariff entry an object with a `from` date
 and an `eur_per_kwh` number not below 0; each part that is not is an
-error. `vledger derive charging` refuses to run while a charge point's
-latest configuration has such an error, rather than failing part way.
+error. A charge point whose latest configuration has such an error
+fails only what needs it: the charging derivation of a vehicle with a
+session there — every session it places, where the position is what
+cannot be read — ends with a message naming the charge point and what
+is wrong, rather than failing part way; a vehicle with no session there
+derives as before.
 The derivation reads configuration
 from L0, never from Home Assistant — which is what lets the CLI run without
 one.

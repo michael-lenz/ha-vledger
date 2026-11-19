@@ -629,9 +629,11 @@ an entry such as `{"from": "2026-01-01", "eur_per_kwh": 0.30}`. It is
 written unchecked too; `vledger l0 validate --chargepoint` names each
 part of it the derivation cannot read — a tariff entry without `from` or
 `eur_per_kwh`, a `from` that is no date, a negative price, a position or
-radius that is no number — and `vledger derive charging` refuses to run
-while a charge point's configuration has one, naming the charge point
-and what is wrong.
+radius that is no number. A vehicle's charging session at such a charge
+point — any session placed at all, while its position is what cannot be
+read — is not derived: `vledger derive charging` and `vledger l1 update`
+for that vehicle end with a message naming the charge point and what is
+wrong. A vehicle with no session there is not affected.
 
 ### Reading
 
